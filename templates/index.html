@@ -111,14 +111,9 @@
                     <span>🏷️ Crypto</span>
                     <span style="color: #eab308; font-weight: bold;">● Abierto</span>
                 </div>
-                <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
+                <div class="market-title">Cargando mercados desde Supabase...</div>
                 <div class="countdown-timer">
                     <span>⏳ Cierre en:</span> <b>Calculando...</b>
-                </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Compra SÍ: <span style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Compra NO: <span style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
-                <div style="display: flex; gap: 8px;">
-                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e;" onclick="apostar('btc-100k', 'YES')">Comprar SÍ</button>
-                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444;" onclick="apostar('btc-100k', 'NO')">Comprar NO</button>
                 </div>
             </div>
         </div>
@@ -178,8 +173,8 @@
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://tu-proyecto.supabase.co';
-        const SUPABASE_ANON_KEY = 'tu-clave-anon';
+        const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -242,9 +237,12 @@
                             </div>
                         `;
                     });
+                } else {
+                    container.innerHTML = '<div class="market-card"><p style="color: var(--text-muted); text-align: center;">No hay mercados activos en este momento.</p></div>';
                 }
             } catch (err) {
                 console.error("Error al cargar mercados de Supabase:", err.message);
+                container.innerHTML = '<div class="market-card"><p style="color: #f87171; text-align: center;">Error al conectar con la base de datos.</p></div>';
             }
         }
 
