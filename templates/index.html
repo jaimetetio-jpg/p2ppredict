@@ -117,8 +117,8 @@
                 </div>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Compra SÍ: <span style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Compra NO: <span style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
                 <div style="display: flex; gap: 8px;">
-                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e;">Comprar SÍ</button>
-                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444;">Comprar NO</button>
+                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e;" onclick="apostar('btc-100k', 'YES')">Comprar SÍ</button>
+                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444;" onclick="apostar('btc-100k', 'NO')">Comprar NO</button>
                 </div>
             </div>
         </div>
@@ -158,18 +158,18 @@
         </div>
     </div>
 
-    <!-- VISTAS ADICIONALES VACÍAS PARA NAVEGACIÓN -->
+    <!-- VISTAS ADICIONALES -->
     <div id="view-crear" class="section-view">
-        <div class="market-card"><h3>Crear Nueva Predicción</h3><p style="color:var(--text-muted)">Formulario conectado a Supabase en desarrollo.</p></div>
+        <div class="market-card"><h3>Crear Nueva Predicción</h3><p style="color:var(--text-muted)">Formulario de creación de mercados con Supabase.</p></div>
     </div>
     <div id="view-clob" class="section-view">
-        <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Emparejamiento P2P activo.</p></div>
+        <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Motor de emparejamiento P2P activo.</p></div>
     </div>
     <div id="view-ranking" class="section-view">
-        <div class="market-card"><h3>Ranking de Usuarios</h3><p style="color:var(--text-muted)">Tabla de líderes.</p></div>
+        <div class="market-card"><h3>Ranking de Usuarios</h3><p style="color:var(--text-muted)">Tabla de líderes de predicción.</p></div>
     </div>
     <div id="view-admin" class="section-view">
-        <div class="market-card"><h3>Panel de Administración</h3><p style="color:var(--text-muted)">Gestión de mercados.</p></div>
+        <div class="market-card"><h3>Panel de Administración</h3><p style="color:var(--text-muted)">Control y moderación de mercados.</p></div>
     </div>
 
     <!-- BOTÓN FLOTANTE SOPORTE -->
@@ -178,10 +178,13 @@
     </div>
 
     <script>
-        // Configuración Supabase (Asegúrate de colocar tus credenciales reales o variables)
-        const SUPABASE_URL = 'TU_SUPABASE_URL';
-        const SUPABASE_ANON_KEY = 'TU_SUPABASE_ANON_KEY';
+        const SUPABASE_URL = 'https://tu-proyecto.supabase.co';
+        const SUPABASE_ANON_KEY = 'tu-clave-anon';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            cargarMercadosSupabase();
+        });
 
         function switchTab(tabId, btn) {
             document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
@@ -207,6 +210,48 @@
             } else {
                 alert("Clave incorrecta");
             }
+        }
+
+        async function cargarMercadosSupabase() {
+            const container = document.getElementById('markets-container');
+            try {
+                const { data: mercados, error } = await supabaseClient
+                    .from('markets')
+                    .select('*');
+
+                if (error) throw error;
+
+                if (mercados && mercados.length > 0) {
+                    container.innerHTML = '';
+                    mercados.forEach(m => {
+                        container.innerHTML += `
+                            <div class="market-card">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                                    <span>🏷️ ${m.category || 'General'}</span>
+                                    <span style="color: #eab308; font-weight: bold;">● ${m.status || 'Abierto'}</span>
+                                </div>
+                                <div class="market-title">${m.title}</div>
+                                <div class="countdown-timer">
+                                    <span>⏳ Cierre:</span> <b>${m.closing_time || 'Activo'}</b>
+                                </div>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio SÍ: <span style="color: #4ade80; font-weight: bold;">${m.price_yes || 0.50} Pi</span> | NO: <span style="color: #f87171; font-weight: bold;">${m.price_no || 0.50} Pi</span></p>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e;" onclick="apostar('${m.id}', 'YES')">Comprar SÍ</button>
+                                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444;" onclick="apostar('${m.id}', 'NO')">Comprar NO</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) {
+                console.error("Error al cargar mercados de Supabase:", err.message);
+            }
+        }
+
+        async function apostar(marketId, option) {
+            let monto = prompt("¿Cuántos Pi deseas apostar?", "10");
+            if (!monto) return;
+            alert(`Registrando apuesta de ${monto} Pi para la opción ${option} en el mercado ${marketId}...`);
         }
     </script>
 </body>
