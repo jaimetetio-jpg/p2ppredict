@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2Ppredict - Order Book & Soporte Completo</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         Pi.init({ version: "2.0", sandbox: true });
     </script>
@@ -111,7 +110,7 @@
                     <span>🏷️ Sistema</span>
                     <span style="color: #eab308; font-weight: bold;">● Cargando</span>
                 </div>
-                <div class="market-title">Conectando con Supabase...</div>
+                <div class="market-title">Conectando con Supabase vía API directa...</div>
                 <div class="countdown-timer">
                     <span>⏳ Estado:</span> <b>Espera un momento</b>
                 </div>
@@ -125,7 +124,7 @@
                 <span>▾</span>
             </button>
             <div class="accordion-content">
-                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK y Supabase.</p>
+                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK.</p>
             </div>
         </div>
 
@@ -148,7 +147,7 @@
                 <span>▾</span>
             </button>
             <div class="accordion-content">
-                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes registradas en Supabase.</p>
+                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes registradas.</p>
             </div>
         </div>
     </div>
@@ -157,7 +156,7 @@
     <div id="view-crear" class="section-view">
         <div class="market-card">
             <h3 style="margin-top: 0; color: #38bdf8;">➕ Crear Nuevo Mercado</h3>
-            <p style="color:var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;">Publica una predicción directamente en la base de datos de Supabase.</p>
+            <p style="color:var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;">Publica una predicción directamente en Supabase.</p>
             
             <label style="font-size: 0.8rem; color: var(--text-muted);">Pregunta o Título del Mercado:</label>
             <input type="text" id="new-title" class="form-input" placeholder="Ej. ¿Pi Network alcanzará mainnet abierta en 2026?">
@@ -195,17 +194,6 @@
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
-        
-        // Inicialización robusta con cabeceras explícitas para llaves publishable
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: { persistSession: false },
-            global: {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            }
-        });
 
         document.addEventListener("DOMContentLoaded", () => {
             cargarMercadosSupabase();
@@ -240,11 +228,18 @@
         async function cargarMercadosSupabase() {
             const container = document.getElementById('markets-container');
             try {
-                const { data: mercados, error } = await supabaseClient
-                    .from('markets')
-                    .select('*');
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-                if (error) throw error;
+                if (!response.ok) throw new Error('Error HTTP: ' + response.status);
+
+                const mercados = await response.json();
 
                 if (mercados && mercados.length > 0) {
                     container.innerHTML = '';
@@ -271,7 +266,7 @@
                     container.innerHTML = '<div class="market-card"><p style="color: var(--text-muted); text-align: center;">No hay mercados activos en este momento.</p></div>';
                 }
             } catch (err) {
-                console.error("Error al cargar mercados de Supabase:", err.message);
+                console.error("Error al cargar mercados:", err);
                 container.innerHTML = '<div class="market-card"><p style="color: #f87171; text-align: center;">Error al conectar con la base de datos.</p></div>';
             }
         }
@@ -287,20 +282,25 @@
             }
 
             try {
-                const { error } = await supabaseClient
-                    .from('markets')
-                    .insert([
-                        { 
-                            title: title, 
-                            category: category, 
-                            closing_time: closing_time, 
-                            status: 'Abierto',
-                            price_yes: 0.50,
-                            price_no: 0.50 
-                        }
-                    ]);
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        category: category,
+                        closing_time: closing_time,
+                        status: 'Abierto',
+                        price_yes: 0.50,
+                        price_no: 0.50
+                    })
+                });
 
-                if (error) throw error;
+                if (!response.ok) throw new Error('Error al insertar');
 
                 alert("¡Mercado creado y publicado con éxito en Supabase!");
                 document.getElementById('new-title').value = '';
@@ -310,7 +310,7 @@
                 cargarMercadosSupabase();
 
             } catch (err) {
-                console.error("Error al crear el mercado:", err.message);
+                console.error("Error al crear el mercado:", err);
                 alert("Hubo un error al guardar el mercado en Supabase.");
             }
         }
