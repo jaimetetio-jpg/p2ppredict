@@ -1,325 +1,78 @@
+GOD 1
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2Ppredict - Order Book & Soporte Completo</title>
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <script>
-        Pi.init({ version: "2.0", sandbox: true });
-    </script>
-    <style>
-        :root {
-            --bg-color: #0f111a;
-            --card-bg: #181b28;
-            --card-bg-gradient: linear-gradient(145deg, #1d2133, #151824);
-            --text-color: #ffffff;
-            --text-muted: #8c92ac;
-            --accent: #2563eb;
-            --border-color: #2a2e43;
-            --shadow-3d: 6px 6px 12px #090b12, -6px -6px 12px #1f2740;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 16px;
-            max-width: 480px;
-            margin-left: auto;
-            margin-right: auto;
-            padding-bottom: 90px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-            background: var(--card-bg-gradient);
-            padding: 12px 16px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-3d);
-        }
-
-        .logo-area { font-weight: 700; font-size: 1.2rem; color: #38bdf8; }
-        .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
-        .theme-btn { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
-
-        .nav-tabs { display: flex; gap: 6px; margin-bottom: 18px; background: var(--card-bg-gradient); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-3d); overflow-x: auto; }
-        .nav-tab { flex: 1; background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 10px 8px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; }
-        .nav-tab.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #ffffff; border-color: #3b82f6; }
-
-        .search-box, .form-input, .form-select { width: 100%; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; }
-
-        .filter-pills { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; }
-        .pill { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
-        .pill.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #fff; border-color: #3b82f6; }
-
-        .market-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow-3d); }
-        .market-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
-        .countdown-timer { background: rgba(56, 189, 248, 0.1); border: 1px dashed #38bdf8; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .action-btn { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: white; border: 1px solid #3b82f6; padding: 10px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; width: 100%; text-align: center; }
-
-        .accordion-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
-        .accordion-header { width: 100%; background: transparent; border: none; color: var(--text-color); padding: 14px 16px; text-align: left; font-size: 0.9rem; font-weight: 600; display: flex; justify-content: space-between; cursor: pointer; }
-        .accordion-content { padding: 0 16px 14px 16px; display: none; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-color); }
-        .accordion-card.open .accordion-content { display: block; }
-
-        .section-view { display: none; }
-        .section-view.active { display: block; }
-
-        .support-chat-float { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
-        .chat-launcher-btn { background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; border: 1px solid #9333ea !important; border-radius: 30px !important; width: auto !important; }
-    </style>
+    <title>P2Ppredict - Clean Start</title>
 </head>
-<body>
-
-    <header>
-        <div class="logo-area">⚡ P2Ppredict</div>
-        <div class="user-info">
-            <span id="user-handle">@jaimetetio</span>
-            <span id="user-balance" style="color: #38bdf8; font-weight: 700;">150.00 Pi</span>
-            <button class="theme-btn" onclick="toggleTheme()">Tema</button>
-        </div>
-    </header>
-
-    <div class="nav-tabs">
-        <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button>
-        <button class="nav-tab" onclick="switchTab('crear', this)">Crear Predicción</button>
-        <button class="nav-tab" onclick="switchTab('clob', this)">Libro de Órdenes</button>
-        <button class="nav-tab" onclick="switchTab('ranking', this)">Ranking</button>
-        <button class="nav-tab" onclick="verificarAccesoAdmin(this)">Admin</button>
+<body style="font-family: sans-serif; background: #0f111a; color: white; padding: 20px; max-width: 480px; margin: auto;">
+    <h2>⚡ P2Ppredict (Prueba Limpia)</h2>
+    
+    <div style="background: #181b28; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2a2e43;">
+        <h3>➕ Crear Mercado</h3>
+        <input type="text" id="titulo" placeholder="¿Pregunta del mercado?" style="width:100%; padding:8px; margin-bottom:8px; box-sizing:border-box;"><br>
+        <input type="text" id="categoria" placeholder="Categoría (Ej. Crypto)" style="width:100%; padding:8px; margin-bottom:8px; box-sizing:border-box;"><br>
+        <button onclick="crearMercado()" style="background:#2563eb; color:white; border:none; padding:10px; width:100%; border-radius:5px; font-weight:bold;">Guardar en Supabase</button>
     </div>
 
-    <!-- VISTA MERCADOS -->
-    <div id="view-mercados" class="section-view active">
-        <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()">
-        
-        <div class="filter-pills">
-            <button class="pill active" onclick="setCategory('Todos', this)">Todos</button>
-            <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button>
-            <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Ecosistema Pi</button>
-        </div>
-
-        <div id="markets-container">
-            <div class="market-card">
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                    <span>🏷️ Sistema</span>
-                    <span style="color: #eab308; font-weight: bold;">● Conectando</span>
-                </div>
-                <div class="market-title">Cargando mercados desde Supabase...</div>
-                <div class="countdown-timer">
-                    <span>⏳ Estado:</span> <b>Conectando API</b>
-                </div>
-            </div>
-        </div>
-
-        <!-- ACORDEÓN BILLETERA -->
-        <div class="accordion-card" id="acc-wallet">
-            <button class="accordion-header" onclick="toggleAccordion('acc-wallet')">
-                <span>💳 Gestión de Billetera y Blockchain Pi</span>
-                <span>▾</span>
-            </button>
-            <div class="accordion-content">
-                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK.</p>
-            </div>
-        </div>
-
-        <!-- ACORDEÓN HISTORIAL DE APUESTAS -->
-        <div class="accordion-card" id="acc-historial">
-            <button class="accordion-header" onclick="toggleAccordion('acc-historial')">
-                <span>📦 Historial de Apuestas y Posiciones (Libro de Órdenes)</span>
-                <span>▾</span>
-            </button>
-            <div class="accordion-content">
-                <div style="font-weight: bold; margin: 8px 0 4px 0; color: #fff;">🟢 Posiciones Activas / Tickets</div>
-                <p style="font-size: 0.75rem;">No tienes posiciones activas.</p>
-            </div>
-        </div>
-
-        <!-- ACORDEÓN HISTORIAL DE TRANSACCIONES -->
-        <div class="accordion-card" id="acc-transacciones">
-            <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')">
-                <span>📜 Historial de Transacciones (Permanente)</span>
-                <span>▾</span>
-            </button>
-            <div class="accordion-content">
-                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes registradas.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- VISTA CREAR PREDICCIÓN -->
-    <div id="view-crear" class="section-view">
-        <div class="market-card">
-            <h3 style="margin-top: 0; color: #38bdf8;">➕ Crear Nuevo Mercado</h3>
-            <p style="color:var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;">Publica una predicción directamente en Supabase.</p>
-            
-            <label style="font-size: 0.8rem; color: var(--text-muted);">Pregunta o Título del Mercado:</label>
-            <input type="text" id="new-title" class="form-input" placeholder="Ej. ¿Pi Network alcanzará mainnet abierta en 2026?">
-
-            <label style="font-size: 0.8rem; color: var(--text-muted);">Categoría:</label>
-            <select id="new-category" class="form-select">
-                <option value="Crypto">Crypto</option>
-                <option value="Pi Ecosystem">Ecosistema Pi</option>
-                <option value="General">General / Noticias</option>
-            </select>
-
-            <label style="font-size: 0.8rem; color: var(--text-muted);">Fecha / Hora de Cierre:</label>
-            <input type="text" id="new-closing" class="form-input" placeholder="Ej. 31 de Diciembre, 2026">
-
-            <button class="action-btn" onclick="crearMercadoSupabase()">Publicar Mercado</button>
-        </div>
-    </div>
-
-    <!-- VISTAS ADICIONALES -->
-    <div id="view-clob" class="section-view">
-        <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Motor de emparejamiento P2P activo.</p></div>
-    </div>
-    <div id="view-ranking" class="section-view">
-        <div class="market-card"><h3>Ranking de Usuarios</h3><p style="color:var(--text-muted)">Tabla de líderes de predicción.</p></div>
-    </div>
-    <div id="view-admin" class="section-view">
-        <div class="market-card"><h3>Panel de Administración</h3><p style="color:var(--text-muted)">Control y moderación de mercados.</p></div>
-    </div>
-
-    <!-- BOTÓN FLOTANTE SOPORTE -->
-    <div class="support-chat-float">
-        <button class="action-btn chat-launcher-btn" onclick="alert('Abriendo soporte P2P...')">💬 Chat de Soporte</button>
+    <div style="background: #181b28; padding: 15px; border-radius: 10px; border: 1px solid #2a2e43;">
+        <h3>📋 Mercados en Supabase</h3>
+        <div id="lista-mercados">Conectando...</div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
 
-        document.addEventListener("DOMContentLoaded", () => {
-            cargarMercadosSupabase();
-        });
+        document.addEventListener("DOMContentLoaded", cargarMercados);
 
-        function switchTab(tabId, btn) {
-            document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-            
-            const target = document.getElementById('view-' + tabId);
-            if (target) target.classList.add('active');
-            if (btn) btn.classList.add('active');
-        }
-
-        function toggleAccordion(id) {
-            document.getElementById(id).classList.toggle('open');
-        }
-
-        function toggleTheme() {
-            alert('Cambio de tema activado');
-        }
-
-        function verificarAccesoAdmin(btn) {
-            let pass = prompt("Introduce clave de administrador:");
-            if(pass === "1234" || pass === "admin2026") {
-                switchTab('admin', btn);
-            } else {
-                alert("Clave incorrecta");
-            }
-        }
-
-        async function cargarMercadosSupabase() {
-            const container = document.getElementById('markets-container');
+        async function cargarMercados() {
+            const contenedor = document.getElementById('lista-mercados');
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    }
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
                 });
-
-                if (!response.ok) throw new Error('Error HTTP: ' + response.status);
-
-                const mercados = await response.json();
-
-                if (mercados && mercados.length > 0) {
-                    container.innerHTML = '';
-                    mercados.forEach(m => {
-                        container.innerHTML += `
-                            <div class="market-card">
-                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                                    <span>🏷️ ${m.category || 'General'}</span>
-                                    <span style="color: #eab308; font-weight: bold;">● ${m.status || 'Abierto'}</span>
-                                </div>
-                                <div class="market-title">${m.title}</div>
-                                <div class="countdown-timer">
-                                    <span>⏳ Cierre:</span> <b>${m.closing_time || 'Activo'}</b>
-                                </div>
-                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio SÍ: <span style="color: #4ade80; font-weight: bold;">${m.price_yes || 0.50} Pi</span> | NO: <span style="color: #f87171; font-weight: bold;">${m.price_no || 0.50} Pi</span></p>
-                                <div style="display: flex; gap: 8px;">
-                                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e; padding: 9px;" onclick="apostar('${m.id}', 'YES')">Comprar SÍ</button>
-                                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444; padding: 9px;" onclick="apostar('${m.id}', 'NO')">Comprar NO</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                } else {
-                    container.innerHTML = '<div class="market-card"><p style="color: var(--text-muted); text-align: center;">No hay mercados activos en este momento.</p></div>';
+                const data = await res.json();
+                if (data.length === 0) {
+                    contenedor.innerHTML = 'No hay mercados todavía. ¡Crea uno arriba!';
+                    return;
                 }
-            } catch (err) {
-                console.error("Error al cargar mercados:", err);
-                container.innerHTML = '<div class="market-card"><p style="color: #f87171; text-align: center;">Error al conectar con la base de datos.</p></div>';
-            }
-        }
-
-        async function crearMercadoSupabase() {
-            const title = document.getElementById('new-title').value.trim();
-            const category = document.getElementById('new-category').value;
-            const closing_time = document.getElementById('new-closing').value.trim();
-
-            if (!title || !closing_time) {
-                alert("Por favor completa todos los campos del formulario.");
-                return;
-            }
-
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify({
-                        title: title,
-                        category: category,
-                        closing_time: closing_time,
-                        status: 'Abierto',
-                        price_yes: 0.50,
-                        price_no: 0.50
-                    })
+                contenedor.innerHTML = '';
+                data.forEach(m => {
+                    contenedor.innerHTML += `<div style="background:#0f111a; padding:8px; margin-bottom:5px; border-radius:5px;"><b>${m.title}</b> (${m.category})</div>`;
                 });
-
-                if (!response.ok) throw new Error('Error al insertar');
-
-                alert("¡Mercado creado y publicado con éxito en Supabase!");
-                document.getElementById('new-title').value = '';
-                document.getElementById('new-closing').value = '';
-                
-                switchTab('mercados', document.querySelector('.nav-tab'));
-                cargarMercadosSupabase();
-
-            } catch (err) {
-                console.error("Error al crear el mercado:", err);
-                alert("Hubo un error al guardar el mercado en Supabase.");
+            } catch (e) {
+                contenedor.innerHTML = 'Error al conectar con la base de datos.';
             }
         }
 
-        async function apostar(marketId, option) {
-            let monto = prompt("¿Cuántos Pi deseas apostar?", "10");
-            if (!monto) return;
-            alert(`Registrando apuesta de ${monto} Pi para la opción ${option} en el mercado ${marketId}...`);
+        async function crearMercado() {
+            const title = document.getElementById('titulo').value;
+            const category = document.getElementById('categoria').value;
+            if (!title) return alert("Escribe un título");
+
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ title, category, closing_time: 'Pronto' })
+            });
+
+            if (res.ok) {
+                alert("¡Creado con éxito!");
+                document.getElementById('titulo').value = '';
+                document.getElementById('categoria').value = '';
+                cargarMercados();
+            } else {
+                alert("Error al guardar");
+            }
         }
     </script>
 </body>
 </html>
+
