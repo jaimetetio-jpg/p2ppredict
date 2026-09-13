@@ -103,9 +103,8 @@
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3cnF0dXh6eWNkdWFrcWZ0dmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NDg5MjcsImV4cCI6MjEwNDUyNDkyN30.7r8AYXSYOml1Ub68INeXXZKTIrqXbCpD-V9oAvFldZU';
 
-        // Inicialización limpia usando la librería oficial de Supabase v2
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.addEventListener("DOMContentLoaded", () => {
