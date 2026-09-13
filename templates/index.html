@@ -1,12 +1,3 @@
-Para integrar la nueva funcionalidad requerida en el código HTML/JavaScript actual de P2Ppredict, añadiremos:
- * Un nuevo botón/sección en el panel del usuario (dentro de las pestañas de navegación o como un apartado exclusivo para Pioneros).
- * Un formulario completo con:
-   * Campo para escribir la pregunta o título de la predicción.
-   * Selector de categoría (Crypto, Pi Ecosystem, etc.).
-   * Selector de la opción elegida inicialmente (Sí / No) y el input de liquidez en Pi que aportará el creador.
-   * Un aviso visual claro que especifica que la creación es 100% gratuita (sin comisión), pero que las apuestas subsiguientes de otros usuarios llevan una comisión del 2%.
- * La lógica en JavaScript para registrar el mercado dinámicamente, descontar la liquidez inicial aportada del balance del creador y reflejarlo de inmediato en el sistema de Order Book y listado de mercados.
-A continuación, tienes el código completo actualizado con esta nueva sección implementada de forma limpia y responsiva:
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -27,7 +18,7 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
             : null;
 
         if (!supabaseClient) {
-            console.warn("Aviso: Supabase não está configurado ou o arquivo env.js não foi carregado corretamente. O app funcionará com armazenamento local.");
+            console.warn("Aviso: Supabase no está configurado o el archivo env.js no se cargó correctamente. El app funcionará con almacenamiento local.");
         }
     </script>
     <style>
@@ -463,31 +454,7 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
         </div>
 
         <div id="markets-container">
-            <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto">
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                    <span>🏷️ Crypto</span>
-                    <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span>
-                </div>
-                <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
-                <div style="display: flex; gap: 8px;">
-                    <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button>
-                    <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button>
-                </div>
-            </div>
-
-            <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto">
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                    <span>🏷️ Pi Ecosystem</span>
-                    <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span>
-                </div>
-                <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
-                <div style="display: flex; gap: 8px;">
-                    <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
-                    <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
-                </div>
-            </div>
+            <!-- Los mercados se cargan dinámicamente -->
         </div>
 
         <!-- GESTIÓN DE BILLETERA PI NETWORK -->
@@ -505,7 +472,7 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
                         <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button>
                     </div>
                 </div>
-                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado com SDK oficial de Pi Network y Supabase.</div>
+                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div>
             </div>
         </div>
 
@@ -921,7 +888,7 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
                 let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*');
                 if (!errMerc && mercs && mercs.length > 0) { mercadosDinamicos = mercs; }
             } catch (e) {
-                console.warn("Aviso: No se pudo conectar com Supabase em tempo de execução.", e);
+                console.warn("Aviso: No se pudo conectar con Supabase en tiempo de ejecución.", e);
             }
         }
 
@@ -1189,13 +1156,9 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
                 return;
             }
 
-            // Descontar liquidez del usuario
             usuarioActual.balance -= liquidezAportada;
-
-            // Generar nuevo ID único de mercado
             const nuevoId = 'm-' + Date.now();
             
-            // Registrar precios iniciales y estado
             preciosMercados[nuevoId] = { "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, "NO": opcionInicial === 'NO' ? 0.55 : 0.45 };
             estadosMercados[nuevoId] = null;
             nombresMercados[nuevoId] = titulo;
@@ -1210,7 +1173,6 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
             mercadosDinamicos.push(marketObj);
             guardarEnSupabaseTabla('mercados_dinamicos', marketObj);
 
-            // Crear la posición inicial para el creador
             const contratosCreador = Math.floor(liquidezAportada / preciosMercados[nuevoId][opcionInicial]);
             const nuevaPosicion = {
                 id: 'POS-' + Date.now(),
@@ -1229,14 +1191,12 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
                 invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
             });
 
-            // Registrar orden global inicial
             const nuevaOrdenGlobal = {
                 marketId: nuevoId, tipo: 'CREACIÓN DE MERCADO (Bid)', opcion: opcionInicial, contratos: contratosCreador, precio: preciosMercados[nuevoId][opcionInicial], trader: usuarioActual.handle
             };
             ordenesGlobales.push(nuevaOrdenGlobal);
             guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
 
-            // Registrar en historial permanente
             registrarTransaccionEnDB({
                 id: 'CREA-' + Date.now(),
                 titulo: 'Creación de Mercado P2P',
@@ -1253,7 +1213,6 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
             renderizarPosiciones();
             renderizarHistorial();
 
-            // Limpiar formulario y redirigir a mercados
             document.getElementById('nuevo-titulo').value = '';
             document.getElementById('nuevo-liquidez').value = '5.0';
             switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
@@ -1263,7 +1222,6 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
 
         function renderizarMercadosDinamicos() {
             const container = document.getElementById('markets-container');
-            // Mantener los mercados estáticos (1 y 2) y agregar los dinámicos
             let htmlDinamicoHTML = `
                 <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto">
                     <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
@@ -1302,6 +1260,7 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
 
                 const pSi = preciosMercados[m.id]["SÍ"].toFixed(2);
                 const pNo = preciosMercados[m.id]["NO"].toFixed(2);
+                const safeTitle = m.titulo.replace(/["']/g, '');
 
                 htmlDinamicoHTML += `
                     <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto">
@@ -1312,8 +1271,8 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
                         <div class="market-title">${m.titulo}</div>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p>
                         <div style="display: flex; gap: 8px;">
-                            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ (Comisión 2%)</button>
-                            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO (Comisión 2%)</button>
+                            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${safeTitle}', 'SÍ')">Comprar SÍ (Comisión 2%)</button>
+                            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${safeTitle}', 'NO')">Comprar NO (Comisión 2%)</button>
                         </div>
                     </div>
                 `;
@@ -1352,7 +1311,6 @@ A continuación, tienes el código completo actualizado con esta nueva sección 
             ordenActivaModal.precioCalculadoUnitario = Math.min(precioDinamicoUnitario, 0.98);
 
             let subtotalReq = cantidad * ordenActivaModal.precioCalculadoUnitario;
-            // Aplicar la comisión del 2% especificada para apuestas subsiguientes de otros usuarios
             let totalConComision = subtotalReq * 1.02; 
             const payout = cantidad * 1.00; 
 
