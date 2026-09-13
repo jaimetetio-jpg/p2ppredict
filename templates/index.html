@@ -19,7 +19,6 @@
             --accent: #2563eb;
             --border-color: #2a2e43;
             --shadow-3d: 6px 6px 12px #090b12, -6px -6px 12px #1f2740;
-            --shadow-btn: 4px 4px 8px #090b12, -4px -4px 8px #1d253e;
         }
 
         body {
@@ -46,183 +45,35 @@
             box-shadow: var(--shadow-3d);
         }
 
-        .logo-area {
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: #38bdf8;
-        }
+        .logo-area { font-weight: 700; font-size: 1.2rem; color: #38bdf8; }
+        .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .theme-btn { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
 
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-        }
+        .nav-tabs { display: flex; gap: 6px; margin-bottom: 18px; background: var(--card-bg-gradient); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-3d); overflow-x: auto; }
+        .nav-tab { flex: 1; background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 10px 8px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; }
+        .nav-tab.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #ffffff; border-color: #3b82f6; }
 
-        .theme-btn {
-            background: linear-gradient(145deg, #1b2238, #131826);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            padding: 6px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
+        .search-box { width: 100%; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; }
 
-        .nav-tabs {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 18px;
-            background: var(--card-bg-gradient);
-            padding: 6px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-3d);
-            overflow-x: auto;
-        }
+        .filter-pills { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; }
+        .pill { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+        .pill.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #fff; border-color: #3b82f6; }
 
-        .nav-tab {
-            flex: 1;
-            background: linear-gradient(145deg, #1b2238, #131826);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 10px 8px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            white-space: nowrap;
-        }
+        .market-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow-3d); }
+        .market-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+        .countdown-timer { background: rgba(56, 189, 248, 0.1); border: 1px dashed #38bdf8; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .action-btn { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: white; border: 1px solid #3b82f6; padding: 9px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 
-        .nav-tab.active {
-            background: linear-gradient(145deg, #2563eb, #1d4ed8);
-            color: #ffffff;
-            border-color: #3b82f6;
-        }
-
-        .search-box {
-            width: 100%;
-            padding: 12px 14px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            color: var(--text-color);
-            font-size: 0.9rem;
-            margin-bottom: 12px;
-            box-sizing: border-box;
-        }
-
-        .filter-pills {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 18px;
-            overflow-x: auto;
-        }
-
-        .pill {
-            background: linear-gradient(145deg, #1b2238, #131826);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .pill.active {
-            background: linear-gradient(145deg, #2563eb, #1d4ed8);
-            color: #fff;
-            border-color: #3b82f6;
-        }
-
-        .market-card {
-            background: var(--card-bg-gradient);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 14px;
-            box-shadow: var(--shadow-3d);
-        }
-
-        .market-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .countdown-timer {
-            background: rgba(56, 189, 248, 0.1);
-            border: 1px dashed #38bdf8;
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            color: #38bdf8;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .action-btn {
-            background: linear-gradient(145deg, #2563eb, #1d4ed8);
-            color: white;
-            border: 1px solid #3b82f6;
-            padding: 9px 16px;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .accordion-card {
-            background: var(--card-bg-gradient);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            margin-bottom: 14px;
-            overflow: hidden;
-        }
-
-        .accordion-header {
-            width: 100%;
-            background: transparent;
-            border: none;
-            color: var(--text-color);
-            padding: 14px 16px;
-            text-align: left;
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            cursor: pointer;
-        }
-
-        .accordion-content {
-            padding: 0 16px 14px 16px;
-            display: none;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border-color);
-        }
-
-        .accordion-card.open .accordion-content {
-            display: block;
-        }
+        .accordion-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+        .accordion-header { width: 100%; background: transparent; border: none; color: var(--text-color); padding: 14px 16px; text-align: left; font-size: 0.9rem; font-weight: 600; display: flex; justify-content: space-between; cursor: pointer; }
+        .accordion-content { padding: 0 16px 14px 16px; display: none; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-color); }
+        .accordion-card.open .accordion-content { display: block; }
 
         .section-view { display: none; }
         .section-view.active { display: block; }
 
-        .support-chat-float {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 100;
-        }
-        .chat-launcher-btn {
-            background: linear-gradient(145deg, #7c3aed, #6d28d9) !important;
-            border: 1px solid #9333ea !important;
-            border-radius: 30px !important;
-        }
+        .support-chat-float { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
+        .chat-launcher-btn { background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; border: 1px solid #9333ea !important; border-radius: 30px !important; }
     </style>
 </head>
 <body>
@@ -254,14 +105,8 @@
             <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Ecosistema Pi</button>
         </div>
 
-        <div class="filter-pills" id="estado-filter-pills">
-            <button class="pill active" onclick="setStatusFilter('Todos', this)">Todos</button>
-            <button class="pill" onclick="setStatusFilter('Abiertos', this)">Abiertos</button>
-            <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Finalizados</button>
-        </div>
-
         <div id="markets-container">
-            <div class="market-card" data-category="Crypto">
+            <div class="market-card">
                 <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
                     <span>🏷️ Crypto</span>
                     <span style="color: #eab308; font-weight: bold;">● Abierto</span>
@@ -285,7 +130,7 @@
                 <span>▾</span>
             </button>
             <div class="accordion-content">
-                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK.</p>
+                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK y Supabase.</p>
             </div>
         </div>
 
@@ -308,9 +153,23 @@
                 <span>▾</span>
             </button>
             <div class="accordion-content">
-                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes.</p>
+                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes registradas en Supabase.</p>
             </div>
         </div>
+    </div>
+
+    <!-- VISTAS ADICIONALES VACÍAS PARA NAVEGACIÓN -->
+    <div id="view-crear" class="section-view">
+        <div class="market-card"><h3>Crear Nueva Predicción</h3><p style="color:var(--text-muted)">Formulario conectado a Supabase en desarrollo.</p></div>
+    </div>
+    <div id="view-clob" class="section-view">
+        <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Emparejamiento P2P activo.</p></div>
+    </div>
+    <div id="view-ranking" class="section-view">
+        <div class="market-card"><h3>Ranking de Usuarios</h3><p style="color:var(--text-muted)">Tabla de líderes.</p></div>
+    </div>
+    <div id="view-admin" class="section-view">
+        <div class="market-card"><h3>Panel de Administración</h3><p style="color:var(--text-muted)">Gestión de mercados.</p></div>
     </div>
 
     <!-- BOTÓN FLOTANTE SOPORTE -->
@@ -319,22 +178,34 @@
     </div>
 
     <script>
+        // Configuración Supabase (Asegúrate de colocar tus credenciales reales o variables)
+        const SUPABASE_URL = 'TU_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'TU_SUPABASE_ANON_KEY';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         function switchTab(tabId, btn) {
             document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-            if(btn) btn.classList.add('active');
+            
+            const target = document.getElementById('view-' + tabId);
+            if (target) target.classList.add('active');
+            if (btn) btn.classList.add('active');
         }
+
         function toggleAccordion(id) {
             document.getElementById(id).classList.toggle('open');
         }
+
         function toggleTheme() {
             alert('Cambio de tema activado');
         }
+
         function verificarAccesoAdmin(btn) {
             let pass = prompt("Introduce clave de administrador:");
             if(pass === "1234" || pass === "admin2026") {
                 switchTab('admin', btn);
-                alert("Acceso concedido");
+            } else {
+                alert("Clave incorrecta");
             }
         }
     </script>
