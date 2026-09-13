@@ -194,10 +194,15 @@
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
-        // Usamos tu clave pública publishable configurada directamente
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
         
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // CORRECCIÓN APLICADA: Inserción explícita de la cabecera 'apikey' para llaves publishable modernas
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: false },
+            global: {
+                headers: { 'apikey': SUPABASE_ANON_KEY }
+            }
+        });
 
         document.addEventListener("DOMContentLoaded", () => {
             cargarMercadosSupabase();
