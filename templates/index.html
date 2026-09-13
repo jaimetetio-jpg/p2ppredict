@@ -196,11 +196,14 @@
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
         
-        // CORRECCIÓN APLICADA: Inserción explícita de la cabecera 'apikey' para llaves publishable modernas
+        // Inicialización robusta con cabeceras explícitas para llaves publishable
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { persistSession: false },
             global: {
-                headers: { 'apikey': SUPABASE_ANON_KEY }
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
             }
         });
 
