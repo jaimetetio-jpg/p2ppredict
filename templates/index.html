@@ -53,7 +53,7 @@
         .nav-tab { flex: 1; background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 10px 8px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; }
         .nav-tab.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #ffffff; border-color: #3b82f6; }
 
-        .search-box { width: 100%; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; }
+        .search-box, .form-input, .form-select { width: 100%; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; }
 
         .filter-pills { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; }
         .pill { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
@@ -62,7 +62,7 @@
         .market-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow-3d); }
         .market-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
         .countdown-timer { background: rgba(56, 189, 248, 0.1); border: 1px dashed #38bdf8; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .action-btn { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: white; border: 1px solid #3b82f6; padding: 9px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .action-btn { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: white; border: 1px solid #3b82f6; padding: 10px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; width: 100%; text-align: center; }
 
         .accordion-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
         .accordion-header { width: 100%; background: transparent; border: none; color: var(--text-color); padding: 14px 16px; text-align: left; font-size: 0.9rem; font-weight: 600; display: flex; justify-content: space-between; cursor: pointer; }
@@ -73,7 +73,7 @@
         .section-view.active { display: block; }
 
         .support-chat-float { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
-        .chat-launcher-btn { background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; border: 1px solid #9333ea !important; border-radius: 30px !important; }
+        .chat-launcher-btn { background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; border: 1px solid #9333ea !important; border-radius: 30px !important; width: auto !important; }
     </style>
 </head>
 <body>
@@ -153,10 +153,30 @@
         </div>
     </div>
 
-    <!-- VISTAS ADICIONALES -->
+    <!-- VISTA CREAR PREDICCIÓN -->
     <div id="view-crear" class="section-view">
-        <div class="market-card"><h3>Crear Nueva Predicción</h3><p style="color:var(--text-muted)">Formulario de creación de mercados con Supabase.</p></div>
+        <div class="market-card">
+            <h3 style="margin-top: 0; color: #38bdf8;">➕ Crear Nuevo Mercado</h3>
+            <p style="color:var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;">Publica una predicción directamente en la base de datos de Supabase.</p>
+            
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Pregunta o Título del Mercado:</label>
+            <input type="text" id="new-title" class="form-input" placeholder="Ej. ¿Pi Network alcanzará mainnet abierta en 2026?">
+
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Categoría:</label>
+            <select id="new-category" class="form-select">
+                <option value="Crypto">Crypto</option>
+                <option value="Pi Ecosystem">Ecosistema Pi</option>
+                <option value="General">General / Noticias</option>
+            </select>
+
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Fecha / Hora de Cierre:</label>
+            <input type="text" id="new-closing" class="form-input" placeholder="Ej. 31 de Diciembre, 2026">
+
+            <button class="action-btn" onclick="crearMercadoSupabase()">Publicar Mercado</button>
+        </div>
     </div>
+
+    <!-- VISTAS ADICIONALES -->
     <div id="view-clob" class="section-view">
         <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Motor de emparejamiento P2P activo.</p></div>
     </div>
@@ -174,9 +194,9 @@
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
+        // Usamos tu clave pública publishable configurada directamente
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
         
-        // Inicialización segura del cliente Supabase v2
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -233,8 +253,8 @@
                                 </div>
                                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio SÍ: <span style="color: #4ade80; font-weight: bold;">${m.price_yes || 0.50} Pi</span> | NO: <span style="color: #f87171; font-weight: bold;">${m.price_no || 0.50} Pi</span></p>
                                 <div style="display: flex; gap: 8px;">
-                                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e;" onclick="apostar('${m.id}', 'YES')">Comprar SÍ</button>
-                                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444;" onclick="apostar('${m.id}', 'NO')">Comprar NO</button>
+                                    <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e; padding: 9px;" onclick="apostar('${m.id}', 'YES')">Comprar SÍ</button>
+                                    <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444; padding: 9px;" onclick="apostar('${m.id}', 'NO')">Comprar NO</button>
                                 </div>
                             </div>
                         `;
@@ -245,6 +265,45 @@
             } catch (err) {
                 console.error("Error al cargar mercados de Supabase:", err.message);
                 container.innerHTML = '<div class="market-card"><p style="color: #f87171; text-align: center;">Error al conectar con la base de datos.</p></div>';
+            }
+        }
+
+        async function crearMercadoSupabase() {
+            const title = document.getElementById('new-title').value.trim();
+            const category = document.getElementById('new-category').value;
+            const closing_time = document.getElementById('new-closing').value.trim();
+
+            if (!title || !closing_time) {
+                alert("Por favor completa todos los campos del formulario.");
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('markets')
+                    .insert([
+                        { 
+                            title: title, 
+                            category: category, 
+                            closing_time: closing_time, 
+                            status: 'Abierto',
+                            price_yes: 0.50,
+                            price_no: 0.50 
+                        }
+                    ]);
+
+                if (error) throw error;
+
+                alert("¡Mercado creado y publicado con éxito en Supabase!");
+                document.getElementById('new-title').value = '';
+                document.getElementById('new-closing').value = '';
+                
+                switchTab('mercados', document.querySelector('.nav-tab'));
+                cargarMercadosSupabase();
+
+            } catch (err) {
+                console.error("Error al crear el mercado:", err.message);
+                alert("Hubo un error al guardar el mercado en Supabase.");
             }
         }
 
