@@ -1,4 +1,3 @@
-God Bless Us
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1306,7 +1305,6 @@ God Bless Us
             let precioAskActual = preciosMercados[idMercado][opcion];
             ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual };
             
-            // Rehabilitar botón de confirmar al abrir
             const btnConfirmar = document.getElementById('btn-confirmar-orden');
             btnConfirmar.disabled = false;
             btnConfirmar.innerText = "Confirmar Orden al Order Book";
@@ -1343,8 +1341,6 @@ God Bless Us
 
         function confirmarCompraRapida() {
             const btnConfirmar = document.getElementById('btn-confirmar-orden');
-            
-            // 1. Bloquear botón inmediatamente para evitar clics dobles (debounce / loading state)
             btnConfirmar.disabled = true;
             btnConfirmar.innerText = "Procesando...";
 
@@ -1405,10 +1401,8 @@ God Bless Us
             renderizarPosiciones();
             renderizarOrderBookVisible();
             
-            // 2. Cerrar la terminal de trading de inmediato
             cerrarTerminalTrading();
 
-            // 3. Mostrar la ventana modal de éxito requerida
             document.getElementById('texto-exito-detalle').innerText = `Has adquirido ${cantidad} contrato(s) en la opción [${opM}] por ${totalReq.toFixed(2)} Pi.`;
             document.getElementById('modal-exito-apuesta').style.display = 'flex';
         }
