@@ -1,6 +1,6 @@
-DIOS NOS BENDIGA SIEMPRE 
+  Mary Dios Te Ama Grandemente Ayuda a Jaime
 
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1296,7 +1296,6 @@ DIOS NOS BENDIGA SIEMPRE
                 return;
             }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
             if (!confirm(`🛡️ Confirmación de Seguridad:\n\n¿Estás seguro de crear el mercado:\n"${titulo}"?\n\nSe debitarán ${liquidezAportada} Pi de tu saldo como liquidez inicial.`)) {
                 return;
             }
@@ -1431,7 +1430,6 @@ DIOS NOS BENDIGA SIEMPRE
 
         function actualizarRelojesRegresivos() {
             const timers = document.querySelectorAll('.countdown-timer');
-            timers.now = new Date();
             timers.forEach(t => {
                 const targetStr = t.getAttribute('data-target');
                 const displayEl = t.querySelector('.time-display');
@@ -1545,7 +1543,6 @@ DIOS NOS BENDIGA SIEMPRE
                 return;
             }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
             if (!confirm(`🛡️ Confirmación de Seguridad:\n\n¿Deseas confirmar la orden de compra?\n\n• Opción: ${op}\n• Contratos: ${cantidad}\n• Inversión Total: ${inversionTotal.toFixed(2)} Pi`)) {
                 return;
             }
@@ -1695,7 +1692,6 @@ DIOS NOS BENDIGA SIEMPRE
 
             const retornoVenta = cantVenta * precioBase;
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
             if (!confirm(`🛡️ Confirmación de Seguridad:\n\n¿Estás seguro de vender ${cantVenta} contratos de "${p.titulo}" (${p.opcion})?\n\nRecibirás un retorno estimado de ${retornoVenta.toFixed(2)} Pi.`)) {
                 return;
             }
@@ -1751,7 +1747,6 @@ DIOS NOS BENDIGA SIEMPRE
                 return;
             }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
             if (!confirm(`🛡️ Confirmación de Seguridad:\n\n¿Deseas proceder con la recarga de ${montoInput} Pi a través de la billetera Pi Network?`)) {
                 return;
             }
@@ -1813,7 +1808,6 @@ DIOS NOS BENDIGA SIEMPRE
                 return;
             }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
             if (!confirm(`🛡️ Confirmación de Seguridad:\n\n¿Estás seguro de retirar ${montoInput} Pi de tu billetera hacia tu Mainnet Address?`)) {
                 return;
             }
@@ -1991,17 +1985,36 @@ DIOS NOS BENDIGA SIEMPRE
             ticketAdminActivoId = null;
         }
 
+        function enviarMensajeSoporteAdmin() {
+            const input = document.getElementById('chat-admin-input');
+            const texto = input.value.trim();
+            if (!texto || !ticketAdminActivoId) return;
+
+            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
+            if (ticket) {
+                ticket.mensajes.push({ remitente: 'admin', texto: texto, hora: new Date().toLocaleTimeString() });
+                guardarEnSupabaseTabla('tickets_soporte', ticket);
+                guardarTodoEnStorage();
+            }
+
+            input.value = '';
+            renderizarMensajesAdminModal();
+            renderizarTicketsAdmin();
+        }
+
         function renderizarMensajesAdminModal() {
             const container = document.getElementById('admin-chat-messages-container');
-            const ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
-            if (!ticket) return;
+            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
 
-            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${ticket.handle}`;
+            if (!ticket || !ticket.mensajes || ticket.mensajes.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; margin-top: 20px;">No hay mensajes en este ticket.</div>';
+                return;
+            }
 
             let html = '';
             ticket.mensajes.forEach(m => {
                 let clase = m.remitente === 'admin' ? 'user' : 'admin';
-                let remitenteNombre = m.remitente === 'admin' ? 'Admin' : ticket.handle;
+                let remitenteNombre = m.remitente === 'admin' ? 'Soporte Admin' : ticket.handle;
                 html += `
                     <div class="chat-msg ${clase}">
                         <div style="font-size: 0.65rem; opacity: 0.7; margin-bottom: 2px;">${remitenteNombre} • ${m.hora}</div>
@@ -2013,96 +2026,79 @@ DIOS NOS BENDIGA SIEMPRE
             container.scrollTop = container.scrollHeight;
         }
 
-        function enviarMensajeSoporteAdmin() {
-            const input = document.getElementById('chat-admin-input');
-            const texto = input.value.trim();
-            if (!texto || !ticketAdminActivoId) return;
-
-            const ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
-            if (!ticket) return;
-
-            ticket.mensajes.push({ remitente: 'admin', texto: texto, hora: new Date().toLocaleTimeString() });
-            guardarEnSupabaseTabla('tickets_soporte', ticket);
-            guardarTodoEnStorage();
-
-            input.value = '';
-            renderizarMensajesAdminModal();
-            renderizarTicketsAdmin();
-        }
-
         function calcularMetricasFinancierasAdmin() {
             let totalCirculante = 0;
-            cuentasDirectorio.forEach(c => { totalCirculante += c.balance; });
+            cuentasDirectorio.forEach(c => {
+                totalCirculante += c.balance;
+            });
             document.getElementById('admin-total-supply').innerText = totalCirculante.toFixed(2) + ' Pi';
 
-            const topContainer = document.getElementById('admin-top-users-container');
-            let sorted = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance);
+            let cuentasOrdenadas = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance);
+            const containerTop = document.getElementById('admin-top-users-container');
             let htmlTop = '';
-            sorted.slice(0, 5).forEach((c, i) => {
-                let estadoBloq = c.bloqueado ? ' [BLOQUEADO]' : '';
-                let colorH = c.bloqueado ? '#ef4444' : '#38bdf8';
+            cuentasOrdenadas.slice(0, 5).forEach((c, i) => {
+                let estadoBloqueo = c.bloqueado ? ' [BLOQUEADO]' : '';
                 htmlTop += `
                     <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-color);">
-                        <span style="color: ${colorH};">${i+1}. ${c.handle}${estadoBloq}</span>
+                        <span>${i + 1}. ${c.handle}${estadoBloqueo}</span>
                         <b style="color: #4ade80;">${c.balance.toFixed(2)} Pi</b>
                     </div>
                 `;
             });
-            topContainer.innerHTML = htmlTop;
+            containerTop.innerHTML = htmlTop;
 
             const selectUser = document.getElementById('admin-user-select');
             if (selectUser) {
-                let currentVal = selectUser.value;
-                let htmlOpt = '<option value="">-- Seleccionar Usuario --</option>';
+                let htmlSel = '<option value="">-- Seleccionar Usuario --</option>';
                 cuentasDirectorio.forEach(c => {
-                    htmlOpt += `<option value="${c.handle}">${c.handle} (${c.balance.toFixed(2)} Pi)</option>`;
+                    htmlSel += `<option value="${c.handle}">${c.handle} (${c.balance.toFixed(2)} Pi)</option>`;
                 });
-                selectUser.innerHTML = htmlOpt;
-                if (currentVal) selectUser.value = currentVal;
+                selectUser.innerHTML = htmlSel;
             }
         }
 
         function cargarDatosUsuarioAdminSeleccionado() {
-            const select = document.getElementById('admin-user-select');
-            usuarioAdminSeleccionadoHandle = select.value;
+            const handle = document.getElementById('admin-user-select').value;
+            usuarioAdminSeleccionadoHandle = handle;
             const detailsCard = document.getElementById('admin-user-details-card');
+            const btnBloqueo = document.getElementById('admin-btn-bloqueo');
 
-            if (!usuarioAdminSeleccionadoHandle) {
+            if (!handle) {
                 detailsCard.style.display = 'none';
                 return;
             }
 
-            const c = cuentasDirectorio.find(acc => acc.handle === usuarioAdminSeleccionadoHandle);
-            if (!c) return;
-
-            document.getElementById('adm-det-handle').innerText = c.handle;
-            document.getElementById('adm-det-balance').innerText = c.balance.toFixed(2) + ' Pi';
-            const statusEl = document.getElementById('adm-det-status');
-            const btnBloq = document.getElementById('admin-btn-bloqueo');
-
-            if (c.bloqueado) {
-                statusEl.innerText = "BLOQUEADO";
-                statusEl.style.color = "#ef4444";
-                btnBloq.innerText = "🔓 Desbloquear Cuenta";
-                btnBloq.style.background = "linear-gradient(145deg, #166534, #14532d)";
-                btnBloq.style.borderColor = "#22c55e";
-            } else {
-                statusEl.innerText = "Activo";
-                statusEl.style.color = "#eab308";
-                btnBloq.innerText = "🔒 Bloquear Cuenta";
-                btnBloq.style.background = "linear-gradient(145deg, #b91c1c, #991b1b)";
-                btnBloq.style.borderColor = "#ef4444";
+            let u = cuentasDirectorio.find(c => c.handle === handle);
+            if (u) {
+                document.getElementById('adm-det-handle').innerText = u.handle;
+                document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi';
+                document.getElementById('adm-det-status').innerText = u.bloqueado ? 'BLOQUEADO' : 'Activo';
+                document.getElementById('adm-det-status').style.color = u.bloqueado ? '#ef4444' : '#4ade80';
+                btnBloqueo.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
+                detailsCard.style.display = 'block';
             }
+        }
 
-            detailsCard.style.display = 'block';
+        function confirmarYBloquearCuentaActual() {
+            if (!usuarioAdminSeleccionadoHandle) {
+                alert("Selecciona primero una cuenta de usuario.");
+                return;
+            }
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (u) {
+                u.bloqueado = !u.bloqueado;
+                guardarTodoEnStorage();
+                cargarDatosUsuarioAdminSeleccionado();
+                calcularMetricasFinancierasAdmin();
+                alert(`¡Estado de la cuenta ${u.handle} actualizado con éxito!`);
+            }
         }
 
         function abrirModalAjusteBalance() {
             if (!usuarioAdminSeleccionadoHandle) {
-                alert("Selecciona primero un usuario en el panel de gestión.");
+                alert("Selecciona primero una cuenta de usuario en el panel.");
                 return;
             }
-            document.getElementById('admin-balance-modal-subtitle').innerText = `Modifica el saldo de ${usuarioAdminSeleccionadoHandle}. Ingresa monto y nota de auditoría obligatoria.`;
             document.getElementById('admin-adj-monto').value = '';
             document.getElementById('admin-adj-nota').value = '';
             document.getElementById('admin-balance-modal').style.display = 'flex';
@@ -2114,7 +2110,7 @@ DIOS NOS BENDIGA SIEMPRE
 
         function ejecutarAjusteBalanceAdmin() {
             if (!usuarioAdminSeleccionadoHandle) return;
-            const tipoOp = document.getElementById('admin-adj-tipo').value;
+            const tipo = document.getElementById('admin-adj-tipo').value;
             const monto = parseFloat(document.getElementById('admin-adj-monto').value);
             const nota = document.getElementById('admin-adj-nota').value.trim();
 
@@ -2123,32 +2119,32 @@ DIOS NOS BENDIGA SIEMPRE
                 return;
             }
             if (!nota) {
-                alert("La nota de auditoría o justificación es obligatoria.");
+                alert("Debes introducir una nota de auditoría o justificación.");
                 return;
             }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
-            if (!confirm(`🛡️ Confirmación de Seguridad (Admin):\n\n¿Estás seguro de ${tipoOp === 'CREDITO' ? 'acreditar' : 'debitar'} ${monto} Pi a la cuenta ${usuarioAdminSeleccionadoHandle}?\nJustificación: "${nota}"`)) {
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (!u) return;
+
+            if (tipo === 'DEBITO' && u.balance < monto) {
+                alert("El usuario no tiene suficiente balance para este débito.");
                 return;
             }
 
-            let c = cuentasDirectorio.find(acc => acc.handle === usuarioAdminSeleccionadoHandle);
-            if (!c) return;
+            if (tipo === 'CREDITO') { u.balance += monto; }
+            else { u.balance -= monto; }
 
-            let delta = tipoOp === 'CREDITO' ? monto : -monto;
-            c.balance += delta;
-
-            if (usuarioActual.handle === c.handle) {
-                usuarioActual.balance = c.balance;
+            if (u.handle === usuarioActual.handle) {
+                usuarioActual.balance = u.balance;
                 actualizarUIBalance();
             }
 
             registrarTransaccionEnDB({
                 id: 'ADJ-' + Date.now(),
-                titulo: `Ajuste Admin [${tipoOp}]`,
+                titulo: `Ajuste Admin [${tipo}]`,
                 tipo: 'Auditoría',
-                monto: delta,
-                detalle: `Ajuste manual de ${monto} Pi en ${c.handle}. Nota: "${nota}"`
+                monto: tipo === 'CREDITO' ? +monto : -monto,
+                detalle: `Ajuste manual por Admin. Nota: "${nota}"`
             });
 
             guardarTodoEnStorage();
@@ -2156,176 +2152,104 @@ DIOS NOS BENDIGA SIEMPRE
             calcularMetricasFinancierasAdmin();
             cerrarModalAjusteBalance();
 
-            alert("¡Ajuste manual de balance aplicado con éxito!");
-        }
-
-        function confirmarYBloquearCuentaActual() {
-            if (!usuarioAdminSeleccionadoHandle) return;
-            let c = cuentasDirectorio.find(acc => acc.handle === usuarioAdminSeleccionadoHandle);
-            if (!c) return;
-
-            let nuevoEstado = !c.bloqueado;
-            let accionTxt = nuevoEstado ? 'bloquear' : 'desbloquear';
-
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
-            if (!confirm(`🛡️ Confirmación de Seguridad (Admin):\n\n¿Estás seguro de ${accionTxt} la cuenta ${c.handle}?`)) {
-                return;
-            }
-
-            c.bloqueado = nuevoEstado;
-            guardarTodoEnStorage();
-            cargarDatosUsuarioAdminSeleccionado();
-            calcularMetricasFinancierasAdmin();
-
-            alert(`¡Cuenta ${c.handle} ${nuevoEstado ? 'bloqueada' : 'desbloqueada'} correctamente!`);
+            alert("¡Ajuste manual de balance ejecutado correctamente!");
         }
 
         function confirmarYDeclararGanadorAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
             const ganador = document.getElementById('admin-result-select').value;
-            const marketName = nombresMercados[marketId] || ('Mercado #' + marketId);
 
             if (!marketId) {
                 alert("Selecciona un mercado válido.");
                 return;
             }
 
-            if (estadosMercados[marketId] !== null && estadosMercados[marketId] !== undefined) {
-                alert("Este mercado ya fue cerrado o resuelto anteriormente.");
-                return;
-            }
-
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
-            if (!confirm(`🛡️ Confirmación de Seguridad (Admin):\n\n¿Estás completamente seguro de declarar ganador la opción [${ganador}] para el mercado:\n"${marketName}"?\n\nEsta acción ejecutará la liquidación automática y no se puede deshacer.`)) {
+            if (!confirm(`⚠️ ATENCIÓN:\n\n¿Estás seguro de declarar ganador la opción [${ganador}] para este mercado?\n\nSe liquidarán automáticamente todas las posiciones asociadas.`)) {
                 return;
             }
 
             estadosMercados[marketId] = ganador;
+            restaurarEstadosMercadosVisuales();
 
-            let posicionesLiquidadas = [];
-            posicionesActivas = posicionesActivas.filter(p => {
-                if (String(p.marketId) === String(marketId)) {
-                    posicionesLiquidadas.push(p);
-                    return false;
+            let posicionesALiquidar = posicionesActivas.filter(p => String(p.marketId) === String(marketId));
+            posicionesActivas = posicionesActivas.filter(p => String(p.marketId) !== String(marketId));
+
+            posicionesALiquidar.forEach(p => {
+                if (supabaseClient) {
+                    supabaseClient.from('posiciones_activas').delete().eq('id', p.id);
                 }
-                return true;
-            });
-
-            let totalPremiosPagados = 0;
-            posicionesLiquidadas.forEach(p => {
                 if (p.opcion === ganador) {
-                    let premio = p.payout;
-                    totalPremiosPagados += premio;
-
-                    let acc = cuentasDirectorio.find(acc => acc.handle === p.handle);
-                    if (acc) {
-                        acc.balance += premio;
-                        if (usuarioActual.handle === acc.handle) {
-                            usuarioActual.balance = acc.balance;
-                        }
-                    }
-
+                    usuarioActual.balance += p.payout;
                     registrarTransaccionEnDB({
-                        id: 'PREMIO-' + Date.now() + '-' + Math.random(),
+                        id: 'PREM-' + Date.now(),
                         titulo: `Cobro de Premio [${ganador}]`,
-                        tipo: 'Liquidación Mercado',
-                        monto: +premio,
-                        detalle: `Premio cobrado exitosamente en "${marketName}".`
+                        tipo: 'Liquidación Ganadora',
+                        monto: +p.payout,
+                        detalle: `Premio cobrado por acertar en "${p.titulo}". Payout: ${p.payout.toFixed(2)} Pi.`
                     });
                 }
             });
 
-            if (supabaseClient) {
-                posicionesLiquidadas.forEach(p => {
-                    supabaseClient.from('posiciones_activas').delete().eq('id', p.id);
-                });
-            }
-
             guardarTodoEnStorage();
             actualizarUIBalance();
-            restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
             renderizarHistorial();
 
-            alert(`¡Mercado resuelto con éxito! Ganador: [${ganador}]. Total premios pagados: ${totalPremiosPagados.toFixed(2)} Pi.`);
+            alert(`¡Mercado resuelto con éxito! Ganador oficial: ${ganador}`);
         }
 
         function confirmarYCancelarMercadoAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
-            const marketName = nombresMercados[marketId] || ('Mercado #' + marketId);
-
             if (!marketId) {
                 alert("Selecciona un mercado válido.");
                 return;
             }
-            if (estadosMercados[marketId] !== null && estadosMercados[marketId] !== undefined) {
-                alert("Este mercado ya se encuentra cerrado o cancelado.");
-                return;
-            }
 
-            // 🔒 PREGUNTA DE CONFIRMACIÓN DE SEGURIDAD
-            if (!confirm(`🛡️ Confirmación de Seguridad (Admin):\n\n¿Estás seguro de CANCELAR el mercado:\n"${marketName}"?\n\nSe reembolsará el 100% de la inversión inicial/capital a los usuarios sin aplicar ninguna comisión.`)) {
+            if (!confirm(`🚨 CANCELACIÓN Y REEMBOLSO TOTAL:\n\n¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin aplicar comisión?`)) {
                 return;
             }
 
             estadosMercados[marketId] = 'CANCELADO';
+            restaurarEstadosMercadosVisuales();
 
-            let posicionesCanceladas = [];
-            posicionesActivas = posicionesActivas.filter(p => {
-                if (String(p.marketId) === String(marketId)) {
-                    posicionesCanceladas.push(p);
-                    return false;
-                }
-                return true;
-            });
+            let posicionesARembolsar = posicionesActivas.filter(p => String(p.marketId) === String(marketId));
+            posicionesActivas = posicionesActivas.filter(p => String(p.marketId) !== String(marketId));
 
-            posicionesCanceladas.forEach(p => {
-                let reembolso = p.invertido;
-                let acc = cuentasDirectorio.find(acc => acc.handle === p.handle);
-                if (acc) {
-                    acc.balance += reembolso;
-                    if (usuarioActual.handle === acc.handle) {
-                        usuarioActual.balance = acc.balance;
-                    }
-                }
-
-                registrarTransaccionEnDB({
-                    id: 'REF-' + Date.now() + '-' + Math.random(),
-                    titulo: 'Reembolso por Cancelación',
-                    tipo: 'Reembolso 0% Comisión',
-                    monto: +reembolso,
-                    detalle: `Reembolso total de ${reembolso.toFixed(2)} Pi por cancelación del mercado "${marketName}".`
-                });
-            });
-
-            if (supabaseClient) {
-                posicionesCanceladas.forEach(p => {
+            posicionesARembolsar.forEach(p => {
+                if (supabaseClient) {
                     supabaseClient.from('posiciones_activas').delete().eq('id', p.id);
+                }
+                usuarioActual.balance += p.invertido;
+                registrarTransaccionEnDB({
+                    id: 'REEMB-' + Date.now(),
+                    titulo: 'Reembolso por Cancelación',
+                    tipo: 'Reembolso 100%',
+                    monto: +p.invertido,
+                    detalle: `Reembolso total de ${p.invertido.toFixed(2)} Pi por cancelación del mercado "${p.titulo}".`
                 });
-            }
+            });
 
             guardarTodoEnStorage();
             actualizarUIBalance();
-            restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
             renderizarHistorial();
 
-            alert(`¡Mercado cancelado y fondos reembolsados al 100% con éxito!`);
+            alert("¡Mercado cancelado y fondos reembolsados con éxito!");
         }
 
         function renderizarHistorialGlobalAdmin() {
             const container = document.getElementById('admin-global-transactions-container');
-            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
-            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
+            const searchUser = (document.getElementById('admin-user-search').value || '').toLowerCase();
+            const searchTx = (document.getElementById('admin-tx-search').value || '').toLowerCase();
 
             let filtradas = historialTransacciones.filter(t => {
-                let matchUser = (t.handle || '').toLowerCase().includes(searchUser);
-                let matchDet = ((t.titulo || '') + ' ' + (t.detalle || '')).toLowerCase().includes(searchTx);
-                return matchUser && matchDet;
+                let matchU = (t.handle || '').toLowerCase().includes(searchUser);
+                let matchT = (t.titulo + ' ' + t.detalle).toLowerCase().includes(searchTx);
+                return matchU && matchT;
             });
 
             if (!filtradas || filtradas.length === 0) {
-                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>';
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas que coincidan.</p>';
                 return;
             }
 
@@ -2334,13 +2258,13 @@ DIOS NOS BENDIGA SIEMPRE
                 let colorMonto = t.monto >= 0 ? '#4ade80' : '#f87171';
                 let signoMonto = t.monto >= 0 ? '+' : '';
                 html += `
-                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.7rem;">
                         <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
-                            <span style="color: #38bdf8;">${t.handle || '@jaimetetio'} • ${t.titulo}</span>
+                            <span style="color: #38bdf8;">${t.handle || '@anon'} - ${t.titulo}</span>
                             <span style="color: ${colorMonto};">${signoMonto}${t.monto.toFixed(2)} Pi</span>
                         </div>
                         <div style="color: var(--text-muted); margin-bottom: 2px;">${t.detalle}</div>
-                        <div style="font-size: 0.65rem; color: #6b7280; text-align: right;">${t.fecha}</div>
+                        <div style="font-size: 0.6rem; color: #6b7280; text-align: right;">${t.fecha}</div>
                     </div>
                 `;
             });
