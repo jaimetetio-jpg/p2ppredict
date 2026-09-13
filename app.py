@@ -2474,5 +2474,74 @@ def obtener_posiciones_activas(username):
     return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ================= NUEVAS FUNCIONES Y RUTA SOLICITADAS =================
+@app.route("/api/calcular-ganancia-anticipada", methods=["POST"])
+def calcular_ganancia_anticipada():
+    """
+    Permite al usuario ver de forma anticipada su posible ganancia y payout 
+    según la cantidad apostada, cuotas u opciones actuales del mercado.
+    """
+    data = request.json or {}
+    evento_id = data.get("evento_id")
+    opcion_id = data.get("opcion_id")
+    try:
+        monto = float(data.get("monto", 0))
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Monto inválido"}), 400
+
+    if monto <= 0:
+        return jsonify({"success": False, "error": "El monto debe ser mayor a 0"}), 400
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    try:
+        if DATABASE_URL:
+            c.execute("SELECT * FROM opciones_evento WHERE id = %s AND evento_id = %s", (opcion_id, evento_id))
+        else:
+            c.execute("SELECT * FROM opciones_evento WHERE id = ? AND evento_id = ?", (opcion_id, evento_id))
+        opcion = c.fetchone()
+        
+        if DATABASE_URL:
+            c.execute("SELECT SUM(pozo) as pozo_total FROM opciones_evento WHERE evento_id = %s", (evento_id,))
+        else:
+            c.execute("SELECT SUM(pozo) as pozo_total FROM opciones_evento WHERE evento_id = ?", (evento_id,))
+        pozo_total_row = c.fetchone()
+        conn.close()
+
+        if not opcion:
+            return jsonify({"success": False, "error": "Opción no encontrada"}), 404
+
+        pozo_actual_opcion = opcion["pozo"]
+        pozo_global = pozo_total_row["pozo_total"] if pozo_total_row and pozo_total_row["pozo_total"] else 0.0
+
+        # Simulación incluyendo el nuevo monto (descontando el 2% de comisión para la simulación del pozo neto)
+        comision = monto * 0.02
+        monto_neto = monto - comision
+        
+        nuevo_pozo_opcion = pozo_actual_opcion + monto_neto
+        nuevo_pozo_global = pozo_global + monto_neto
+
+        # Estimación de ganancia (modelo pari-mutuel simplificado o duplicador base)
+        if nuevo_pozo_opcion > 0:
+            participacion = monto_neto / nuevo_pozo_opcion
+            payout_estimado = nuevo_pozo_global * participacion
+        else:
+            payout_estimado = monto_neto * 2.0
+
+        ganancia_neta_estimada = payout_estimado - monto
+
+        return jsonify({
+            "success": True,
+            "monto_apostado": monto,
+            "comision_estimada": comision,
+            "monto_neto_en_pozo": monto_neto,
+            "payout_estimado": round(payout_estimado, 4),
+            "ganancia_neta_estimada": round(ganancia_neta_estimada, 4)
+        })
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
   app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
