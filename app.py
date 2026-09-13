@@ -12,6 +12,7 @@ import requests
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
+
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY", "p2ppredict_secret_key_ultra_segura_2026"
@@ -20,11 +21,9 @@ app.secret_key = os.environ.get(
 # Configuración de contraseña de administrador robusta vía variable de entorno o por defecto con hash seguro
 RAW_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Anthony*2023")
 ADMIN_PASSWORD_HASH = generate_password_hash(RAW_ADMIN_PASSWORD)
+
 PI_API_KEY = os.environ.get("PI_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
-# REQUISITO: Monto mínimo obligatorio para la apuesta o liquidez inicial en la creación
-MONTO_MINIMO_CREACION = 1.0
 
 # ================= SISTEMA DE RATE LIMITING EN MEMORIA =================
 request_records = defaultdict(list)
@@ -106,158 +105,253 @@ def obtener_conexion():
 def inicializar_bd():
   conn = obtener_conexion()
   c = conn.cursor()
+
   if DATABASE_URL:
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS usuarios ( username TEXT PRIMARY KEY,"
-        " saldo_disponible DOUBLE PRECISION DEFAULT 0.0, is_frozen BOOLEAN"
-        " DEFAULT FALSE )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS transacciones ( id SERIAL PRIMARY KEY,"
-        " username TEXT, tipo TEXT, monto DOUBLE PRECISION, txid TEXT, fecha"
-        " TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS historial_apuestas ( id SERIAL PRIMARY"
-        " KEY, username TEXT, titulo_evento TEXT, opcion_elegida TEXT, monto"
-        " DOUBLE PRECISION, estado TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS ordenes_clob ( id SERIAL PRIMARY KEY,"
-        " username TEXT, evento_id INTEGER, opcion_id INTEGER, tipo_orden"
-        " TEXT, accion TEXT, precio DOUBLE PRECISION, cantidad DOUBLE"
-        " PRECISION, estado TEXT DEFAULT 'activa', fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS posiciones_activas ( id TEXT PRIMARY KEY,"
-        " market_id TEXT NOT NULL, handle TEXT NOT NULL, titulo TEXT NOT NULL,"
-        " opcion TEXT NOT NULL, contratos INTEGER NOT NULL, invertido NUMERIC"
-        " NOT NULL, payout NUMERIC NOT NULL, created_at TIMESTAMP WITH TIME"
-        " ZONE DEFAULT timezone('utc'::text, now()) NOT NULL )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS historial_transacciones ( id TEXT PRIMARY"
-        " KEY, titulo TEXT NOT NULL, tipo TEXT NOT NULL, monto NUMERIC NOT NULL,"
-        " detalle TEXT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT"
-        " timezone('utc'::text, now()) NOT NULL )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS eventos ( id SERIAL PRIMARY KEY, titulo"
-        " TEXT, categoria TEXT, estado TEXT DEFAULT 'activo', fecha_cierre TEXT,"
-        " ganador_id INTEGER )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS opciones_evento ( id SERIAL PRIMARY KEY,"
-        " evento_id INTEGER, nombre TEXT, pozo DOUBLE PRECISION DEFAULT 0.0 )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_logs ( id SERIAL PRIMARY KEY, ip"
-        " TEXT, accion TEXT, detalles TEXT, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_balance_audit ( id SERIAL PRIMARY"
-        " KEY, admin_user TEXT, target_user TEXT, monto_anterior DOUBLE"
-        " PRECISION, monto_nuevo DOUBLE PRECISION, razon TEXT, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_audit_logs ( id SERIAL PRIMARY KEY,"
-        " admin_id TEXT, action_type TEXT, target_id TEXT, ip_address TEXT,"
-        " user_agent TEXT, payload_snapshot TEXT, created_at TIMESTAMP WITH"
-        " TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_pending_actions ( id SERIAL PRIMARY"
-        " KEY, admin_creator TEXT, action_type TEXT, target_id TEXT, payload"
-        " TEXT, status TEXT DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME"
-        " ZONE DEFAULT timezone('utc'::text, now()) NOT NULL )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS anuncios_globales ( id SERIAL PRIMARY KEY,"
-        " titulo TEXT NOT NULL, contenido TEXT NOT NULL, tipo TEXT DEFAULT"
-        " 'info', activo BOOLEAN DEFAULT TRUE, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS pi_wallet_events ( id SERIAL PRIMARY KEY,"
-        " username TEXT, evento_tipo TEXT, monto DOUBLE PRECISION,"
-        " balance_total_plataforma DOUBLE PRECISION, txid TEXT, fecha TEXT )"
-    )
+    c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+                        username TEXT PRIMARY KEY,
+                        saldo_disponible DOUBLE PRECISION DEFAULT 0.0,
+                        is_frozen BOOLEAN DEFAULT FALSE
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        tipo TEXT,
+                        monto DOUBLE PRECISION,
+                        txid TEXT,
+                        fecha TEXT
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        titulo_evento TEXT,
+                        opcion_elegida TEXT,
+                        monto DOUBLE PRECISION,
+                        estado TEXT
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS ordenes_clob (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        evento_id INTEGER,
+                        opcion_id INTEGER,
+                        tipo_orden TEXT,
+                        accion TEXT,
+                        precio DOUBLE PRECISION,
+                        cantidad DOUBLE PRECISION,
+                        estado TEXT DEFAULT 'activa',
+                        fecha TEXT
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
+                        id TEXT PRIMARY KEY,
+                        market_id TEXT NOT NULL,
+                        handle TEXT NOT NULL,
+                        titulo TEXT NOT NULL,
+                        opcion TEXT NOT NULL,
+                        contratos INTEGER NOT NULL,
+                        invertido NUMERIC NOT NULL,
+                        payout NUMERIC NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
+                        id TEXT PRIMARY KEY,
+                        titulo TEXT NOT NULL,
+                        tipo TEXT NOT NULL,
+                        monto NUMERIC NOT NULL,
+                        detalle TEXT NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS eventos (
+                        id SERIAL PRIMARY KEY,
+                        titulo TEXT,
+                        categoria TEXT,
+                        estado TEXT DEFAULT 'activo',
+                        fecha_cierre TEXT,
+                        ganador_id INTEGER
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
+                        id SERIAL PRIMARY KEY,
+                        evento_id INTEGER,
+                        nombre TEXT,
+                        pozo DOUBLE PRECISION DEFAULT 0.0
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
+                        id SERIAL PRIMARY KEY,
+                        ip TEXT,
+                        accion TEXT,
+                        detalles TEXT,
+                        fecha TEXT
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
+                        id SERIAL PRIMARY KEY,
+                        admin_user TEXT,
+                        target_user TEXT,
+                        monto_anterior DOUBLE PRECISION,
+                        monto_nuevo DOUBLE PRECISION,
+                        razon TEXT,
+                        fecha TEXT
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
+                        id SERIAL PRIMARY KEY,
+                        admin_id TEXT,
+                        action_type TEXT,
+                        target_id TEXT,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        payload_snapshot TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
+                        id SERIAL PRIMARY KEY,
+                        admin_creator TEXT,
+                        action_type TEXT,
+                        target_id TEXT,
+                        payload TEXT,
+                        status TEXT DEFAULT 'PENDING',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+                    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
+                    id SERIAL PRIMARY KEY,
+                    titulo TEXT NOT NULL,
+                    contenido TEXT NOT NULL,
+                    tipo TEXT DEFAULT 'info',
+                    activo BOOLEAN DEFAULT TRUE,
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        evento_tipo TEXT,
+                        monto DOUBLE PRECISION,
+                        balance_total_plataforma DOUBLE PRECISION,
+                        txid TEXT,
+                        fecha TEXT
+                    )""")
   else:
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS usuarios ( username TEXT PRIMARY KEY,"
-        " saldo_disponible REAL DEFAULT 0.0, is_frozen INTEGER DEFAULT 0 )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS transacciones ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, username TEXT, tipo TEXT, monto REAL, txid TEXT, fecha"
-        " TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS historial_apuestas ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, username TEXT, titulo_evento TEXT, opcion_elegida TEXT,"
-        " monto REAL, estado TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS ordenes_clob ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, username TEXT, evento_id INTEGER, opcion_id INTEGER,"
-        " tipo_orden TEXT, accion TEXT, precio REAL, cantidad REAL, estado TEXT"
-        " DEFAULT 'activa', fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS posiciones_activas ( id TEXT PRIMARY KEY,"
-        " market_id TEXT NOT NULL, handle TEXT NOT NULL, titulo TEXT NOT NULL,"
-        " opcion TEXT NOT NULL, contratos INTEGER NOT NULL, invertido REAL NOT"
-        " NULL, payout REAL NOT NULL, created_at TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS historial_transacciones ( id TEXT PRIMARY"
-        " KEY, titulo TEXT NOT NULL, tipo TEXT NOT NULL, monto REAL NOT NULL,"
-        " detalle TEXT NOT NULL, created_at TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS eventos ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, titulo TEXT, categoria TEXT, estado TEXT DEFAULT"
-        " 'activo', fecha_cierre TEXT, ganador_id INTEGER )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS opciones_evento ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, evento_id INTEGER, nombre TEXT, pozo REAL DEFAULT 0.0 )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_logs ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, ip TEXT, accion TEXT, detalles TEXT, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_balance_audit ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, admin_user TEXT, target_user TEXT, monto_anterior REAL,"
-        " monto_nuevo REAL, razon TEXT, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_audit_logs ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, admin_id TEXT, action_type TEXT, target_id TEXT,"
-        " ip_address TEXT, user_agent TEXT, payload_snapshot TEXT, created_at"
-        " TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS admin_pending_actions ( id INTEGER PRIMARY"
-        " KEY AUTOINCREMENT, admin_creator TEXT, action_type TEXT, target_id"
-        " TEXT, payload TEXT, status TEXT DEFAULT 'PENDING', created_at TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS anuncios_globales ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, titulo TEXT NOT NULL, contenido TEXT NOT NULL, tipo"
-        " TEXT DEFAULT 'info', activo INTEGER DEFAULT 1, fecha TEXT )"
-    )
-    c.execute(
-        "CREATE TABLE IF NOT EXISTS pi_wallet_events ( id INTEGER PRIMARY KEY"
-        " AUTOINCREMENT, username TEXT, evento_tipo TEXT, monto REAL,"
-        " balance_total_plataforma REAL, txid TEXT, fecha TEXT )"
-    )
+    c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+                    username TEXT PRIMARY KEY, 
+                    saldo_disponible REAL DEFAULT 0.0, 
+                    is_frozen INTEGER DEFAULT 0
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    username TEXT, 
+                    tipo TEXT, 
+                    monto REAL, 
+                    txid TEXT, 
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    username TEXT, 
+                    titulo_evento TEXT, 
+                    opcion_elegida TEXT, 
+                    monto REAL, 
+                    estado TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS ordenes_clob (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    username TEXT, 
+                    evento_id INTEGER, 
+                    opcion_id INTEGER, 
+                    tipo_orden TEXT, 
+                    accion TEXT, 
+                    precio REAL, 
+                    cantidad REAL, 
+                    estado TEXT DEFAULT 'activa', 
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
+                    id TEXT PRIMARY KEY, 
+                    market_id TEXT NOT NULL, 
+                    handle TEXT NOT NULL, 
+                    titulo TEXT NOT NULL, 
+                    opcion TEXT NOT NULL, 
+                    contratos INTEGER NOT NULL, 
+                    invertido REAL NOT NULL, 
+                    payout REAL NOT NULL, 
+                    created_at TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
+                    id TEXT PRIMARY KEY, 
+                    titulo TEXT NOT NULL, 
+                    tipo TEXT NOT NULL, 
+                    monto REAL NOT NULL, 
+                    detalle TEXT NOT NULL, 
+                    created_at TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS eventos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    titulo TEXT, 
+                    categoria TEXT, 
+                    estado TEXT DEFAULT 'activo', 
+                    fecha_cierre TEXT, 
+                    ganador_id INTEGER
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    evento_id INTEGER, 
+                    nombre TEXT, 
+                    pozo REAL DEFAULT 0.0
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    ip TEXT, 
+                    accion TEXT, 
+                    detalles TEXT, 
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    admin_user TEXT, 
+                    target_user TEXT, 
+                    monto_anterior REAL, 
+                    monto_nuevo REAL, 
+                    razon TEXT, 
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_id TEXT,
+                    action_type TEXT,
+                    target_id TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    payload_snapshot TEXT,
+                    created_at TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_creator TEXT,
+                    action_type TEXT,
+                    target_id TEXT,
+                    payload TEXT,
+                    status TEXT DEFAULT 'PENDING',
+                    created_at TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    titulo TEXT NOT NULL,
+                    contenido TEXT NOT NULL,
+                    tipo TEXT DEFAULT 'info',
+                    activo INTEGER DEFAULT 1,
+                    fecha TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT,
+                    evento_tipo TEXT,
+                    monto REAL,
+                    balance_total_plataforma REAL,
+                    txid TEXT,
+                    fecha TEXT
+                )""")
+
   conn.commit()
 
   # REQUISITO 2: Asegurar que solo exista la predicción de la Mainnet de Pi abierta inicialmente si la tabla está vacía
   c.execute("SELECT COUNT(*) as total FROM eventos")
   row = c.fetchone()
   total_evs = row["total"] if row else 0
+
   if total_evs == 0:
     eventos_iniciales = [
         {
@@ -296,6 +390,7 @@ def inicializar_bd():
               (ev_id, opt_nombre, opt_pozo),
           )
     conn.commit()
+
   conn.close()
 
 
@@ -377,7 +472,9 @@ def agregar_cabeceras_seguridad(response):
       "max-age=31536000; includeSubDomains"
   )
   response.headers["Access-Control-Allow-Origin"] = "*"
-  response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+  response.headers["Access-Control-Allow-Headers"] = (
+      "Content-Type,Authorization"
+  )
   response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
   response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
   response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
@@ -386,44 +483,50 @@ def agregar_cabeceras_seguridad(response):
 
 @app.route("/")
 def home():
+  # Se incluye el script inyectado de forma segura al final o integrado en el layout de index.html
   return render_template("index.html")
 
 
+# Se añade el bloque JavaScript incrustado de manera limpia para soporte directo o inyección si se maneja template en linea
 @app.context_processor
 def insertar_script_modal():
-  script_modal_actualizacion = """ 
-    <script> 
-    document.addEventListener("DOMContentLoaded", () => { 
-        const modal = document.getElementById('modalCrearPrediccion'); 
-        const btnAbrir = document.getElementById('btnAbrirModalCrear'); 
-        const btnCerrar = document.getElementById('btnCerrarModal'); 
-        const botonesOpcion = document.querySelectorAll('.btn-opcion'); 
-        const inputOpcion = document.getElementById('opcionSeleccionada'); 
-        if (btnAbrir && modal) { 
-            btnAbrir.onclick = () => modal.style.display = 'flex'; 
-        } 
-        if (btnCerrar && modal) { 
-            btnCerrar.onclick = () => modal.style.display = 'none'; 
-        } 
-        window.onclick = (e) => { 
-            if (modal && e.target == modal) modal.style.display = 'none'; 
-        } 
-        if (botonesOpcion.length > 0 && inputOpcion) { 
-            botonesOpcion.forEach(btn => { 
-                btn.onclick = (e) => { 
-                    botonesOpcion.forEach(b => b.style.opacity = '0.5'); 
-                    e.target.style.opacity = '1'; 
-                    inputOpcion.value = e.target.getAttribute('data-opcion'); 
-                } 
-            }); 
-            const defaultSi = document.querySelector('[data-opcion="SI"]'); 
-            const defaultNo = document.querySelector('[data-opcion="NO"]'); 
-            if (defaultSi) defaultSi.style.opacity = '1'; 
-            if (defaultNo) defaultNo.style.opacity = '0.5'; 
-        } 
-    }); 
-    </script> 
-    """
+  script_modal_actualizacion = """
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById('modalCrearPrediccion');
+    const btnAbrir = document.getElementById('btnAbrirModalCrear');
+    const btnCerrar = document.getElementById('btnCerrarModal');
+    const botonesOpcion = document.querySelectorAll('.btn-opcion');
+    const inputOpcion = document.getElementById('opcionSeleccionada');
+
+    if (btnAbrir && modal) {
+      btnAbrir.onclick = () => modal.style.display = 'flex';
+    }
+    
+    if (btnCerrar && modal) {
+      btnCerrar.onclick = () => modal.style.display = 'none';
+    }
+    
+    window.onclick = (e) => { 
+      if (modal && e.target == modal) modal.style.display = 'none'; 
+    }
+
+    if (botonesOpcion.length > 0 && inputOpcion) {
+      botonesOpcion.forEach(btn => {
+        btn.onclick = (e) => {
+          botonesOpcion.forEach(b => b.style.opacity = '0.5');
+          e.target.style.opacity = '1';
+          inputOpcion.value = e.target.getAttribute('data-opcion');
+        }
+      });
+      const defaultSi = document.querySelector('[data-opcion="SI"]');
+      const defaultNo = document.querySelector('[data-opcion="NO"]');
+      if (defaultSi) defaultSi.style.opacity = '1';
+      if (defaultNo) defaultNo.style.opacity = '0.5';
+    }
+  });
+</script>
+"""
   return dict(script_modal_actualizacion=script_modal_actualizacion)
 
 
@@ -432,8 +535,10 @@ def obtener_saldo(username):
   limite = int(request.args.get("limit", 20))
   offset = int(request.args.get("offset", 0))
   filtro_tipo = request.args.get("tipo", "").strip()
+
   conn = obtener_conexion()
   c = conn.cursor()
+
   if DATABASE_URL:
     c.execute(
         "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s",
@@ -445,7 +550,9 @@ def obtener_saldo(username):
         (username,),
     )
   row = c.fetchone()
+
   if not row:
+    # REQUISITO 1: Únicamente @jaimetetio queda con saldo inicial de 0.1 Pi. Los demás en 0.0
     saldo_inicial = (
         0.10 if username.lower() in ["@jaimetetio", "jaimetetio"] else 0.0
     )
@@ -524,8 +631,10 @@ def obtener_saldo(username):
           " ? OFFSET ?",
           (username, limite, offset),
       )
+
   transacciones = [dict(row) for row in c.fetchall()]
   conn.close()
+
   return jsonify({
       "success": True,
       "saldo_disponible": saldo,
@@ -541,6 +650,7 @@ def obtener_eventos():
   c = conn.cursor()
   c.execute("SELECT * FROM eventos ORDER BY id ASC")
   eventos_db = c.fetchall()
+
   lista_final = []
   for ev in eventos_db:
     ev_dict = dict(ev)
@@ -561,201 +671,6 @@ def obtener_eventos():
   return jsonify(lista_final)
 
 
-# ================= NUEVO APARTADO PARA PIONEROS (CREAR PREDICCIÓN CON APUESTA INICIAL MÍNIMA DE 1 PI) =================
-@app.route("/api/pioneros/crear-prediccion", methods=["POST"])
-def pioneros_crear_prediccion():
-  if not check_rate_limit(limit=10, window=60):
-    return jsonify({
-        "success": False,
-        "error": (
-            "Demasiadas solicitudes. Por favor, espera un momento para volver"
-            " a intentar."
-        ),
-    }), 429
-
-  data = request.json or {}
-  username = data.get("username")
-  titulo = data.get("titulo")
-  categoria = data.get("categoria", "General")
-  fecha_cierre = data.get("fecha_cierre", datetime.now().strftime("%Y-%m-%d"))
-  opciones = data.get("opciones", [])  # Lista de nombres de opciones, ej: ["Sí", "No"]
-  opcion_elegida = data.get("opcion_elegida")  # Opción que elige para la liquidez
-  
-  try:
-    liquidez_inicial = float(data.get("liquidez_inicial", 0))
-  except (ValueError, TypeError):
-    return jsonify({"success": False, "error": "Liquidez inicial inválida"}), 400
-
-  # REQUISITO: Validar que la apuesta/liquidez inicial sea estrictamente de al menos 1 Pi
-  if liquidez_inicial < MONTO_MINIMO_CREACION:
-    return jsonify({
-        "success": False,
-        "error": f"La apuesta inicial obligatoria debe ser de al menos {MONTO_MINIMO_CREACION} Pi."
-    }), 400
-
-  if not username:
-    return (
-        jsonify({"success": False, "error": "Se requiere autenticación"}),
-        400,
-    )
-  if not titulo or not opciones or len(opciones) < 2:
-    return (
-        jsonify({
-            "success": False,
-            "error": "Título y al menos 2 opciones son obligatorios",
-        }),
-        400,
-    )
-  if not opcion_elegida:
-    return (
-        jsonify({
-            "success": False,
-            "error": "Debe indicar la opción para la apuesta inicial.",
-        }),
-        400,
-    )
-
-  conn = obtener_conexion()
-  c = conn.cursor()
-  try:
-    # Validar saldo del pionero
-    if DATABASE_URL:
-      c.execute(
-          "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s"
-          " FOR UPDATE",
-          (username,),
-      )
-    else:
-      c.execute(
-          "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
-          (username,),
-      )
-    row = c.fetchone()
-
-    if not row or row.get("is_frozen"):
-      conn.rollback()
-      conn.close()
-      return jsonify({
-          "success": False,
-          "error": "Cuenta suspendida o no encontrada.",
-      }), 403
-
-    saldo_actual = row["saldo_disponible"]
-    if saldo_actual < liquidez_inicial:
-      conn.rollback()
-      conn.close()
-      return jsonify({
-          "success": False,
-          "error": "Saldo insuficiente para cubrir la apuesta inicial de 1 Pi",
-      }), 400
-
-    # Descontar saldo (EL PIONERO NO PAGA COMISIÓN POR CREAR)
-    nuevo_saldo = saldo_actual - liquidez_inicial
-    if DATABASE_URL:
-      c.execute(
-          "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-          (nuevo_saldo, username),
-      )
-    else:
-      c.execute(
-          "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-          (nuevo_saldo, username),
-      )
-
-    # Crear el evento / mercado
-    if DATABASE_URL:
-      c.execute(
-          "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES"
-          " (%s, %s, 'activo', %s) RETURNING id",
-          (titulo, categoria, fecha_cierre),
-      )
-      ev_id = c.fetchone()["id"]
-    else:
-      c.execute(
-          "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES"
-          " (?, ?, 'activo', ?)",
-          (titulo, categoria, fecha_cierre),
-      )
-      ev_id = c.lastrowid
-
-    # Registrar opciones y asignar la liquidez inicial a la opción elegida por el pionero
-    opcion_id_elegida = None
-    for opt in opciones:
-      pozo_inicial = (
-          liquidez_inicial if str(opt).strip() == str(opcion_elegida).strip() else 0.0
-      )
-      if DATABASE_URL:
-        c.execute(
-            "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (%s,"
-            " %s, %s) RETURNING id",
-            (ev_id, opt, pozo_inicial),
-        )
-        res_opt = c.fetchone()
-        if str(opt).strip() == str(opcion_elegida).strip():
-          opcion_id_elegida = res_opt["id"]
-      else:
-        c.execute(
-            "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (?,"
-            " ?, ?)",
-            (ev_id, opt, pozo_inicial),
-        )
-        last_op_id = c.lastrowid
-        if str(opt).strip() == str(opcion_elegida).strip():
-          opcion_id_elegida = last_op_id
-
-    # Registrar en el historial de apuestas del pionero su aportación inicial (Sin comisión)
-    fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    if DATABASE_URL:
-      c.execute(
-          "INSERT INTO historial_apuestas (username, titulo_evento,"
-          " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-          (username, titulo, opcion_elegida, liquidez_inicial),
-      )
-      c.execute(
-          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-          " VALUES (%s, %s, %s, %s, %s)",
-          (
-              username,
-              "Creación de Mercado (Apuesta Inicial de 1 Pi)",
-              -liquidez_inicial,
-              f"PIONEER_CREATE_{ev_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-              fecha_str,
-          ),
-      )
-    else:
-      c.execute(
-          "INSERT INTO historial_apuestas (username, titulo_evento,"
-          " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
-          (username, titulo, opcion_elegida, liquidez_inicial),
-      )
-      c.execute(
-          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-          " VALUES (?, ?, ?, ?, ?, ?)",
-          (
-              username,
-              "Creación de Mercado (Apuesta Inicial de 1 Pi)",
-              -liquidez_inicial,
-              f"PIONEER_CREATE_{ev_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-              fecha_str,
-          ),
-      )
-
-    conn.commit()
-    return jsonify({
-        "success": True,
-        "evento_id": ev_id,
-        "nuevo_saldo": nuevo_saldo,
-        "mensaje": (
-            "¡Predicción creada con éxito con la apuesta inicial de 1 Pi!"
-        ),
-    })
-  except Exception as e:
-    conn.rollback()
-    return jsonify({"success": False, "error": str(e)}), 500
-  finally:
-    conn.close()
-
-
 @app.route("/api/participar", methods=["POST"])
 def participar():
   if not check_rate_limit(limit=25, window=60):
@@ -763,24 +678,23 @@ def participar():
         "success": False,
         "error": "Demasiadas peticiones. Por favor, espera un momento.",
     }), 429
+
   data = request.json or {}
   username = data.get("username", "Invitado")
   evento_id = data.get("evento_id")
   opcion_id = data.get("opcion_id")
+
   try:
-    monto_bruto = float(data.get("monto", 0))
+    monto = float(data.get("monto", 0))
   except (ValueError, TypeError):
     return jsonify({"success": False, "error": "Monto inválido"}), 400
 
-  if monto_bruto <= 0:
+  if monto <= 0:
     return jsonify({"success": False, "error": "El monto debe ser mayor a 0"}), 400
-
-  # REQUISITO: Los Takers que apuesten pagan una comisión del 2%
-  comision = monto_bruto * 0.02
-  monto_neto = monto_bruto - comision
 
   conn = obtener_conexion()
   c = conn.cursor()
+
   try:
     if DATABASE_URL:
       c.execute(
@@ -793,6 +707,7 @@ def participar():
           "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
           (username,),
       )
+
     row = c.fetchone()
     if row and row.get("is_frozen"):
       conn.rollback()
@@ -803,7 +718,7 @@ def participar():
       }), 403
 
     saldo_actual = row["saldo_disponible"] if row else 0
-    if not row or saldo_actual < monto_bruto:
+    if not row or saldo_actual < monto:
       conn.rollback()
       conn.close()
       return jsonify({"success": False, "error": "Saldo insuficiente"})
@@ -813,6 +728,7 @@ def participar():
     else:
       c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
     evento = c.fetchone()
+
     if not evento or evento["estado"] != "activo":
       conn.rollback()
       conn.close()
@@ -829,38 +745,37 @@ def participar():
           (opcion_id, evento_id),
       )
     opcion = c.fetchone()
+
     if not opcion:
       conn.rollback()
       conn.close()
       return jsonify({"success": False, "error": "Opción inválida"})
 
-    nuevo_saldo = saldo_actual - monto_bruto
-    fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    nuevo_saldo = saldo_actual - monto
 
     if DATABASE_URL:
       c.execute(
           "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
           (nuevo_saldo, username),
       )
-      # Se suma únicamente el monto neto (descontando el 2% de comisión) al pozo
       c.execute(
           "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
-          (monto_neto, opcion_id),
+          (monto, opcion_id),
       )
       c.execute(
           "INSERT INTO historial_apuestas (username, titulo_evento,"
           " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-          (username, evento["titulo"], opcion["nombre"], monto_neto, "Activo"),
+          (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (%s, %s, %s, %s, %s)",
           (
               username,
-              "Apuesta (con 2% comisión)",
-              -monto_bruto,
+              "Apuesta",
+              -monto,
               f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-              fecha_str,
+              datetime.now().strftime("%Y-%m-%d %H:%M"),
           ),
       )
     else:
@@ -870,22 +785,22 @@ def participar():
       )
       c.execute(
           "UPDATE opciones_evento SET pozo = pozo + ? WHERE id = ?",
-          (monto_neto, opcion_id),
+          (monto, opcion_id),
       )
       c.execute(
           "INSERT INTO historial_apuestas (username, titulo_evento,"
           " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-          (username, evento["titulo"], opcion["nombre"], monto_neto, "Activo"),
+          (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?, ?)",
           (
               username,
-              "Apuesta (con 2% comisión)",
-              -monto_bruto,
+              "Apuesta",
+              -monto,
               f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-              fecha_str,
+              datetime.now().strftime("%Y-%m-%d %H:%M"),
           ),
       )
 
@@ -893,11 +808,7 @@ def participar():
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo,
-        "comision_aplicada": comision,
-        "mensaje": (
-            "¡Apuesta registrada con éxito! (Comisión de plataforma del 2%"
-            " aplicada)"
-        ),
+        "mensaje": "¡Apuesta registrada con éxito!",
     })
   except Exception as e:
     conn.rollback()
@@ -949,6 +860,7 @@ def actualizar_ordenes_dinamico():
           "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY RANDOM()"
           " LIMIT 1"
       )
+
     orden_azar = c.fetchone()
     if orden_azar:
       variacion = round(random.uniform(-0.01, 0.01), 3)
@@ -992,14 +904,12 @@ def crear_orden_clob():
   opcion_id = data.get("opcion_id")
   tipo_orden = data.get("tipo_orden", "limit")
   accion = data.get("accion")
+
   try:
     precio = float(data.get("precio", 0))
     cantidad = float(data.get("cantidad", 0))
   except (ValueError, TypeError):
-    return (
-        jsonify({"success": False, "error": "Valores numéricos inválidos"}),
-        400,
-    )
+    return jsonify({"success": False, "error": "Valores numéricos inválidos"}), 400
 
   if precio <= 0 or cantidad <= 0 or accion not in ["comprar", "vender"]:
     return jsonify({"success": False, "error": "Parámetros de orden incorrectos"}), 400
@@ -1019,6 +929,7 @@ def crear_orden_clob():
           (username,),
       )
     row_user = c.fetchone()
+
     if row_user and row_user.get("is_frozen"):
       conn.rollback()
       conn.close()
@@ -1081,11 +992,14 @@ def crear_orden_clob():
             (evento_id, opcion_id, precio),
         )
       contra_ordenes = c.fetchall()
+
       for contra in contra_ordenes:
         if cantidad_restante <= 0:
           break
+
         match_cant = min(cantidad_restante, contra["cantidad"])
         match_precio = contra["precio"]
+
         diferencia_precio = (precio - match_precio) * match_cant
         if diferencia_precio > 0:
           nuevo_saldo_creador += diferencia_precio
@@ -1165,7 +1079,9 @@ def crear_orden_clob():
               "UPDATE ordenes_clob SET cantidad = ?, estado = ? WHERE id = ?",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
+
         cantidad_restante -= match_cant
+
     else:
       if DATABASE_URL:
         c.execute(
@@ -1182,12 +1098,16 @@ def crear_orden_clob():
             (evento_id, opcion_id, precio),
         )
       contra_ordenes = c.fetchall()
+
       for contra in contra_ordenes:
         if cantidad_restante <= 0:
           break
+
         match_cant = min(cantidad_restante, contra["cantidad"])
         match_precio = contra["precio"]
+
         monto_venta = match_precio * match_cant
+
         nuevo_saldo_creador += monto_venta
         if DATABASE_URL:
           c.execute(
@@ -1239,6 +1159,7 @@ def crear_orden_clob():
               "UPDATE ordenes_clob SET cantidad = ?, estado = ? WHERE id = ?",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
+
         cantidad_restante -= match_cant
 
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
@@ -1355,6 +1276,7 @@ def aprobar_pago():
   payment_id = data.get("paymentId")
   if not PI_API_KEY:
     return jsonify({"success": False, "error": "PI_API_KEY no configurada"}), 500
+
   headers = {"Authorization": f"Key {PI_API_KEY}"}
   try:
     response = requests.post(
@@ -1365,7 +1287,10 @@ def aprobar_pago():
     if response.status_code == 200:
       return jsonify({"success": True})
   except requests.exceptions.RequestException:
-    return jsonify({"success": False, "error": "Error de red con Pi Network"}), 504
+    return jsonify(
+        {"success": False, "error": "Error de red con Pi Network"}
+    ), 504
+
   return jsonify({"success": False, "error": "No se pudo aprobar el pago"}), 400
 
 
@@ -1377,8 +1302,10 @@ def completar_pago():
     monto = float(data.get("monto", 0))
   except (ValueError, TypeError):
     return jsonify({"success": False, "error": "Monto inválido"}), 400
+
   payment_id = data.get("paymentId")
   txid = data.get("txid")
+
   if PI_API_KEY:
     headers = {"Authorization": f"Key {PI_API_KEY}"}
     try:
@@ -1394,13 +1321,13 @@ def completar_pago():
             "error": "Error al completar el pago en Pi",
         }), 400
     except requests.exceptions.RequestException:
-      return (
-          jsonify({"success": False, "error": "Error de red con Pi Network"}),
-          504,
-      )
+      return jsonify(
+          {"success": False, "error": "Error de red con Pi Network"}
+      ), 504
 
   conn = obtener_conexion()
   c = conn.cursor()
+
   try:
     if DATABASE_URL:
       c.execute(
@@ -1414,6 +1341,7 @@ def completar_pago():
           (username,),
       )
     row = c.fetchone()
+
     if row and row.get("is_frozen"):
       conn.rollback()
       conn.close()
@@ -1456,6 +1384,14 @@ def completar_pago():
           " VALUES (%s, %s, %s, %s, %s)",
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
+    else:
+      c.execute(
+          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
+          " VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
+      )
+
+    if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = (
@@ -1475,11 +1411,6 @@ def completar_pago():
           ),
       )
     else:
-      c.execute(
-          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-          " VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
-      )
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = (
@@ -1519,24 +1450,27 @@ def solicitar_retiro():
         "success": False,
         "error": "Demasiadas peticiones de retiro. Intente más tarde.",
     }), 429
+
   data = request.json or {}
   username = data.get("username")
   try:
     monto = float(data.get("monto", 0))
   except (ValueError, TypeError):
     return jsonify({"success": False, "error": "Monto inválido"}), 400
+
   wallet_destino = str(data.get("wallet_address", "")).strip()
 
   if monto < 1.0:
-    return (
-        jsonify({"success": False, "error": "El monto mínimo de retiro es de 1.0 Pi"}),
-        400,
-    )
+    return jsonify(
+        {"success": False, "error": "El monto mínimo de retiro es de 1.0 Pi"}
+    ), 400
+
   if not wallet_destino or len(wallet_destino) < 10:
     return jsonify({
         "success": False,
         "error": "La dirección de la billetera de destino no es válida",
     }), 400
+
   if not PI_API_KEY:
     return jsonify({
         "success": False,
@@ -1545,6 +1479,7 @@ def solicitar_retiro():
 
   conn = obtener_conexion()
   c = conn.cursor()
+
   try:
     if DATABASE_URL:
       c.execute(
@@ -1558,6 +1493,7 @@ def solicitar_retiro():
           (username,),
       )
     row = c.fetchone()
+
     if row and row.get("is_frozen"):
       conn.rollback()
       conn.close()
@@ -1576,6 +1512,7 @@ def solicitar_retiro():
 
     saldo_actual = row["saldo_disponible"]
     nuevo_saldo = saldo_actual - monto
+
     if DATABASE_URL:
       c.execute(
           "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -1597,12 +1534,14 @@ def solicitar_retiro():
         "memo": f"Retiro automático desde P2PPredict hacia {wallet_destino}",
         "metadata": {"wallet": wallet_destino},
     }
+
     pi_response = requests.post(
         "https://api.minepi.com/v2/payments",
         json=payload,
         headers=headers,
         timeout=10,
     )
+
     if pi_response.status_code not in [200, 201]:
       conn.rollback()
       conn.close()
@@ -1623,6 +1562,14 @@ def solicitar_retiro():
           " VALUES (%s, %s, %s, %s, %s)",
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
+    else:
+      c.execute(
+          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
+          " VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "Retiro Pi Blockchain", -monto, txid, fecha),
+      )
+
+    if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = (
@@ -1632,14 +1579,16 @@ def solicitar_retiro():
           "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
           " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
           " %s)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha),
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
     else:
-      c.execute(
-          "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-          " VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "Retiro Pi Blockchain", -monto, txid, fecha),
-      )
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = (
@@ -1648,7 +1597,14 @@ def solicitar_retiro():
       c.execute(
           "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
           " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha),
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
 
     conn.commit()
@@ -1685,6 +1641,7 @@ def obtener_balance_plataforma():
     else:
       c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
     eventos = [dict(r) for r in c.fetchall()]
+
     conn.close()
     return jsonify({
         "success": True,
@@ -1707,15 +1664,20 @@ def admin_login():
         "success": False,
         "error": "Demasiados intentos fallidos. Inténtelo más tarde.",
     }), 429
+
   data = request.json or {}
   password = data.get("password", "")
+
   if check_password_hash(ADMIN_PASSWORD_HASH, password):
     session["is_admin"] = True
     registrar_log_admin(
         "LOGIN_EXITOSO", "Administrador inició sesión correctamente."
     )
     return jsonify({"success": True, "message": "Acceso autorizado"})
-  registrar_log_admin("LOGIN_FALLIDO", "Intento de acceso con contraseña incorrecta.")
+
+  registrar_log_admin(
+      "LOGIN_FALLIDO", "Intento de acceso con contraseña incorrecta."
+  )
   return jsonify({"success": False, "error": "Credenciales inválidas"}), 401
 
 
@@ -1749,8 +1711,10 @@ def obtener_ranking():
 def cobrar_prediccion(apuesta_id):
   data = request.json or {}
   username = data.get("username")
+
   if not username:
     return jsonify({"success": False, "error": "Usuario no especificado"}), 400
+
   conn = obtener_conexion()
   c = conn.cursor()
   try:
@@ -1777,11 +1741,13 @@ def cobrar_prediccion(apuesta_id):
           "SELECT * FROM historial_apuestas WHERE id = ? AND username = ?",
           (apuesta_id, username),
       )
+
     apuesta = c.fetchone()
     if not apuesta:
       conn.rollback()
       conn.close()
       return jsonify({"success": False, "error": "Apuesta no encontrada"}), 404
+
     if apuesta["estado"] != "Ganada":
       conn.rollback()
       conn.close()
@@ -1793,6 +1759,7 @@ def cobrar_prediccion(apuesta_id):
       }), 400
 
     premio = apuesta["monto"] * 2.0
+
     if DATABASE_URL:
       c.execute(
           "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
@@ -1803,6 +1770,7 @@ def cobrar_prediccion(apuesta_id):
           "SELECT saldo_disponible FROM usuarios WHERE username = ?",
           (username,),
       )
+
     u_row = c.fetchone()
     if not u_row:
       conn.rollback()
@@ -1810,6 +1778,7 @@ def cobrar_prediccion(apuesta_id):
       return jsonify({"success": False, "error": "Usuario no existe"}), 400
 
     nuevo_saldo = u_row["saldo_disponible"] + premio
+
     if DATABASE_URL:
       c.execute(
           "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -1872,11 +1841,13 @@ def cobrar_prediccion(apuesta_id):
 def admin_crear_evento():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   data = request.json or {}
   titulo = data.get("titulo")
   categoria = data.get("categoria", "General")
   fecha_cierre = data.get("fecha_cierre", datetime.now().strftime("%Y-%m-%d"))
   opciones = data.get("opciones", [])
+
   if not titulo or not opciones or len(opciones) < 2:
     return jsonify({
         "success": False,
@@ -1914,7 +1885,9 @@ def admin_crear_evento():
         )
 
     conn.commit()
-    registrar_log_admin("CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}")
+    registrar_log_admin(
+        "CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}"
+    )
     registrar_audit_log(
         "Admin",
         "CREAR_EVENTO",
@@ -1933,9 +1906,11 @@ def admin_crear_evento():
 def admin_cerrar_evento():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   data = request.json or {}
   evento_id = data.get("evento_id")
   ganador_id = data.get("ganador_id")
+
   if not evento_id or not ganador_id:
     return jsonify({"success": False, "error": "Faltan parámetros de cierre"}), 400
 
@@ -1947,16 +1922,21 @@ def admin_cerrar_evento():
     else:
       c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
     evento = c.fetchone()
+
     if not evento or evento["estado"] == "cerrado":
       conn.rollback()
       conn.close()
-      return jsonify({"success": False, "error": "El evento no existe o ya está cerrado"})
+      return jsonify({
+          "success": False,
+          "error": "El evento no existe o ya está cerrado",
+      })
 
     if DATABASE_URL:
       c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (ganador_id,))
     else:
       c.execute("SELECT * FROM opciones_evento WHERE id = ?", (ganador_id,))
     opcion_ganadora = c.fetchone()
+
     if not opcion_ganadora:
       conn.rollback()
       conn.close()
@@ -1987,9 +1967,11 @@ def admin_cerrar_evento():
       )
 
     apuestas_ganadoras = c.fetchall()
+
     for ap in apuestas_ganadoras:
       usr = ap["username"]
       premio = ap["monto"] * 2.0
+
       if DATABASE_URL:
         c.execute(
             "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR"
@@ -2000,6 +1982,7 @@ def admin_cerrar_evento():
         c.execute(
             "SELECT saldo_disponible FROM usuarios WHERE username = ?", (usr,)
         )
+
       u_row = c.fetchone()
       if u_row:
         nuevo_saldo = u_row["saldo_disponible"] + premio
@@ -2090,8 +2073,10 @@ def admin_cerrar_evento():
 def admin_toggle_freeze():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   data = request.json or {}
   username = data.get("username")
+
   if not username:
     return jsonify({"success": False, "error": "Usuario no especificado"}), 400
 
@@ -2103,11 +2088,13 @@ def admin_toggle_freeze():
     else:
       c.execute("SELECT is_frozen FROM usuarios WHERE username = ?", (username,))
     row = c.fetchone()
+
     if not row:
       conn.close()
       return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
 
     nuevo_estado = not bool(row["is_frozen"])
+
     if DATABASE_URL:
       c.execute(
           "UPDATE usuarios SET is_frozen = %s WHERE username = %s",
@@ -2118,6 +2105,7 @@ def admin_toggle_freeze():
           "UPDATE usuarios SET is_frozen = ? WHERE username = ?",
           (1 if nuevo_estado else 0, username),
       )
+
     conn.commit()
     accion_desc = "Congelado" if nuevo_estado else "Descongelado"
     registrar_log_admin(
@@ -2142,19 +2130,25 @@ def admin_toggle_freeze():
 def admin_ajustar_balance():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   data = request.json or {}
   username = data.get("username")
   razon = str(data.get("razon", "")).strip()
+
   try:
     monto_cambio = float(data.get("monto", 0))
   except (ValueError, TypeError):
     return jsonify({"success": False, "error": "Monto inválido"}), 400
+
   if not username:
     return jsonify({"success": False, "error": "Usuario no especificado"}), 400
+
   if not razon:
     return jsonify({
         "success": False,
-        "error": "Es obligatorio dejar una nota o razón para el ajuste de balance",
+        "error": (
+            "Es obligatorio dejar una nota o razón para el ajuste de balance"
+        ),
     }), 400
 
   conn = obtener_conexion()
@@ -2171,12 +2165,14 @@ def admin_ajustar_balance():
           (username,),
       )
     row = c.fetchone()
+
     if not row:
       conn.close()
       return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
 
     monto_anterior = row["saldo_disponible"]
     monto_nuevo = monto_anterior + monto_cambio
+
     if monto_nuevo < 0:
       conn.close()
       return jsonify({
@@ -2295,7 +2291,9 @@ def admin_ajustar_balance():
     return jsonify({
         "success": True,
         "saldo_disponible": monto_nuevo,
-        "mensaje": f"Balance ajustado correctamente. Nuevo saldo: {monto_nuevo}",
+        "mensaje": (
+            f"Balance ajustado correctamente. Nuevo saldo: {monto_nuevo}"
+        ),
     })
   except Exception as e:
     conn.rollback()
@@ -2307,6 +2305,7 @@ def admin_ajustar_balance():
 def admin_obtener_usuario_detalle(username):
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   conn = obtener_conexion()
   c = conn.cursor()
   try:
@@ -2323,6 +2322,7 @@ def admin_obtener_usuario_detalle(username):
           (username,),
       )
     user_row = c.fetchone()
+
     if not user_row:
       conn.close()
       return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
@@ -2373,21 +2373,28 @@ def admin_obtener_usuario_detalle(username):
 def admin_anuncios():
   conn = obtener_conexion()
   c = conn.cursor()
+
   if request.method == "POST":
     if not session.get("is_admin"):
       conn.close()
       return jsonify({"success": False, "error": "No autorizado"}), 401
+
     data = request.json or {}
     titulo = data.get("titulo")
     contenido = data.get("contenido")
     tipo = data.get("tipo", "info")
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     if not titulo or not contenido:
       conn.close()
-      return jsonify({
-          "success": False,
-          "error": "Título y contenido son obligatorios",
-      }), 400
+      return (
+          jsonify({
+              "success": False,
+              "error": "Título y contenido son obligatorios",
+          }),
+          400,
+      )
+
     try:
       if DATABASE_URL:
         c.execute(
@@ -2402,7 +2409,9 @@ def admin_anuncios():
             (titulo, contenido, tipo, fecha),
         )
       conn.commit()
-      registrar_log_admin("CREAR_ANUNCIO", f"Publicado anuncio global: {titulo}")
+      registrar_log_admin(
+          "CREAR_ANUNCIO", f"Publicado anuncio global: {titulo}"
+      )
       conn.close()
       return jsonify({"success": True, "mensaje": "Anuncio publicado con éxito"})
     except Exception as e:
@@ -2424,17 +2433,23 @@ def admin_anuncios():
 def admin_metricas_temporales():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
+
   conn = obtener_conexion()
   c = conn.cursor()
   try:
     c.execute("SELECT COUNT(*) as total FROM usuarios")
     total_usuarios = c.fetchone()["total"]
-    c.execute("SELECT SUM(saldo_disponible) as circulante_total FROM usuarios")
+
+    c.execute(
+        "SELECT SUM(saldo_disponible) as circulante_total FROM usuarios"
+    )
     res_circulante = c.fetchone()
     circulante_total = res_circulante["circulante_total"] or 0.0
+
     c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM ordenes_clob")
     res_vol = c.fetchone()
     volumen_clob = res_vol["volumen_clob"] or 0.0
+
     conn.close()
     return jsonify({
         "success": True,
@@ -2466,6 +2481,7 @@ def obtener_posiciones_activas(username):
           " 'Activo' ORDER BY id DESC",
           (username,),
       )
+
     posiciones = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify({"success": True, "posiciones_activas": posiciones})
@@ -2475,4 +2491,6 @@ def obtener_posiciones_activas(username):
 
 
 if __name__ == "__main__":
-  app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+  app.run(
+      host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
+  )
