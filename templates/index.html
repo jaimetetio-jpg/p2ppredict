@@ -1,3 +1,4 @@
+God Bless Us
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -720,7 +721,17 @@
                 <div>Payout potencial (1 Pi c/u): <span id="modal-payout" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div>
             </div>
 
-            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
+            <button id="btn-confirmar-orden" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
+        </div>
+    </div>
+
+    <!-- NUEVO MODAL DE ÉXITO: APUESTA REALIZADA -->
+    <div id="modal-exito-apuesta" class="modal-overlay">
+        <div class="modal-card" style="text-align: center; padding: 24px 18px;">
+            <div style="font-size: 3rem; margin-bottom: 8px;">🎉</div>
+            <h3 style="font-size: 1.2rem; margin: 0 0 10px 0; color: #4ade80;">¡Apuesta realizada con éxito!</h3>
+            <p id="texto-exito-detalle" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">Tu orden ha sido registrada correctamente en el Order Book.</p>
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="cerrarModalExito()">Aceptar</button>
         </div>
     </div>
 
@@ -1294,6 +1305,12 @@
             }
             let precioAskActual = preciosMercados[idMercado][opcion];
             ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual };
+            
+            // Rehabilitar botón de confirmar al abrir
+            const btnConfirmar = document.getElementById('btn-confirmar-orden');
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerText = "Confirmar Orden al Order Book";
+
             document.getElementById('modal-title').innerText = `Comprar Contratos [${opcion}] (Comisión 2%)`;
             document.getElementById('modal-market-text').innerText = tituloMercado;
             document.getElementById('modal-amount').value = 1;
@@ -1303,6 +1320,10 @@
 
         function cerrarTerminalTrading() {
             document.getElementById('trading-modal').style.display = 'none';
+        }
+
+        function cerrarModalExito() {
+            document.getElementById('modal-exito-apuesta').style.display = 'none';
         }
 
         function calcularModalTotal() {
@@ -1321,6 +1342,12 @@
         }
 
         function confirmarCompraRapida() {
+            const btnConfirmar = document.getElementById('btn-confirmar-orden');
+            
+            // 1. Bloquear botón inmediatamente para evitar clics dobles (debounce / loading state)
+            btnConfirmar.disabled = true;
+            btnConfirmar.innerText = "Procesando...";
+
             const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
             const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
             const totalReq = ordenActivaModal.totalConComision;
@@ -1333,6 +1360,8 @@
 
             if (usuarioActual.balance < totalReq) {
                 alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
+                btnConfirmar.disabled = false;
+                btnConfirmar.innerText = "Confirmar Orden al Order Book";
                 return;
             }
 
@@ -1375,8 +1404,13 @@
             actualizarPreciosVisuales();
             renderizarPosiciones();
             renderizarOrderBookVisible();
+            
+            // 2. Cerrar la terminal de trading de inmediato
             cerrarTerminalTrading();
-            alert("¡Orden ejecutada con comisión del 2% y guardada permanentemente en el sistema!");
+
+            // 3. Mostrar la ventana modal de éxito requerida
+            document.getElementById('texto-exito-detalle').innerText = `Has adquirido ${cantidad} contrato(s) en la opción [${opM}] por ${totalReq.toFixed(2)} Pi.`;
+            document.getElementById('modal-exito-apuesta').style.display = 'flex';
         }
 
         function renderizarOrderBookVisible() {
