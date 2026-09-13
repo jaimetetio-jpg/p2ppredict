@@ -483,51 +483,7 @@ def agregar_cabeceras_seguridad(response):
 
 @app.route("/")
 def home():
-  # Se incluye el script inyectado de forma segura al final o integrado en el layout de index.html
   return render_template("index.html")
-
-
-# Se añade el bloque JavaScript incrustado de manera limpia para soporte directo o inyección si se maneja template en linea
-@app.context_processor
-def insertar_script_modal():
-  script_modal_actualizacion = """
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById('modalCrearPrediccion');
-    const btnAbrir = document.getElementById('btnAbrirModalCrear');
-    const btnCerrar = document.getElementById('btnCerrarModal');
-    const botonesOpcion = document.querySelectorAll('.btn-opcion');
-    const inputOpcion = document.getElementById('opcionSeleccionada');
-
-    if (btnAbrir && modal) {
-      btnAbrir.onclick = () => modal.style.display = 'flex';
-    }
-    
-    if (btnCerrar && modal) {
-      btnCerrar.onclick = () => modal.style.display = 'none';
-    }
-    
-    window.onclick = (e) => { 
-      if (modal && e.target == modal) modal.style.display = 'none'; 
-    }
-
-    if (botonesOpcion.length > 0 && inputOpcion) {
-      botonesOpcion.forEach(btn => {
-        btn.onclick = (e) => {
-          botonesOpcion.forEach(b => b.style.opacity = '0.5');
-          e.target.style.opacity = '1';
-          inputOpcion.value = e.target.getAttribute('data-opcion');
-        }
-      });
-      const defaultSi = document.querySelector('[data-opcion="SI"]');
-      const defaultNo = document.querySelector('[data-opcion="NO"]');
-      if (defaultSi) defaultSi.style.opacity = '1';
-      if (defaultNo) defaultNo.style.opacity = '0.5';
-    }
-  });
-</script>
-"""
-  return dict(script_modal_actualizacion=script_modal_actualizacion)
 
 
 @app.route("/api/saldo/<username>", methods=["GET"])
