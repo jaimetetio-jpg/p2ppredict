@@ -1,78 +1,170 @@
-GOD 1
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2Ppredict - Clean Start</title>
+    <title>P2Ppredict - Pro</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        Pi.init({ version: "2.0", sandbox: true });
+    </script>
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: #181b28;
+            --border-color: #2a2e43;
+            --text-color: #ffffff;
+            --text-muted: #8c92ac;
+            --accent: #2563eb;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: 4px 4px 10px #090b12;
+        }
+        .input, select {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background: linear-gradient(145deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+        .market-item {
+            background: var(--bg-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
 </head>
-<body style="font-family: sans-serif; background: #0f111a; color: white; padding: 20px; max-width: 480px; margin: auto;">
-    <h2>⚡ P2Ppredict (Prueba Limpia)</h2>
-    
-    <div style="background: #181b28; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2a2e43;">
-        <h3>➕ Crear Mercado</h3>
-        <input type="text" id="titulo" placeholder="¿Pregunta del mercado?" style="width:100%; padding:8px; margin-bottom:8px; box-sizing:border-box;"><br>
-        <input type="text" id="categoria" placeholder="Categoría (Ej. Crypto)" style="width:100%; padding:8px; margin-bottom:8px; box-sizing:border-box;"><br>
-        <button onclick="crearMercado()" style="background:#2563eb; color:white; border:none; padding:10px; width:100%; border-radius:5px; font-weight:bold;">Guardar en Supabase</button>
+<body>
+
+    <header>
+        <div>⚡ <b style="color: #38bdf8; font-size: 1.1rem;">P2Ppredict</b></div>
+        <div style="color: #38bdf8; font-weight: bold;">@jaimetetio</div>
+    </header>
+
+    <!-- CREAR MERCADO -->
+    <div class="card">
+        <h3 style="margin-top: 0; color: #38bdf8;">➕ Crear Nuevo Mercado</h3>
+        <input type="text" id="titulo" class="input" placeholder="¿Pregunta o predicción?">
+        <select id="categoria" class="input">
+            <option value="Crypto">Crypto</option>
+            <option value="Pi Ecosystem">Ecosistema Pi</option>
+        </select>
+        <button class="btn" onclick="crearMercado()">Publicar en Supabase</button>
     </div>
 
-    <div style="background: #181b28; padding: 15px; border-radius: 10px; border: 1px solid #2a2e43;">
-        <h3>📋 Mercados en Supabase</h3>
-        <div id="lista-mercados">Conectando...</div>
+    <!-- LISTA DE MERCADOS -->
+    <div class="card">
+        <h3 style="margin-top: 0; color: #38bdf8;">📋 Mercados Activos</h3>
+        <div id="lista-mercados" style="color: var(--text-muted); font-size: 0.9rem;">Cargando datos...</div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
 
-        document.addEventListener("DOMContentLoaded", cargarMercados);
+        // Inicialización limpia usando la librería oficial de Supabase v2
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            cargarMercados();
+        });
 
         async function cargarMercados() {
             const contenedor = document.getElementById('lista-mercados');
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-                });
-                const data = await res.json();
-                if (data.length === 0) {
-                    contenedor.innerHTML = 'No hay mercados todavía. ¡Crea uno arriba!';
+                const { data, error } = await supabaseClient
+                    .from('markets')
+                    .select('*');
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    contenedor.innerHTML = 'No hay mercados todavía. ¡Crea el primero arriba!';
                     return;
                 }
+
                 contenedor.innerHTML = '';
                 data.forEach(m => {
-                    contenedor.innerHTML += `<div style="background:#0f111a; padding:8px; margin-bottom:5px; border-radius:5px;"><b>${m.title}</b> (${m.category})</div>`;
+                    contenedor.innerHTML += `
+                        <div class="market-item">
+                            <b style="color: #fff; font-size: 0.95rem;">${m.title}</b><br>
+                            <span style="color: #38bdf8; font-size: 0.8rem;">🏷️ ${m.category || 'General'}</span>
+                        </div>
+                    `;
                 });
-            } catch (e) {
-                contenedor.innerHTML = 'Error al conectar con la base de datos.';
+            } catch (err) {
+                console.error("Error:", err);
+                contenedor.innerHTML = '<span style="color: #f87171;">Error al conectar con la base de datos.</span>';
             }
         }
 
         async function crearMercado() {
-            const title = document.getElementById('titulo').value;
+            const title = document.getElementById('titulo').value.trim();
             const category = document.getElementById('categoria').value;
-            if (!title) return alert("Escribe un título");
 
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal'
-                },
-                body: JSON.stringify({ title, category, closing_time: 'Pronto' })
-            });
+            if (!title) {
+                alert("Escribe una pregunta para el mercado.");
+                return;
+            }
 
-            if (res.ok) {
-                alert("¡Creado con éxito!");
+            try {
+                const { error } = await supabaseClient
+                    .from('markets')
+                    .insert([{ title, category, closing_time: 'Pronto' }]);
+
+                if (error) throw error;
+
+                alert("¡Mercado creado con éxito!");
                 document.getElementById('titulo').value = '';
-                document.getElementById('categoria').value = '';
                 cargarMercados();
-            } else {
-                alert("Error al guardar");
+            } catch (err) {
+                console.error("Error al crear:", err);
+                alert("Hubo un error al guardar en Supabase.");
             }
         }
     </script>
 </body>
 </html>
-
