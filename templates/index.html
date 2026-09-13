@@ -1,12 +1,34 @@
+Para integrar la nueva funcionalidad requerida en el código HTML/JavaScript actual de P2Ppredict, añadiremos:
+ * Un nuevo botón/sección en el panel del usuario (dentro de las pestañas de navegación o como un apartado exclusivo para Pioneros).
+ * Un formulario completo con:
+   * Campo para escribir la pregunta o título de la predicción.
+   * Selector de categoría (Crypto, Pi Ecosystem, etc.).
+   * Selector de la opción elegida inicialmente (Sí / No) y el input de liquidez en Pi que aportará el creador.
+   * Un aviso visual claro que especifica que la creación es 100% gratuita (sin comisión), pero que las apuestas subsiguientes de otros usuarios llevan una comisión del 2%.
+ * La lógica en JavaScript para registrar el mercado dinámicamente, descontar la liquidez inicial aportada del balance del creador y reflejarlo de inmediato en el sistema de Order Book y listado de mercados.
+A continuación, tienes el código completo actualizado con esta nueva sección implementada de forma limpia y responsiva:
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2Ppredict - Full Version</title>
+    <title>P2Ppredict - Order Book & Soporte</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="env.js"></script>
     <script>
         Pi.init({ version: "2.0", sandbox: true });
+
+        const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || '';
+        const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || '';
+        
+        const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') 
+            ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+            : null;
+
+        if (!supabaseClient) {
+            console.warn("Aviso: Supabase não está configurado ou o arquivo env.js não foi carregado corretamente. O app funcionará com armazenamento local.");
+        }
     </script>
     <style>
         :root {
@@ -16,19 +38,43 @@
             --text-color: #ffffff;
             --text-muted: #8c92ac;
             --accent: #2563eb;
+            --accent-hover: #1d4ed8;
             --border-color: #2a2e43;
+            --danger: #dc2626;
+            --success: #16a34a;
             --shadow-3d: 6px 6px 12px #090b12, -6px -6px 12px #1f2740;
+            --shadow-3d-active: 3px 3px 6px #090b12, -3px -3px 6px #1f2740;
+            --shadow-btn: 4px 4px 8px #090b12, -4px -4px 8px #1d253e;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --card-bg-gradient: linear-gradient(145deg, #ffffff, #f9fafb);
+            --text-color: #111827;
+            --text-muted: #6b7280;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --border-color: #e5e7eb;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --shadow-3d: 6px 6px 12px rgba(0, 0, 0, 0.08), -6px -6px 12px rgba(255, 255, 255, 0.8);
+            --shadow-3d-active: 3px 3px 6px rgba(0, 0, 0, 0.08), -3px -3px 6px rgba(255, 255, 255, 0.8);
+            --shadow-btn: 4px 4px 8px rgba(0, 0, 0, 0.08), -4px -4px 8px rgba(255, 255, 255, 0.8);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             padding: 16px;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
             max-width: 480px;
             margin-left: auto;
             margin-right: auto;
+            position: relative;
             padding-bottom: 90px;
         }
 
@@ -44,271 +90,1886 @@
             box-shadow: var(--shadow-3d);
         }
 
-        .logo-area { font-weight: 700; font-size: 1.2rem; color: #38bdf8; }
-        .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
-        .theme-btn { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #38bdf8;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
 
-        .nav-tabs { display: flex; gap: 6px; margin-bottom: 18px; background: var(--card-bg-gradient); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-3d); overflow-x: auto; }
-        .nav-tab { flex: 1; background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 10px 8px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; }
-        .nav-tab.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #ffffff; border-color: #3b82f6; }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
 
-        .search-box, .form-input, .form-select { width: 100%; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; }
+        .theme-btn {
+            background: linear-gradient(145deg, #1b2238, #131826);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            box-shadow: var(--shadow-btn);
+        }
 
-        .filter-pills { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; }
-        .pill { background: linear-gradient(145deg, #1b2238, #131826); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
-        .pill.active { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: #fff; border-color: #3b82f6; }
+        .nav-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 18px;
+            background: var(--card-bg-gradient);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-3d);
+            overflow-x: auto;
+        }
 
-        .market-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow-3d); }
-        .market-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
-        .countdown-timer { background: rgba(56, 189, 248, 0.1); border: 1px dashed #38bdf8; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .action-btn { background: linear-gradient(145deg, #2563eb, #1d4ed8); color: white; border: 1px solid #3b82f6; padding: 10px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; width: 100%; text-align: center; }
+        .nav-tab {
+            flex: 1;
+            background: linear-gradient(145deg, #1b2238, #131826);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 10px 8px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-btn);
+            white-space: nowrap;
+        }
 
-        .accordion-card { background: var(--card-bg-gradient); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
-        .accordion-header { width: 100%; background: transparent; border: none; color: var(--text-color); padding: 14px 16px; text-align: left; font-size: 0.9rem; font-weight: 600; display: flex; justify-content: space-between; cursor: pointer; }
-        .accordion-content { padding: 0 16px 14px 16px; display: none; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-color); }
-        .accordion-card.open .accordion-content { display: block; }
+        .nav-tab.active {
+            background: linear-gradient(145deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
 
-        .section-view { display: none; }
-        .section-view.active { display: block; }
+        .search-box {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            box-shadow: inset 4px 4px 8px #090b12, inset -4px -4px 8px #1f2740;
+        }
 
-        .support-chat-float { position: fixed; bottom: 20px; right: 20px; z-index: 100; }
-        .chat-launcher-btn { background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; border: 1px solid #9333ea !important; border-radius: 30px !important; width: auto !important; }
+        .filter-pills {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 18px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .pill {
+            background: linear-gradient(145deg, #1b2238, #131826);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: var(--shadow-btn);
+        }
+
+        .pill.active {
+            background: linear-gradient(145deg, #2563eb, #1d4ed8);
+            color: #fff;
+            border-color: #3b82f6;
+        }
+
+        .accordion-card {
+            background: var(--card-bg-gradient);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            box-shadow: var(--shadow-3d);
+        }
+
+        .accordion-header {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .accordion-content {
+            padding: 0 16px 14px 16px;
+            display: none;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.02);
+        }
+
+        .accordion-card.open .accordion-content {
+            display: block;
+        }
+
+        .market-card {
+            background: var(--card-bg-gradient);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow-3d);
+        }
+
+        .market-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .action-btn {
+            background: linear-gradient(145deg, #2563eb, #1d4ed8);
+            color: white;
+            border: 1px solid #3b82f6;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--shadow-btn);
+            transition: transform 0.1s ease;
+        }
+
+        .action-btn:active {
+            transform: translateY(2px);
+            box-shadow: var(--shadow-3d-active);
+        }
+
+        .action-btn:disabled {
+            background: #374151 !important;
+            border-color: #4b5563 !important;
+            color: #9ca3af !important;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            opacity: 0.6;
+        }
+
+        .section-view {
+            display: none;
+        }
+        .section-view.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 0.85rem;
+            box-sizing: border-box;
+            box-shadow: inset 2px 2px 5px #090b12, inset -2px -2px 5px #1f2740;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        .modal-card {
+            background: var(--card-bg-gradient);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 420px;
+            padding: 18px;
+            box-shadow: var(--shadow-3d);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .position-ticket {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .position-ticket::after {
+            content: attr(data-watermark);
+            position: absolute;
+            right: 10px;
+            bottom: 2px;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.04);
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 0;
+            white-space: nowrap;
+        }
+
+        .position-ticket > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .orderbook-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+        .orderbook-table th {
+            color: var(--text-muted);
+            text-align: left;
+            padding: 6px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+        .orderbook-table td {
+            padding: 8px 6px;
+            border-bottom: 1px solid rgba(42, 46, 67, 0.5);
+        }
+
+        .support-chat-float {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .chat-launcher-btn {
+            background: linear-gradient(145deg, #7c3aed, #6d28d9) !important;
+            border: 1px solid #9333ea !important;
+            border-radius: 30px !important;
+            padding: 12px 20px !important;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+
+        .chat-messages-box {
+            flex: 1;
+            min-height: 200px;
+            max-height: 260px;
+            overflow-y: auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+        .chat-msg {
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            max-width: 80%;
+            word-break: break-word;
+        }
+        .chat-msg.user {
+            background: #1e3a8a;
+            color: #93c5fd;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-msg.admin {
+            background: #374151;
+            color: #e5e7eb;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
     </style>
 </head>
-<body>
+<body data-theme="dark">
 
     <header>
-        <div class="logo-area">⚡ P2Ppredict</div>
+        <div class="logo-area">
+            <span>⚡ P2Ppredict</span>
+        </div>
         <div class="user-info">
             <span id="user-handle">@jaimetetio</span>
             <span id="user-balance" style="color: #38bdf8; font-weight: 700;">150.00 Pi</span>
-            <button class="theme-btn" onclick="toggleTheme()">Tema</button>
+            <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button>
         </div>
     </header>
 
     <div class="nav-tabs">
         <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button>
-        <button class="nav-tab" onclick="switchTab('crear', this)">Crear Predicción</button>
-        <button class="nav-tab" onclick="switchTab('clob', this)">Libro de Órdenes</button>
+        <button class="nav-tab" onclick="switchTab('crear', this)">✨ Crear Predicción</button>
+        <button class="nav-tab" onclick="switchTab('clob', this)">Order Book</button>
         <button class="nav-tab" onclick="switchTab('ranking', this)">Ranking</button>
         <button class="nav-tab" onclick="verificarAccesoAdmin(this)">Admin</button>
     </div>
 
-    <!-- VISTA MERCADOS -->
+    <!-- VISTA: MERCADOS -->
     <div id="view-mercados" class="section-view active">
         <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()">
         
         <div class="filter-pills">
             <button class="pill active" onclick="setCategory('Todos', this)">Todos</button>
             <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button>
-            <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Ecosistema Pi</button>
+            <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button>
+        </div>
+
+        <div class="filter-pills" id="estado-filter-pills" style="margin-bottom: 14px;">
+            <button class="pill active" onclick="setStatusFilter('Todos', this)">Todos</button>
+            <button class="pill" onclick="setStatusFilter('Abiertos', this)">Abiertos</button>
+            <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Finalizados</button>
         </div>
 
         <div id="markets-container">
-            <div class="market-card">
-                <div class="market-title">Cargando mercados...</div>
+            <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                    <span>🏷️ Crypto</span>
+                    <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                </div>
+                <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button>
+                    <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button>
+                </div>
+            </div>
+
+            <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                    <span>🏷️ Pi Ecosystem</span>
+                    <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                </div>
+                <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
+                    <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
+                </div>
             </div>
         </div>
 
+        <!-- GESTIÓN DE BILLETERA PI NETWORK -->
         <div class="accordion-card" id="acc-wallet">
             <button class="accordion-header" onclick="toggleAccordion('acc-wallet')">
                 <span>💳 Gestión de Billetera y Blockchain Pi</span>
                 <span>▾</span>
             </button>
-            <div class="accordion-content">
-                <p style="font-size: 0.8rem; margin-top: 8px;">Conectado a la red de pruebas Pi SDK.</p>
+            <div class="accordion-content" style="padding-top: 12px;">
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Monto (Pi)</label>
+                    <input type="number" id="wallet-amount" class="form-control" placeholder="1.0" min="0.1" step="0.1" style="margin-bottom: 10px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="depositarConPiNetwork()">Recargar Pi</button>
+                        <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button>
+                    </div>
+                </div>
+                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado com SDK oficial de Pi Network y Supabase.</div>
             </div>
         </div>
 
-        <div class="accordion-card" id="acc-historial">
-            <button class="accordion-header" onclick="toggleAccordion('acc-historial')">
-                <span>📦 Historial de Apuestas y Posiciones</span>
+        <!-- HISTORIAL DE APUESTAS Y POSICIONES -->
+        <div class="accordion-card open" id="acc-apuestas">
+            <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')">
+                <span>📦 Historial de Apuestas y Posiciones (Order Book)</span>
                 <span>▾</span>
             </button>
-            <div class="accordion-content">
-                <p style="font-size: 0.75rem;">No tienes posiciones activas.</p>
+            <div class="accordion-content" style="padding-top: 12px; display: block;">
+                <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-color); margin-bottom: 6px;">🟢 Posiciones Activas / Tickets</div>
+                <div id="my-positions-content" style="margin-bottom: 14px;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>
+                </div>
             </div>
         </div>
 
+        <!-- HISTORIAL DE TRANSACCIONES (PERMANENTE) -->
         <div class="accordion-card" id="acc-transacciones">
             <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')">
-                <span>📜 Historial de Transacciones</span>
+                <span>📜 Historial de Transacciones (Permanente)</span>
                 <span>▾</span>
             </button>
-            <div class="accordion-content">
-                <p style="font-size: 0.75rem; margin-top: 8px;">Sin transacciones recientes.</p>
+            <div class="accordion-content" style="padding-top: 12px;">
+                <div id="my-history-content">
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- VISTA CREAR PREDICCIÓN -->
+    <!-- NUEVA VISTA: CREAR PREDICCIÓN (APARTADO PARA PIONEROS) -->
     <div id="view-crear" class="section-view">
         <div class="market-card">
-            <h3 style="margin-top: 0; color: #38bdf8;">➕ Crear Nuevo Mercado</h3>
-            <input type="text" id="new-title" class="form-input" placeholder="¿Pregunta o predicción?">
-            <select id="new-category" class="form-select">
-                <option value="Crypto">Crypto</option>
-                <option value="Pi Ecosystem">Ecosistema Pi</option>
-                <option value="General">General / Noticias</option>
-            </select>
-            <input type="text" id="new-closing" class="form-input" placeholder="Fecha de cierre (Ej. 31 de Diciembre)">
-            <button class="action-btn" onclick="crearMercadoSupabase()">Publicar Mercado</button>
+            <div class="market-title">🚀 Crear Nuevo Mercado de Predicción</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros y aporta liquidez inicial.</p>
+            
+            <div class="form-group">
+                <label>Pregunta / Título de la Predicción</label>
+                <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Lanzará Pi Network la mainnet abierta antes de agosto?">
+            </div>
+
+            <div class="form-group">
+                <label>Categoría</label>
+                <select id="nuevo-categoria" class="form-control">
+                    <option value="Crypto">Crypto</option>
+                    <option value="Pi Ecosystem">Pi Ecosystem</option>
+                    <option value="Tecnología">Tecnología</option>
+                    <option value="Comunidad">Comunidad</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Opción Inicial Elegida</label>
+                <select id="nuevo-opcion" class="form-control">
+                    <option value="SÍ">SÍ</option>
+                    <option value="NO">NO</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Cantidad de Liquidez en Pi a aportar (Inversión inicial)</label>
+                <input type="number" id="nuevo-liquidez" class="form-control" placeholder="Ej. 5.0" min="1" step="0.5" value="5.0">
+            </div>
+
+            <!-- Aviso claro sobre comisiones -->
+            <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid #3b82f6; padding: 10px; border-radius: 8px; margin-bottom: 14px; font-size: 0.75rem; color: #93c5fd;">
+                <b>💡 Nota importante sobre comisiones:</b><br>
+                • La creación de este mercado <b>no paga ninguna comisión</b>.<br>
+                • Las apuestas subsiguientes realizadas por otros usuarios llevarán una comisión automática del 2%.
+            </div>
+
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="crearNuevoMercadoPionero()">Publicar Mercado y Asignar Liquidez</button>
         </div>
     </div>
 
-    <!-- VISTAS ADICIONALES -->
+    <!-- VISTA: ORDER BOOK P2P VISIBLE -->
     <div id="view-clob" class="section-view">
-        <div class="market-card"><h3>Libro de Órdenes Centralizado (CLOB)</h3><p style="color:var(--text-muted)">Motor de emparejamiento activo.</p></div>
-    </div>
-    <div id="view-ranking" class="section-view">
-        <div class="market-card"><h3>Ranking de Usuarios</h3><p style="color:var(--text-muted)">Tabla de líderes.</p></div>
-    </div>
-    <div id="view-admin" class="section-view">
-        <div class="market-card"><h3>Panel de Administración</h3><p style="color:var(--text-muted)">Control y moderación.</p></div>
+        <div class="market-card">
+            <div class="market-title">📊 Order Book P2P en Vivo</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Listado general de ofertas de compra (Bid) y venta (Ask) registradas en el mercado.</p>
+            
+            <div class="form-group">
+                <label>Seleccionar Mercado Activo</label>
+                <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()">
+                </select>
+            </div>
+
+            <div id="orderbook-market-status-banner" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem;">
+                <span style="color: #eab308; font-weight: bold;">● Estado: Abierto</span>
+            </div>
+
+            <table class="orderbook-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Opción</th>
+                        <th>Contratos</th>
+                        <th>Precio (Pi)</th>
+                        <th>Trader</th>
+                    </tr>
+                </thead>
+                <tbody id="orderbook-table-body">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted);">No hay órdenes en el libro actualmente.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
+    <!-- VISTA: RANKING -->
+    <div id="view-ranking" class="section-view">
+        <div class="market-card">
+            <div class="market-title">🏆 Tabla de Líderes P2Ppredict</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Los mejores traders de predicciones de la red Pi.</p>
+            <div style="font-size: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                    <span>1. @crypto_king</span>
+                    <b style="color: #4ade80;">1,420.50 Pi</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                    <span>2. @jaimetetio</span>
+                    <b style="color: #38bdf8;" id="ranking-user-balance">150.00 Pi</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0;">
+                    <span>3. @pioneerglobal</span>
+                    <b style="color: var(--text-muted);">98.20 Pi</b>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA: ADMIN (PROTEGIDA) -->
+    <div id="view-admin" class="section-view">
+        <!-- MÉTRICAS FINANCIERAS GLOBALES Y TOP DE USUARIOS -->
+        <div class="market-card" style="margin-top: 0;">
+            <div class="market-title">📈 Métricas Financieras y Circulante Global</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Control en tiempo real del suministro total de Pi y cuentas con mayor balance.</p>
+            
+            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.8rem;">
+                <div>Circulante Total en Sistema: <b id="admin-total-supply" style="color: #4ade80;">0.00 Pi</b></div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Suma total de balances de los usuarios registrados.</div>
+            </div>
+
+            <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 6px; color: var(--text-color);">🏆 Top Cuentas con Mayor Balance</div>
+            <div id="admin-top-users-container" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;">
+                <p style="font-size: 0.75rem; color: var(--text-muted);">Cargando ranking...</p>
+            </div>
+        </div>
+
+        <!-- PANEL DE CONTROL ADMINISTRATIVO AVANZADO: GESTIÓN DE USUARIOS Y BALANCES -->
+        <div class="market-card">
+            <div class="market-title">⚙️ Gestión de Usuarios y Balances</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Bloqueo de cuentas, suspensión temporal o ajuste manual de balances con notas de auditoría.</p>
+            
+            <div class="form-group">
+                <label>Seleccionar o Buscar Cuenta de Usuario</label>
+                <select id="admin-user-select" class="form-control" onchange="cargarDatosUsuarioAdminSeleccionado()">
+                    <option value="">-- Seleccionar Usuario --</option>
+                    <option value="@jaimetetio">@jaimetetio</option>
+                    <option value="@crypto_king">@crypto_king</option>
+                    <option value="@pioneerglobal">@pioneerglobal</option>
+                </select>
+            </div>
+
+            <div id="admin-user-details-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; display: none;">
+                <div>Usuario: <b id="adm-det-handle" style="color: #38bdf8;">-</b></div>
+                <div>Balance Actual: <b id="adm-det-balance" style="color: #4ade80;">0.00 Pi</b></div>
+                <div>Estado de Cuenta: <b id="adm-det-status" style="color: #eab308;">Activo</b></div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); font-size: 0.75rem;" onclick="abrirModalAjusteBalance()">⚖️ Ajuste Manual de Balance</button>
+                <button id="admin-btn-bloqueo" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444; font-size: 0.75rem;" onclick="toggleBloqueoCuentaActual()">🔒 Bloquear Cuenta</button>
+            </div>
+        </div>
+
+        <div class="market-card">
+            <div class="market-title">🛠️ Panel de Administración y Resolución</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado para habilitar el cobro de los ganadores.</p>
+            <div class="form-group">
+                <label>ID de Mercado a Resolver</label>
+                <select class="form-control" id="admin-market-id">
+                    <option value="1">¿Bitcoin superará los $100,000?</option>
+                    <option value="2">¿Se habilitará Open Mainnet este trimestre?</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Resultado Ganador Oficial</label>
+                <select class="form-control" id="admin-result-select">
+                    <option value="SÍ">Ganador: SÍ</option>
+                    <option value="NO">Ganador: NO</option>
+                </select>
+            </div>
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444;" onclick="declararGanadorAdmin()">Ejecutar Resolución y Liquidación</button>
+        </div>
+
+        <!-- PANEL DE SOPORTE ADMIN (TICKETS DE RECLAMO) -->
+        <div class="market-card" style="margin-top: 14px;">
+            <div class="market-title">💬 Bandeja de Soporte / Tickets de Reclamo</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Responde los reclamos o dudas de los usuarios en tiempo real.</p>
+            <div id="admin-tickets-container">
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>
+            </div>
+        </div>
+
+        <!-- AUDITORÍA E HISTORIAL GLOBAL DE TRANSACCIONES DE USUARIOS -->
+        <div class="market-card" style="margin-top: 14px;">
+            <div class="market-title">📜 Auditoría Global: Historial de Transacciones</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Registro completo de todas las operaciones financieras (depósitos, retiros, ventas anticipadas y cobros de premios) de los usuarios para resolver disputas.</p>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input type="text" id="admin-user-search" class="form-control" placeholder="👤 Buscar por @usuario..." oninput="renderizarHistorialGlobalAdmin()">
+                <input type="text" id="admin-tx-search" class="form-control" placeholder="🔍 Filtrar por detalle..." oninput="renderizarHistorialGlobalAdmin()">
+            </div>
+
+            <div id="admin-global-transactions-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>
+            </div>
+            
+            <div style="margin-top: 14px; text-align: center;">
+                <button onclick="cerrarSesionAdmin()" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Bloquear / Cerrar Sesión Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE TERMINAL DE TRADING RÁPIDO -->
+    <div id="trading-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 id="modal-title" style="font-size: 1rem; margin: 0;">Comprar Contratos</h3>
+                <button onclick="cerrarTerminalTrading()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <p id="modal-market-text" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p>
+            
+            <div class="form-group">
+                <label>Cantidad de Contratos</label>
+                <input type="number" id="modal-amount" class="form-control" value="1" min="1" oninput="calcularModalTotal()">
+            </div>
+
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                <div>Precio unitario dinámico (Ask): <span id="modal-price-unit" style="color: #38bdf8;">0.00</span> Pi</div>
+                <div>Inversión Total Requerida: <span id="modal-total-req" style="color: #f59e0b; font-weight: bold;">0.00</span> Pi</div>
+                <div>Payout potencial (1 Pi c/u): <span id="modal-payout" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div>
+            </div>
+
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONTRASEÑA DE ADMINISTRADOR -->
+    <div id="admin-auth-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1rem; margin: 0; color: #ef4444;">🔒 Acceso Restringido - Admin</h3>
+                <button onclick="cerrarModalAdminAuth()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador para acceder a las opciones de gestión.</p>
+            
+            <div class="form-group">
+                <label>Contraseña de Administrador</label>
+                <input type="password" id="admin-password-input" class="form-control" placeholder="Introduce la clave secreta" onkeydown="if(event.key === 'Enter') validarClaveAdmin()">
+            </div>
+
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="validarClaveAdmin()">Acceder al Panel</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE AJUSTE MANUAL DE BALANCE (ADMIN) -->
+    <div id="admin-balance-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">⚖️ Ajuste Manual de Balance</h3>
+                <button onclick="cerrarModalAjusteBalance()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <p id="admin-balance-modal-subtitle" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Modifica el saldo del usuario seleccionando la operación e ingresando el monto y la nota obligatoria.</p>
+            
+            <div class="form-group">
+                <label>Tipo de Operación</label>
+                <select id="admin-adj-tipo" class="form-control">
+                    <option value="CREDITO">Acreditar Balance (+)</option>
+                    <option value="DEBITO">Debitar / Descontar Balance (-)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Monto (Pi)</label>
+                <input type="number" id="admin-adj-monto" class="form-control" placeholder="0.00" min="0.1" step="0.1">
+            </div>
+
+            <div class="form-group">
+                <label>Nota de Auditoría / Justificación</label>
+                <textarea id="admin-adj-nota" class="form-control" placeholder="Motivo del ajuste manual..." rows="3"></textarea>
+            </div>
+
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarAjusteBalanceAdmin()">Confirmar y Registrar Ajuste</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE CHAT DE SOPORTE USUARIO -->
+    <div id="support-chat-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💬 Chat de Soporte (Tus Reclamos)</h3>
+                <button onclick="cerrarChatSoporteUsuario()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Describe tu reclamo o duda sobre transacciones, retiros u órdenes. El equipo de soporte te responderá directamente aquí.</p>
+            
+            <div id="chat-messages-container" class="chat-messages-box">
+            </div>
+
+            <div style="display: flex; gap: 6px;">
+                <input type="text" id="chat-user-input" class="form-control" placeholder="Escribe tu mensaje o reclamo..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteUsuario()">
+                <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteUsuario()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CHAT DE RESPUESTA ADMIN -->
+    <div id="admin-chat-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 id="admin-chat-title" style="font-size: 1rem; margin: 0; color: #4ade80;">💬 Responder Ticket</h3>
+                <button onclick="cerrarChatAdminModal()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <div id="admin-chat-messages-container" class="chat-messages-box">
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+                <input type="text" id="chat-admin-input" class="form-control" placeholder="Respuesta del Administrador..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteAdmin()">
+                <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteAdmin()">Responder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE DE SOPORTE -->
     <div class="support-chat-float">
-        <button class="action-btn chat-launcher-btn" onclick="alert('Abriendo soporte P2P...')">💬 Chat de Soporte</button>
+        <button class="action-btn chat-launcher-btn" onclick="abrirSoporteChatUsuario()">💬 Chat de Soporte</button>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3cnF0dXh6eWNkdWFrcWZ0dmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NDg5MjcsImV4cCI6MjEwNDUyNDkyN30.7r8AYXSYOml1Ub68INeXXZKTIrqXbCpD-V9oAvFldZU';
+        let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00 };
+        let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || [];
+        let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
+        let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || [];
+        let ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || [];
+        
+        let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || [
+            { handle: "@jaimetetio", balance: 150.00, bloqueado: false },
+            { handle: "@crypto_king", balance: 1420.50, bloqueado: false },
+            { handle: "@pioneerglobal", balance: 98.20, bloqueado: false }
+        ];
 
-        let mercadosGlobales = [];
-        let categoriaActual = 'Todos';
+        let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {
+            1: { "SÍ": 0.64, "NO": 0.36 },
+            2: { "SÍ": 0.81, "NO": 0.19 }
+        };
 
-        document.addEventListener("DOMContentLoaded", () => {
-            cargarMercadosSupabase();
-        });
+        let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {
+            1: null,
+            2: null
+        };
 
-        function switchTab(tabId, btn) {
+        let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
+
+        const CLAVE_ADMIN_SECRETA = "Anthony*2023";
+        let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true';
+        let ticketAdminActivoId = null;
+        let usuarioAdminSeleccionadoHandle = null;
+
+        let nombresMercados = {
+            1: "¿Bitcoin superará los $100,000?",
+            2: "¿Se habilitará Open Mainnet este trimestre?"
+        };
+
+        let ordenActivaModal = null;
+        let categoriaActualFiltro = 'Todos';
+        let estadoActualFiltro = 'Todos';
+
+        window.onload = async function() {
+            await sincronizarConSupabase();
+            sincronizarPersistencia();
+            verificarBloqueoUsuarioActual();
+            reconstruirDiccionarioNombresMercados();
+            renderizarMercadosDinamicos();
+            actualizarUIBalance();
+            actualizarPreciosVisuales();
+            restaurarEstadosMercadosVisuales();
+            cargarHistorialDesdeDB();
+            actualizarSelectsMercadosActivos();
+            renderizarOrderBookVisible();
+        };
+
+        async function sincronizarConSupabase() {
+            if (!supabaseClient) return;
+            try {
+                let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*');
+                if (!errOrd && ordenes && ordenes.length > 0) { ordenesGlobales = ordenes; }
+
+                let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*');
+                if (!errTx && txs && txs.length > 0) { historialTransacciones = txs; }
+
+                let { data: pos, error: errPos } = await supabaseClient.from('posiciones_activas').select('*');
+                if (!errPos && pos && pos.length > 0) {
+                    posicionesActivas = pos.map(p => ({
+                        id: p.id, marketId: p.market_id, handle: p.handle, titulo: p.titulo, opcion: p.opcion, contratos: p.contratos, invertido: Number(p.invertido), payout: Number(p.payout)
+                    }));
+                }
+
+                let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*');
+                if (!errTck && tcks && tcks.length > 0) { ticketsSoporte = tcks; }
+
+                let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*');
+                if (!errMerc && mercs && mercs.length > 0) { mercadosDinamicos = mercs; }
+            } catch (e) {
+                console.warn("Aviso: No se pudo conectar com Supabase em tempo de execução.", e);
+            }
+        }
+
+        async function guardarEnSupabaseTabla(tabla, objetoDatos) {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient.from(tabla).upsert([objetoDatos]);
+            } catch (e) {
+                console.error("Error guardando en Supabase:", e);
+            }
+        }
+
+        async function eliminarDeSupabaseTabla(tabla, idCondicion) {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient.from(tabla).delete().eq('id', idCondicion);
+            } catch (e) {
+                console.error("Error eliminando en Supabase:", e);
+            }
+        }
+
+        function guardarTodoEnStorage() {
+            sincronizarBalanceDirectorioLocal();
+            localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
+            localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
+            localStorage.setItem('p2p_posiciones', JSON.stringify(posicionesActivas));
+            localStorage.setItem('p2p_historial_transacciones', JSON.stringify(historialTransacciones));
+            localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales));
+            localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
+            localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
+            localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
+            localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
+        }
+
+        function sincronizarPersistencia() {
+            usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || usuarioActual;
+            cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || cuentasDirectorio;
+            posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || [];
+            historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || [];
+            ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || [];
+            preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || preciosMercados;
+            estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || estadosMercados;
+            ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || [];
+            mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
+        }
+
+        function reconstruirDiccionarioNombresMercados() {
+            mercadosDinamicos.forEach(m => {
+                nombresMercados[m.id] = m.titulo;
+            });
+        }
+
+        function sincronizarBalanceDirectorioLocal() {
+            let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (u) {
+                u.balance = usuarioActual.balance;
+            } else {
+                cuentasDirectorio.push({ handle: usuarioActual.handle, balance: usuarioActual.balance, bloqueado: false });
+            }
+        }
+
+        function verificarBloqueoUsuarioActual() {
+            let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (u && u.bloqueado) {
+                alert("⚠️ ATENCIÓN: Tu cuenta se encuentra BLOQUEADA por el administrador del sistema.");
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            body.setAttribute("data-theme", body.getAttribute("data-theme") === "dark" ? "light" : "dark");
+        }
+
+        function switchTab(tabId, btnElement) {
             document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
             
-            const target = document.getElementById('view-' + tabId);
-            if (target) target.classList.add('active');
-            if (btn) btn.classList.add('active');
+            document.getElementById('view-' + tabId).classList.add('active');
+            if(btnElement) btnElement.classList.add('active');
+            if(tabId === 'clob') {
+                actualizarSelectsMercadosActivos();
+                renderizarOrderBookVisible();
+            }
+            if(tabId === 'admin') {
+                renderizarTicketsAdmin();
+                renderizarHistorialGlobalAdmin();
+                calcularMetricasFinancierasAdmin();
+            }
+        }
+
+        function verificarAccesoAdmin(btnElement) {
+            if (adminAutenticado) {
+                switchTab('admin', btnElement);
+            } else {
+                document.getElementById('admin-password-input').value = '';
+                document.getElementById('admin-auth-modal').style.display = 'flex';
+                document.getElementById('admin-password-input').focus();
+            }
+        }
+
+        function cerrarModalAdminAuth() {
+            document.getElementById('admin-auth-modal').style.display = 'none';
+        }
+
+        function validarClaveAdmin() {
+            const claveIngresada = document.getElementById('admin-password-input').value;
+            if (claveIngresada === CLAVE_ADMIN_SECRETA) {
+                adminAutenticado = true;
+                sessionStorage.setItem('p2p_admin_auth', 'true');
+                cerrarModalAdminAuth();
+                
+                const tabs = document.querySelectorAll('.nav-tab');
+                const btnAdmin = tabs[tabs.length - 1];
+                switchTab('admin', btnAdmin);
+                alert("¡Acceso de administrador concedido con éxito!");
+            } else {
+                alert("Contraseña incorrecta. Acceso denegado.");
+                document.getElementById('admin-password-input').value = '';
+            }
+        }
+
+        function cerrarSesionAdmin() {
+            adminAutenticado = false;
+            sessionStorage.removeItem('p2p_admin_auth');
+            switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
+            alert("Sesión de administrador cerrada correctamente.");
         }
 
         function toggleAccordion(id) {
             document.getElementById(id).classList.toggle('open');
         }
 
-        function toggleTheme() {
-            alert('Tema optimizado para P2Ppredict');
+        function aplicarFiltrosCombinados() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const cards = document.querySelectorAll('#markets-container .market-card');
+            
+            cards.forEach(card => {
+                const title = card.querySelector('.market-title').innerText.toLowerCase();
+                const cardCat = card.getAttribute('data-category');
+                const cardEstado = card.getAttribute('data-estado');
+
+                let cumpleQuery = title.includes(query);
+                let cumpleCat = (categoriaActualFiltro === 'Todos' || cardCat === categoriaActualFiltro);
+                let cumpleEstado = true;
+
+                if (estadoActualFiltro === 'Abiertos') { cumpleEstado = (cardEstado === 'Abierto'); }
+                else if (estadoActualFiltro === 'Cerrados') { cumpleEstado = (cardEstado === 'Cerrado'); }
+
+                if (cumpleQuery && cumpleCat && cumpleEstado) { card.style.display = 'block'; }
+                else { card.style.display = 'none'; }
+            });
         }
 
-        function verificarAccesoAdmin(btn) {
-            let pass = prompt("Introduce clave de administrador:");
-            if(pass === "1234" || pass === "admin2026") {
-                switchTab('admin', btn);
-            } else {
-                alert("Clave incorrecta");
+        function filtrarMercados() { aplicarFiltrosCombinados(); }
+
+        function setCategory(cat, pillElement) {
+            pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            pillElement.classList.add('active');
+            categoriaActualFiltro = cat;
+            aplicarFiltrosCombinados();
+        }
+
+        function setStatusFilter(estado, pillElement) {
+            pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            pillElement.classList.add('active');
+            estadoActualFiltro = estado;
+            aplicarFiltrosCombinados();
+        }
+
+        function actualizarUIBalance() {
+            document.getElementById('user-balance').innerText = usuarioActual.balance.toFixed(2) + ' Pi';
+            const rankingBal = document.getElementById('ranking-user-balance');
+            if(rankingBal) rankingBal.innerText = usuarioActual.balance.toFixed(2) + ' Pi';
+        }
+
+        function actualizarPreciosVisuales() {
+            for (let id in preciosMercados) {
+                const elSi = document.getElementById(`ask-precio-${id}-SI`);
+                const elNo = document.getElementById(`ask-precio-${id}-NO`);
+                if (elSi) elSi.innerText = preciosMercados[id]["SÍ"].toFixed(2) + ' Pi';
+                if (elNo) elNo.innerText = preciosMercados[id]["NO"].toFixed(2) + ' Pi';
             }
         }
 
-        async function cargarMercadosSupabase() {
-            const container = document.getElementById('markets-container');
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
+        function restaurarEstadosMercadosVisuales() {
+            for (let id in estadosMercados) {
+                const estadoBadge = document.getElementById('estado-mercado-' + id);
+                const marketCard = document.querySelector(`.market-card[data-id="${id}"]`);
+                const btnSi = document.getElementById(`btn-comprar-${id}-SI`);
+                const btnNo = document.getElementById(`btn-comprar-${id}-NO`);
+                
+                if (estadosMercados[id] !== null) {
+                    if (estadoBadge) { estadoBadge.innerHTML = `🔴 Cerrado (Ganador: ${estadosMercados[id]})`; estadoBadge.style.color = '#ef4444'; }
+                    if (marketCard) { marketCard.setAttribute('data-estado', 'Cerrado'); }
+                    if (btnSi) btnSi.disabled = true;
+                    if (btnNo) btnNo.disabled = true;
+                } else {
+                    if (estadoBadge) { estadoBadge.innerHTML = `● Abierto`; estadoBadge.style.color = '#eab308'; }
+                    if (marketCard) { marketCard.setAttribute('data-estado', 'Abierto'); }
+                    if (btnSi) btnSi.disabled = false;
+                    if (btnNo) btnNo.disabled = false;
+                }
+            }
+            aplicarFiltrosCombinados();
+            actualizarSelectsMercadosActivos();
+        }
+
+        function actualizarSelectsMercadosActivos() {
+            const selectClob = document.getElementById('orderbook-market-filter');
+            if (selectClob) {
+                const valorAnterior = selectClob.value;
+                let htmlClob = '';
+                for (let id in estadosMercados) {
+                    if (estadosMercados[id] === null) {
+                        htmlClob += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)}</option>`;
                     }
-                });
+                }
+                if (htmlClob === '') { htmlClob = '<option value="">No hay mercados activos</option>'; }
+                selectClob.innerHTML = htmlClob;
+                if (valorAnterior && selectClob.querySelector(`option[value="${valorAnterior}"]`)) { selectClob.value = valorAnterior; }
+            }
 
-                if (!response.ok) throw new Error('Error al conectar');
-
-                mercadosGlobales = await response.json();
-                renderizarMercados(mercadosGlobales);
-
-            } catch (err) {
-                console.error("Error:", err);
-                container.innerHTML = '<div class="market-card"><p style="color: #f87171; text-align: center;">Error al conectar con la base de datos.</p></div>';
+            const selectAdmin = document.getElementById('admin-market-id');
+            if (selectAdmin) {
+                const valorAdminAnterior = selectAdmin.value;
+                let htmlAdmin = '';
+                for (let id in estadosMercados) {
+                    if (estadosMercados[id] === null) {
+                        htmlAdmin += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)}</option>`;
+                    }
+                }
+                if (htmlAdmin === '') { htmlAdmin = '<option value="">No hay mercados pendientes por resolver</option>'; }
+                selectAdmin.innerHTML = htmlAdmin;
+                if (valorAdminAnterior && selectAdmin.querySelector(`option[value="${valorAdminAnterior}"]`)) { selectAdmin.value = valorAdminAnterior; }
             }
         }
 
-        function renderizarMercados(lista) {
-            const container = document.getElementById('markets-container');
-            if (!lista || lista.length === 0) {
-                container.innerHTML = '<div class="market-card"><p style="color: var(--text-muted); text-align: center;">No hay mercados activos.</p></div>';
+        function cargarHistorialDesdeDB() {
+            renderizarPosiciones();
+            renderizarHistorial();
+        }
+
+        function crearNuevoMercadoPionero() {
+            let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (uCheck && uCheck.bloqueado) {
+                alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador.");
                 return;
             }
 
-            container.innerHTML = '';
-            lista.forEach(m => {
-                container.innerHTML += `
-                    <div class="market-card">
+            const titulo = document.getElementById('nuevo-titulo').value.trim();
+            const categoria = document.getElementById('nuevo-categoria').value;
+            const opcionInicial = document.getElementById('nuevo-opcion').value;
+            const liquidezAportada = parseFloat(document.getElementById('nuevo-liquidez').value);
+
+            if (!titulo) {
+                alert("Por favor, ingresa una pregunta o título válido para la predicción.");
+                return;
+            }
+            if (!liquidezAportada || liquidezAportada <= 0) {
+                alert("Introduce una cantidad válida de liquidez inicial en Pi.");
+                return;
+            }
+            if (usuarioActual.balance < liquidezAportada) {
+                alert("No tienes suficiente balance en Pi para aportar la liquidez inicial especificada.");
+                return;
+            }
+
+            // Descontar liquidez del usuario
+            usuarioActual.balance -= liquidezAportada;
+
+            // Generar nuevo ID único de mercado
+            const nuevoId = 'm-' + Date.now();
+            
+            // Registrar precios iniciales y estado
+            preciosMercados[nuevoId] = { "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, "NO": opcionInicial === 'NO' ? 0.55 : 0.45 };
+            estadosMercados[nuevoId] = null;
+            nombresMercados[nuevoId] = titulo;
+
+            const marketObj = {
+                id: nuevoId,
+                titulo: titulo,
+                categoria: categoria,
+                creador: usuarioActual.handle
+            };
+
+            mercadosDinamicos.push(marketObj);
+            guardarEnSupabaseTabla('mercados_dinamicos', marketObj);
+
+            // Crear la posición inicial para el creador
+            const contratosCreador = Math.floor(liquidezAportada / preciosMercados[nuevoId][opcionInicial]);
+            const nuevaPosicion = {
+                id: 'POS-' + Date.now(),
+                marketId: nuevoId,
+                titulo: titulo,
+                opcion: opcionInicial,
+                contratos: contratosCreador,
+                invertido: liquidezAportada,
+                payout: contratosCreador * 1.00
+            };
+
+            posicionesActivas.push(nuevaPosicion);
+            guardarEnSupabaseTabla('posiciones_activas', {
+                id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
+                titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
+                invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
+            });
+
+            // Registrar orden global inicial
+            const nuevaOrdenGlobal = {
+                marketId: nuevoId, tipo: 'CREACIÓN DE MERCADO (Bid)', opcion: opcionInicial, contratos: contratosCreador, precio: preciosMercados[nuevoId][opcionInicial], trader: usuarioActual.handle
+            };
+            ordenesGlobales.push(nuevaOrdenGlobal);
+            guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
+
+            // Registrar en historial permanente
+            registrarTransaccionEnDB({
+                id: 'CREA-' + Date.now(),
+                titulo: 'Creación de Mercado P2P',
+                tipo: 'Creación (0% Comisión)',
+                monto: -liquidezAportada,
+                detalle: `Mercado creado: "${titulo}". Aporte inicial de ${liquidezAportada} Pi en opción ${opcionInicial} por ${usuarioActual.handle}.`
+            });
+
+            guardarTodoEnStorage();
+            renderizarMercadosDinamicos();
+            actualizarUIBalance();
+            actualizarPreciosVisuales();
+            restaurarEstadosMercadosVisuales();
+            renderizarPosiciones();
+            renderizarHistorial();
+
+            // Limpiar formulario y redirigir a mercados
+            document.getElementById('nuevo-titulo').value = '';
+            document.getElementById('nuevo-liquidez').value = '5.0';
+            switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
+
+            alert("¡Predicción creada con éxito! Se aplicó 0% de comisión por creación y se registró tu liquidez inicial.");
+        }
+
+        function renderizarMercadosDinamicos() {
+            const container = document.getElementById('markets-container');
+            // Mantener los mercados estáticos (1 y 2) y agregar los dinámicos
+            let htmlDinamicoHTML = `
+                <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                        <span>🏷️ Crypto</span>
+                        <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                    </div>
+                    <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button>
+                        <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button>
+                    </div>
+                </div>
+
+                <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                        <span>🏷️ Pi Ecosystem</span>
+                        <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                    </div>
+                    <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
+                        <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
+                    </div>
+                </div>
+            `;
+
+            mercadosDinamicos.forEach(m => {
+                if (!preciosMercados[m.id]) {
+                    preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 };
+                }
+                if (estadosMercados[m.id] === undefined) {
+                    estadosMercados[m.id] = null;
+                }
+
+                const pSi = preciosMercados[m.id]["SÍ"].toFixed(2);
+                const pNo = preciosMercados[m.id]["NO"].toFixed(2);
+
+                htmlDinamicoHTML += `
+                    <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto">
                         <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                            <span>🏷️ ${m.category || 'General'}</span>
-                            <span style="color: #eab308; font-weight: bold;">● ${m.status || 'Abierto'}</span>
+                            <span>🏷️ ${m.categoria} (Creador: ${m.creador})</span>
+                            <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span>
                         </div>
-                        <div class="market-title">${m.title}</div>
-                        <div class="countdown-timer">
-                            <span>⏳ Cierre:</span> <b>${m.closing_time || 'Activo'}</b>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-top: 10px;">
-                            <button class="action-btn" style="flex: 1; background: #166534; border-color: #22c55e; padding: 9px;" onclick="alert('Apuesta SÍ en mercado ${m.id}')">SÍ</button>
-                            <button class="action-btn" style="flex: 1; background: #991b1b; border-color: #ef4444; padding: 9px;" onclick="alert('Apuesta NO en mercado ${m.id}')">NO</button>
+                        <div class="market-title">${m.titulo}</div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ (Comisión 2%)</button>
+                            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO (Comisión 2%)</button>
                         </div>
                     </div>
                 `;
             });
+
+            container.innerHTML = htmlDinamicoHTML;
         }
 
-        function setCategory(cat, btn) {
-            categoriaActual = cat;
-            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            filtrarMercados();
-        }
-
-        function filtrarMercados() {
-            const query = document.getElementById('search-input').value.toLowerCase();
-            const filtrados = mercadosGlobales.filter(m => {
-                const matchCat = (categoriaActual === 'Todos' || m.category === categoriaActual);
-                const matchText = m.title.toLowerCase().includes(query);
-                return matchCat && matchText;
-            });
-            renderizarMercados(filtrados);
-        }
-
-        async function crearMercadoSupabase() {
-            const title = document.getElementById('new-title').value.trim();
-            const category = document.getElementById('new-category').value;
-            const closing_time = document.getElementById('new-closing').value.trim();
-
-            if (!title || !closing_time) {
-                alert("Completa todos los campos por favor.");
+        function abrirTerminalTrading(idMercado, tituloMercado, opcion) {
+            let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (uCheck && uCheck.bloqueado) {
+                alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador.");
                 return;
             }
 
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify({ title, category, closing_time, status: 'Abierto' })
-                });
-
-                if (!response.ok) throw new Error('Error al guardar');
-
-                alert("¡Mercado creado con éxito!");
-                document.getElementById('new-title').value = '';
-                document.getElementById('new-closing').value = '';
-                switchTab('mercados', document.querySelector('.nav-tab'));
-                cargarMercadosSupabase();
-            } catch (err) {
-                alert("Hubo un error al guardar en Supabase.");
-                console.error(err);
+            if (estadosMercados[idMercado] !== null) {
+                alert("Este mercado ya se encuentra cerrado o resuelto.");
+                return;
             }
+            let precioAskActual = preciosMercados[idMercado][opcion];
+            ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual };
+            document.getElementById('modal-title').innerText = `Comprar Contratos [${opcion}] (Comisión 2%)`;
+            document.getElementById('modal-market-text').innerText = tituloMercado;
+            document.getElementById('modal-amount').value = 1;
+            calcularModalTotal();
+            document.getElementById('trading-modal').style.display = 'flex';
+        }
+
+        function cerrarTerminalTrading() {
+            document.getElementById('trading-modal').style.display = 'none';
+        }
+
+        function calcularModalTotal() {
+            const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+            const precioDinamicoUnitario = ordenActivaModal.precioAskBase * (1 + (cantidad - 1) * 0.003);
+            ordenActivaModal.precioCalculadoUnitario = Math.min(precioDinamicoUnitario, 0.98);
+
+            let subtotalReq = cantidad * ordenActivaModal.precioCalculadoUnitario;
+            // Aplicar la comisión del 2% especificada para apuestas subsiguientes de otros usuarios
+            let totalConComision = subtotalReq * 1.02; 
+            const payout = cantidad * 1.00; 
+
+            document.getElementById('modal-price-unit').innerText = ordenActivaModal.precioCalculadoUnitario.toFixed(3);
+            document.getElementById('modal-total-req').innerText = totalConComision.toFixed(2) + ' (incluye 2% comisión)';
+            document.getElementById('modal-payout').innerText = payout.toFixed(2);
+            ordenActivaModal.totalConComision = totalConComision;
+        }
+
+        function confirmarCompraRapida() {
+            const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+            const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
+            const totalReq = ordenActivaModal.totalConComision;
+
+            if (estadosMercados[ordenActivaModal.idMercado] !== null) {
+                alert("Este mercado ya se encuentra cerrado.");
+                cerrarTerminalTrading();
+                return;
+            }
+
+            if (usuarioActual.balance < totalReq) {
+                alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
+                return;
+            }
+
+            usuarioActual.balance -= totalReq;
+
+            const idM = ordenActivaModal.idMercado;
+            const opM = ordenActivaModal.opcion;
+            const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ';
+
+            preciosMercados[idM][opM] = Math.min(preciosMercados[idM][opM] + (cantidad * 0.002), 0.95);
+            preciosMercados[idM][opOpuesta] = Math.max(1 - preciosMercados[idM][opM], 0.05);
+
+            const nuevaPosicion = {
+                id: 'POS-' + Date.now(),
+                marketId: idM,
+                titulo: ordenActivaModal.tituloMercado,
+                opcion: opM,
+                contratos: cantidad,
+                invertido: totalReq,
+                payout: cantidad * 1.00
+            };
+
+            posicionesActivas.push(nuevaPosicion);
+            
+            guardarEnSupabaseTabla('posiciones_activas', {
+                id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
+                titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
+                invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
+            });
+
+            const nuevaOrdenGlobal = {
+                marketId: idM, tipo: 'COMPRA (Bid)', opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle
+            };
+
+            ordenesGlobales.push(nuevaOrdenGlobal);
+            guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
+
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            actualizarPreciosVisuales();
+            renderizarPosiciones();
+            renderizarOrderBookVisible();
+            cerrarTerminalTrading();
+            alert("¡Orden ejecutada con comisión del 2% y guardada permanentemente en el sistema!");
+        }
+
+        function renderizarOrderBookVisible() {
+            sincronizarPersistencia();
+            const marketIdFiltro = document.getElementById('orderbook-market-filter').value;
+            const tbody = document.getElementById('orderbook-table-body');
+            const bannerStatus = document.getElementById('orderbook-market-status-banner');
+            
+            if (!marketIdFiltro || estadosMercados[marketIdFiltro] !== null) {
+                if (bannerStatus) { bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay un mercado activo seleccionado o el mercado está cerrado.</span>`; }
+                if (tbody) { tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Seleccione un mercado activo válido.</td></tr>'; }
+                return;
+            }
+
+            bannerStatus.innerHTML = `
+                <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: Activo / Abierto</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Últimos precios Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div>
+            `;
+
+            const filtradas = ordenesGlobales.filter(o => o.marketId == marketIdFiltro);
+            if (filtradas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">No hay órdenes en el libro para este mercado.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            filtradas.forEach(o => {
+                const colorOp = o.opcion === 'SÍ' ? '#4ade80' : '#f87171';
+                html += `
+                    <tr>
+                        <td><span style="color: #38bdf8;">${o.tipo}</span></td>
+                        <td><b style="color: ${colorOp};">${o.opcion}</b></td>
+                        <td>${o.contratos}</td>
+                        <td>${o.precio.toFixed(3)} Pi</td>
+                        <td>${o.trader}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderizarPosiciones() {
+            const contenedor = document.getElementById('my-positions-content');
+            const posicionesVivas = posicionesActivas.filter(pos => {
+                const ganadorOficial = estadosMercados[pos.marketId];
+                if (ganadorOficial !== null && ganadorOficial !== pos.opcion) { return false; }
+                return true;
+            });
+
+            if (posicionesVivas.length === 0) {
+                contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>';
+                return;
+            }
+
+            let html = '';
+            posicionesActivas.forEach((pos, idx) => {
+                const ganadorOficial = estadosMercados[pos.marketId];
+                if (ganadorOficial !== null && ganadorOficial !== pos.opcion) { return; }
+
+                const colorBadge = pos.opcion === 'SÍ' ? '#4ade80' : '#f87171';
+                let botonesHtml = '';
+                if (ganadorOficial === null) {
+                    const valorVentaAnticipada = (pos.invertido * 0.9).toFixed(2);
+                    botonesHtml = `
+                        <div style="display: flex; gap: 6px; margin-bottom: 4px;">
+                            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2a2e43, #1f2233); border-color: #3a3f58; color: #8c92ac; font-size: 0.75rem; padding: 7px; cursor: default;" disabled>Predicción Activa</button>
+                            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="venderPosicionAnticipada(${idx})">💸 Vender (${valorVentaAnticipada} Pi)</button>
+                        </div>
+                    `;
+                } else {
+                    botonesHtml = `
+                        <div style="display: flex; gap: 6px;">
+                            <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 7px;" onclick="cobrarPrediccion(${idx})">🎉 Cobrar Premio</button>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="position-ticket" data-watermark="${pos.opcion}">
+                        <div style="font-size: 0.85rem; font-weight: bold; color: var(--text-color); margin-bottom: 4px;">${pos.titulo}</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">
+                            <span>Opción: <b style="color: ${colorBadge}">${pos.opcion}</b> | Contratos: <b>${pos.contratos}</b></span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">
+                            <span>Invertido: ${pos.invertido.toFixed(2)} Pi</span>
+                            <span style="color: #4ade80;">Payout: ${pos.payout.toFixed(2)} Pi</span>
+                        </div>
+                        ${botonesHtml}
+                    </div>
+                `;
+            });
+            contenedor.innerHTML = html === '' ? '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>' : html;
+        }
+
+        function venderPosicionAnticipada(idx) {
+            const pos = posicionesActivas[idx];
+            const retornoVenta = pos.invertido * 0.9;
+            usuarioActual.balance += retornoVenta;
+
+            registrarTransaccionEnDB({
+                id: 'VEND-' + Date.now(), titulo: pos.titulo, tipo: 'Venta Anticipada', monto: retornoVenta, detalle: `${pos.contratos} contratos (${pos.opcion}) vendidos antes de tiempo por ${usuarioActual.handle}`
+            });
+
+            eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+            posicionesActivas.splice(idx, 1);
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            renderizarPosiciones();
+            renderizarHistorial();
+            alert(`¡Has vendido tus contratos anticipadamente! Se han acreditado ${retornoVenta.toFixed(2)} Pi a tu balance.`);
+        }
+
+        function cobrarPrediccion(idx) {
+            const pos = posicionesActivas[idx];
+            usuarioActual.balance += pos.payout;
+
+            registrarTransaccionEnDB({
+                id: pos.id, titulo: pos.titulo, tipo: 'Cobrada / Ganada', monto: pos.payout, detalle: `${pos.contratos} contratos (${pos.opcion}) cobrados por ${usuarioActual.handle}`
+            });
+
+            eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+            posicionesActivas.splice(idx, 1);
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            renderizarPosiciones();
+            renderizarHistorial();
+            alert(`¡Predicción cobrada con éxito! Se acreditaron ${pos.payout.toFixed(2)} Pi a tu balance.`);
+        }
+
+        function registrarTransaccionEnDB(tx) {
+            historialTransacciones.unshift(tx);
+            guardarEnSupabaseTabla('historial_transacciones', tx);
+            guardarTodoEnStorage();
+            if (document.getElementById('view-admin').classList.contains('active')) {
+                renderizarHistorialGlobalAdmin();
+            }
+        }
+
+        function renderizarHistorial() {
+            const contenedor = document.getElementById('my-history-content');
+            if (historialTransacciones.length === 0) {
+                contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p>';
+                return;
+            }
+
+            let html = '';
+            historialTransacciones.forEach(tx => {
+                html += `
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 0.75rem;">
+                        <div style="font-weight: bold; color: var(--text-color);">${tx.titulo}</div>
+                        <div style="color: var(--text-muted);">${tx.detalle}</div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                            <span style="color: #38bdf8;">${tx.tipo}</span>
+                            <span style="color: #4ade80; font-weight: bold;">+${tx.monto.toFixed(2)} Pi</span>
+                        </div>
+                    </div>
+                `;
+            });
+            contenedor.innerHTML = html;
+        }
+
+        function renderizarHistorialGlobalAdmin() {
+            sincronizarPersistencia();
+            const contenedor = document.getElementById('admin-global-transactions-container');
+            const filtroUsuario = (document.getElementById('admin-user-search').value || '').toLowerCase();
+            const filtroTexto = (document.getElementById('admin-tx-search').value || '').toLowerCase();
+
+            const filtradas = historialTransacciones.filter(tx => {
+                const titulo = (tx.titulo || '').toLowerCase();
+                const detalle = (tx.detalle || '').toLowerCase();
+                const tipo = (tx.tipo || '').toLowerCase();
+                
+                const coincideUsuario = filtroUsuario === '' || detalle.includes(filtroUsuario) || titulo.includes(filtroUsuario);
+                const coincideTexto = filtroTexto === '' || titulo.includes(filtroTexto) || detalle.includes(filtroTexto) || tipo.includes(filtroTexto);
+
+                return coincideUsuario && coincideTexto;
+            });
+
+            if (filtradas.length === 0) {
+                contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con esos criterios.</p>';
+                return;
+            }
+
+            let html = '';
+            filtradas.forEach(tx => {
+                const colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
+                html += `
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--text-color);">
+                            <span>${tx.titulo}</span>
+                            <span style="color: ${colorMonto};">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                        </div>
+                        <div style="color: var(--text-muted); margin-top: 2px;">${tx.detalle}</div>
+                        <div style="color: #38bdf8; margin-top: 2px; font-size: 0.7rem;">Tipo: ${tx.tipo} | ID: ${tx.id}</div>
+                    </div>
+                `;
+            });
+            contenedor.innerHTML = html;
+        }
+
+        function calcularMetricasFinancierasAdmin() {
+            sincronizarPersistencia();
+            sincronizarBalanceDirectorioLocal();
+            
+            let totalSupply = cuentasDirectorio.reduce((acc, curr) => acc + curr.balance, 0);
+            const elSupply = document.getElementById('admin-total-supply');
+            if (elSupply) {
+                elSupply.innerText = totalSupply.toFixed(2) + ' Pi';
+            }
+
+            let listaOrdenada = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance);
+
+            const containerTop = document.getElementById('admin-top-users-container');
+            if (!containerTop) return;
+
+            let htmlTop = '';
+            listaOrdenada.forEach((c, idx) => {
+                let badgeBloq = c.bloqueado ? ' <span style="color:#ef4444; font-size:0.7rem;">[Bloqueado]</span>' : '';
+                htmlTop += `
+                    <div style="display: flex; justify-content: space-between; background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 8px; border-radius: 6px;">
+                        <span>${idx + 1}. ${c.handle}${badgeBloq}</span>
+                        <b style="color: #38bdf8;">${c.balance.toFixed(2)} Pi</b>
+                    </div>
+                `;
+            });
+            containerTop.innerHTML = htmlTop;
+            actualizarSelectsAdminDirectorio();
+        }
+
+        function actualizarSelectsAdminDirectorio() {
+            const selectUsr = document.getElementById('admin-user-select');
+            if (!selectUsr) return;
+            const valAnt = selectUsr.value;
+            let html = '<option value="">-- Seleccionar Usuario --</option>';
+            cuentasDirectorio.forEach(c => {
+                html += `<option value="${c.handle}">${c.handle} (${c.balance.toFixed(2)} Pi)</option>`;
+            });
+            selectUsr.innerHTML = html;
+            if (valAnt && selectUsr.querySelector(`option[value="${valAnt}"]`)) {
+                selectUsr.value = valAnt;
+            }
+        }
+
+        function cargarDatosUsuarioAdminSeleccionado() {
+            const handle = document.getElementById('admin-user-select').value;
+            usuarioAdminSeleccionadoHandle = handle;
+            const detCard = document.getElementById('admin-user-details-card');
+            if (!handle) {
+                detCard.style.display = 'none';
+                return;
+            }
+            let u = cuentasDirectorio.find(c => c.handle === handle);
+            if (!u) return;
+
+            document.getElementById('adm-det-handle').innerText = u.handle;
+            document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi';
+            
+            const stEl = document.getElementById('adm-det-status');
+            const btnBloq = document.getElementById('admin-btn-bloqueo');
+            if (u.bloqueado) {
+                stEl.innerText = "BLOQUEADO";
+                stEl.style.color = "#ef4444";
+                btnBloq.innerText = "🔓 Desbloquear Cuenta";
+                btnBloq.style.background = "linear-gradient(145deg, #166534, #14532d)";
+                btnBloq.style.borderColor = "#22c55e";
+            } else {
+                stEl.innerText = "Activo";
+                stEl.style.color = "#4ade80";
+                btnBloq.innerText = "🔒 Bloquear Cuenta";
+                btnBloq.style.background = "linear-gradient(145deg, #b91c1c, #991b1b)";
+                btnBloq.style.borderColor = "#ef4444";
+            }
+            detCard.style.display = 'block';
+        }
+
+        function toggleBloqueoCuentaActual() {
+            if (!usuarioAdminSeleccionadoHandle) {
+                alert("Por favor, selecciona un usuario primero.");
+                return;
+            }
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (!u) return;
+
+            u.bloqueado = !u.bloqueado;
+            guardarTodoEnStorage();
+            cargarDatosUsuarioAdminSeleccionado();
+            calcularMetricasFinancierasAdmin();
+            alert(`El usuario ${u.handle} ha sido ${u.bloqueado ? 'BLOQUEADO' : 'DESBLOQUEADO'} con éxito.`);
+        }
+
+        function abrirModalAjusteBalance() {
+            if (!usuarioAdminSeleccionadoHandle) {
+                alert("Por favor, selecciona un usuario del panel de gestión primero.");
+                return;
+            }
+            document.getElementById('admin-adj-monto').value = '';
+            document.getElementById('admin-adj-nota').value = '';
+            document.getElementById('admin-balance-modal-subtitle').innerText = `Ajuste manual para la cuenta: ${usuarioAdminSeleccionadoHandle}`;
+            document.getElementById('admin-balance-modal').style.display = 'flex';
+        }
+
+        function cerrarModalAjusteBalance() {
+            document.getElementById('admin-balance-modal').style.display = 'none';
+        }
+
+        function ejecutarAjusteBalanceAdmin() {
+            if (!usuarioAdminSeleccionadoHandle) return;
+            const tipo = document.getElementById('admin-adj-tipo').value;
+            const monto = parseFloat(document.getElementById('admin-adj-monto').value);
+            const nota = document.getElementById('admin-adj-nota').value.trim();
+
+            if (!monto || monto <= 0) {
+                alert("Introduce un monto válido mayor a 0.");
+                return;
+            }
+            if (!nota) {
+                alert("La nota de auditoría o justificación es obligatoria para el ajuste manual.");
+                return;
+            }
+
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (!u) return;
+
+            if (tipo === 'CREDITO') {
+                u.balance += monto;
+            } else {
+                if (u.balance < monto) {
+                    alert("El usuario no tiene suficiente balance para este débito.");
+                    return;
+                }
+                u.balance -= monto;
+            }
+
+            if (u.handle === usuarioActual.handle) {
+                usuarioActual.balance = u.balance;
+                actualizarUIBalance();
+            }
+
+            registrarTransaccionEnDB({
+                id: 'ADJ-' + Date.now(),
+                titulo: `Ajuste Admin [${tipo}]`,
+                tipo: 'Ajuste Manual',
+                monto: tipo === 'CREDITO' ? monto : -monto,
+                detalle: `Admin ajustó saldo a ${u.handle} (${tipo} ${monto} Pi). Nota: ${nota}`
+            });
+
+            guardarTodoEnStorage();
+            cargarDatosUsuarioAdminSeleccionado();
+            calcularMetricasFinancierasAdmin();
+            cerrarModalAjusteBalance();
+            alert("¡Ajuste manual de balance aplicado y registrado en auditoría correctamente!");
+        }
+
+        function depositarConPiNetwork() {
+            let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (uCheck && uCheck.bloqueado) {
+                alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador.");
+                return;
+            }
+
+            const monto = parseFloat(document.getElementById('wallet-amount').value);
+            if (!monto || monto <= 0) { alert("Introduce un monto válido para recargar."); return; }
+            usuarioActual.balance += monto;
+            registrarTransaccionEnDB({
+                id: 'DEP-' + Date.now(), titulo: 'Recarga de Billetera Pi', tipo: 'Depósito', monto: monto, detalle: `Recarga de ${monto} Pi procesada por ${usuarioActual.handle}`
+            });
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            renderizarHistorial();
+            alert(`¡Depósito de ${monto} Pi realizado correctamente!`);
+        }
+
+        function retirarBilletera() {
+            let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+            if (uCheck && uCheck.bloqueado) {
+                alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador.");
+                return;
+            }
+
+            const monto = parseFloat(document.getElementById('wallet-amount').value);
+            if (!monto || monto <= 0) { alert("Introduce un monto válido para retirar."); return; }
+            if (usuarioActual.balance < monto) { alert("No tienes suficiente saldo para este retiro."); return; }
+            usuarioActual.balance -= monto;
+            registrarTransaccionEnDB({
+                id: 'RET-' + Date.now(), titulo: 'Retiro de Billetera Pi', tipo: 'Retiro', monto: -monto, detalle: `Retiro de ${monto} Pi procesado por ${usuarioActual.handle}`
+            });
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            renderizarHistorial();
+            alert(`Se han retirado ${monto} Pi de tu saldo disponible.`);
+        }
+
+        function declararGanadorAdmin() {
+            const marketSelect = document.getElementById('admin-market-id');
+            const marketId = marketSelect.value;
+            if (!marketId) { alert("No hay mercados pendientes válidos para resolver."); return; }
+            const ganador = document.getElementById('admin-result-select').value;
+
+            if (estadosMercados[marketId] !== null) {
+                alert(`¡Atención! El mercado #${marketId} ya fue cerrado y liquidado previamente con el resultado: ${estadosMercados[marketId]}.`);
+                return;
+            }
+
+            estadosMercados[marketId] = ganador;
+            let nuevasPosicionesActivas = [];
+
+            posicionesActivas.forEach(pos => {
+                if (pos.marketId == marketId) {
+                    if (pos.opcion !== ganador) {
+                        registrarTransaccionEnDB({
+                            id: 'PERD-' + Date.now() + '-' + Math.floor(Math.random()*1000), titulo: pos.titulo, tipo: 'Perdida / Cerrada', monto: 0.00, detalle: `${pos.contratos} contratos (${pos.opcion}) cerrados sin premio (Ganador: ${ganador})`
+                        });
+                        eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+                    } else { nuevasPosicionesActivas.push(pos); }
+                } else { nuevasPosicionesActivas.push(pos); }
+            });
+
+            posicionesActivas = nuevasPosicionesActivas;
+            guardarTodoEnStorage();
+            restaurarEstadosMercadosVisuales();
+            renderizarPosiciones();
+            renderizarHistorial();
+            actualizarSelectsMercadosActivos();
+            renderizarOrderBookVisible();
+
+            alert(`¡El administrador ha declarado a "${ganador}" como ganador oficial del mercado #${marketId}!`);
+            switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
+        }
+
+        function abrirSoporteChatUsuario() {
+            document.getElementById('support-chat-modal').style.display = 'flex';
+            renderizarMensajesChatUsuario();
+        }
+
+        function cerrarChatSoporteUsuario() {
+            document.getElementById('support-chat-modal').style.display = 'none';
+        }
+
+        function obtenerTicketActualUsuario() {
+            let ticket = ticketsSoporte.find(t => t.handle === usuarioActual.handle);
+            if (!ticket) {
+                ticket = {
+                    id: 'TCK-' + Date.now(),
+                    handle: usuarioActual.handle,
+                    mensajes: [
+                        { remitente: 'admin', texto: '¡Hola! Bienvenido al soporte de P2Ppredict. ¿En qué podemos ayudarte con tus apuestas o retiros?' }
+                    ]
+                };
+                ticketsSoporte.push(ticket);
+                guardarTodoEnStorage();
+                guardarEnSupabaseTabla('tickets_soporte', ticket);
+            }
+            return ticket;
+        }
+
+        function renderizarMensajesChatUsuario() {
+            const ticket = obtenerTicketActualUsuario();
+            const container = document.getElementById('chat-messages-container');
+            let html = '';
+            ticket.mensajes.forEach(m => {
+                const claseCss = m.remitente === 'user' ? 'user' : 'admin';
+                html += `<div class="chat-msg ${claseCss}"><b>${m.remitente === 'user' ? 'Tú' : 'Soporte'}:</b> ${m.texto}</div>`;
+            });
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function enviarMensajeSoporteUsuario() {
+            const input = document.getElementById('chat-user-input');
+            const texto = input.value.trim();
+            if (!texto) return;
+
+            let ticket = obtenerTicketActualUsuario();
+            ticket.mensajes.push({ remitente: 'user', texto: texto });
+            
+            guardarTodoEnStorage();
+            guardarEnSupabaseTabla('tickets_soporte', ticket);
+            input.value = '';
+            renderizarMensajesChatUsuario();
+        }
+
+        function renderizarTicketsAdmin() {
+            sincronizarPersistencia();
+            const container = document.getElementById('admin-tickets-container');
+            if (ticketsSoporte.length === 0) {
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>';
+                return;
+            }
+
+            let html = '';
+            ticketsSoporte.forEach(t => {
+                const ultimoMsg = t.mensajes[t.mensajes.length - 1] ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes';
+                html += `
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <b style="color: #38bdf8;">Ticket: ${t.id}</b>
+                            <span style="color: #4ade80;">Usuario: ${t.handle}</span>
+                        </div>
+                        <div style="color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Último: ${ultimoMsg}</div>
+                        <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 6px;" onclick="abrirChatAdminModal('${t.id}')">💬 Abrir Conversación y Responder</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function abrirChatAdminModal(ticketId) {
+            ticketAdminActivoId = ticketId;
+            const ticket = ticketsSoporte.find(t => t.id === ticketId);
+            if (!ticket) return;
+
+            document.getElementById('admin-chat-title').innerText = `💬 Ticket: ${ticket.id} (${ticket.handle})`;
+            document.getElementById('admin-chat-modal').style.display = 'flex';
+            renderizarMensajesChatAdmin();
+        }
+
+        function cerrarChatAdminModal() {
+            document.getElementById('admin-chat-modal').style.display = 'none';
+            ticketAdminActivoId = null;
+            renderizarTicketsAdmin();
+        }
+
+        function renderizarMensajesChatAdmin() {
+            if (!ticketAdminActivoId) return;
+            const ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
+            if (!ticket) return;
+
+            const container = document.getElementById('admin-chat-messages-container');
+            let html = '';
+            ticket.mensajes.forEach(m => {
+                const claseCss = m.remitente === 'admin' ? 'user' : 'admin';
+                html += `<div class="chat-msg ${claseCss}"><b>${m.remitente === 'admin' ? 'Tú (Admin)' : ticket.handle}:</b> ${m.texto}</div>`;
+            });
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function enviarMensajeSoporteAdmin() {
+            const input = document.getElementById('chat-admin-input');
+            const texto = input.value.trim();
+            if (!texto || !ticketAdminActivoId) return;
+
+            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
+            if (!ticket) return;
+
+            ticket.mensajes.push({ remitente: 'admin', texto: texto });
+            guardarTodoEnStorage();
+            guardarEnSupabaseTabla('tickets_soporte', ticket);
+
+            input.value = '';
+            renderizarMensajesChatAdmin();
         }
     </script>
 </body>
