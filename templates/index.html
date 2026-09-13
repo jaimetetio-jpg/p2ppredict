@@ -108,12 +108,12 @@
         <div id="markets-container">
             <div class="market-card">
                 <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
-                    <span>🏷️ Crypto</span>
-                    <span style="color: #eab308; font-weight: bold;">● Abierto</span>
+                    <span>🏷️ Sistema</span>
+                    <span style="color: #eab308; font-weight: bold;">● Cargando</span>
                 </div>
-                <div class="market-title">Cargando mercados desde Supabase...</div>
+                <div class="market-title">Conectando con Supabase...</div>
                 <div class="countdown-timer">
-                    <span>⏳ Cierre en:</span> <b>Calculando...</b>
+                    <span>⏳ Estado:</span> <b>Espera un momento</b>
                 </div>
             </div>
         </div>
@@ -175,7 +175,9 @@
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mHFXA-Y_5NQsN9UWbuigCg_ZmN2WuPi';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Inicialización segura del cliente Supabase v2
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.addEventListener("DOMContentLoaded", () => {
             cargarMercadosSupabase();
