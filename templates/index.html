@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2Ppredict - Pro</title>
+    <title>P2Ppredict - Pro Directo</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         Pi.init({ version: "2.0", sandbox: true });
     </script>
@@ -98,14 +97,12 @@
     <!-- LISTA DE MERCADOS -->
     <div class="card">
         <h3 style="margin-top: 0; color: #38bdf8;">📋 Mercados Activos</h3>
-        <div id="lista-mercados" style="color: var(--text-muted); font-size: 0.9rem;">Cargando datos...</div>
+        <div id="lista-mercados" style="color: var(--text-muted); font-size: 0.9rem;">Cargando datos con fetch directo...</div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://uwrqtuxzyzduakqftvjx.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3cnF0dXh6eWNkdWFrcWZ0dmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NDg5MjcsImV4cCI6MjEwNDUyNDkyN30.7r8AYXSYOml1Ub68INeXXZKTIrqXbCpD-V9oAvFldZU';
-
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.addEventListener("DOMContentLoaded", () => {
             cargarMercados();
@@ -114,11 +111,18 @@
         async function cargarMercados() {
             const contenedor = document.getElementById('lista-mercados');
             try {
-                const { data, error } = await supabaseClient
-                    .from('markets')
-                    .select('*');
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets?select=*`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-                if (error) throw error;
+                if (!response.ok) throw new Error('Error HTTP: ' + response.status);
+
+                const data = await response.json();
 
                 if (!data || data.length === 0) {
                     contenedor.innerHTML = 'No hay mercados todavía. ¡Crea el primero arriba!';
@@ -150,11 +154,22 @@
             }
 
             try {
-                const { error } = await supabaseClient
-                    .from('markets')
-                    .insert([{ title, category, closing_time: 'Pronto' }]);
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/markets`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        category: category,
+                        closing_time: 'Pronto'
+                    })
+                });
 
-                if (error) throw error;
+                if (!response.ok) throw new Error('Error al insertar');
 
                 alert("¡Mercado creado con éxito!");
                 document.getElementById('titulo').value = '';
