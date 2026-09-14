@@ -1,4 +1,4 @@
-God Bless Us!
+God Bless Us!1
 
 <!DOCTYPE html>
 <html lang="es">
@@ -924,15 +924,19 @@ God Bless Us!
 
         function guardarTodoEnStorage() {
             sincronizarBalanceDirectorioLocal();
-            localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
-            localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
-            localStorage.setItem('p2p_posiciones', JSON.stringify(posicionesActivas));
-            localStorage.setItem('p2p_historial_transacciones', JSON.stringify(historialTransacciones));
-            localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales));
-            localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
-            localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
-            localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
-            localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
+            try {
+                localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
+                localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
+                localStorage.setItem('p2p_posiciones', JSON.stringify(posicionesActivas));
+                localStorage.setItem('p2p_historial_transacciones', JSON.stringify(historialTransacciones.slice(0, 200)));
+                localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales.slice(-200)));
+                localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
+                localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
+                localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
+                localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
+            } catch (e) {
+                console.warn("localStorage lleno o no disponible, se continúa sin persistencia local.", e);
+            }
         }
 
         function sincronizarPersistencia() {
@@ -1346,67 +1350,84 @@ God Bless Us!
             btnConfirmar.disabled = true;
             btnConfirmar.innerText = "Procesando...";
 
-            const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
-            const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
-            const totalReq = ordenActivaModal.totalConComision;
+            try {
+                const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+                const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
+                const totalReq = ordenActivaModal.totalConComision;
 
-            if (estadosMercados[ordenActivaModal.idMercado] !== null) {
-                alert("Este mercado ya se encuentra cerrado.");
+                if (estadosMercados[ordenActivaModal.idMercado] !== null) {
+                    alert("Este mercado ya se encuentra cerrado.");
+                    cerrarTerminalTrading();
+                    return;
+                }
+
+                if (usuarioActual.balance < totalReq) {
+                    alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerText = "Confirmar Orden al Order Book";
+                    return;
+                }
+
+                usuarioActual.balance -= totalReq;
+
+                const idM = ordenActivaModal.idMercado;
+                const opM = ordenActivaModal.opcion;
+                const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ';
+
+                preciosMercados[idM][opM] = Math.min(preciosMercados[idM][opM] + (cantidad * 0.002), 0.95);
+                preciosMercados[idM][opOpuesta] = Math.max(1 - preciosMercados[idM][opM], 0.05);
+
+                const nuevaPosicion = {
+                    id: 'POS-' + Date.now(),
+                    marketId: idM,
+                    titulo: ordenActivaModal.tituloMercado,
+                    opcion: opM,
+                    contratos: cantidad,
+                    invertido: totalReq,
+                    payout: cantidad * 1.00
+                };
+
+                posicionesActivas.push(nuevaPosicion);
+
+                guardarEnSupabaseTabla('posiciones_activas', {
+                    id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
+                    titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
+                    invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
+                });
+
+                const nuevaOrdenGlobal = {
+                    marketId: idM, tipo: 'COMPRA (Bid)', opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle
+                };
+
+                ordenesGlobales.push(nuevaOrdenGlobal);
+                guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
+
+                registrarTransaccionEnDB({
+                    id: 'COMPRA-' + Date.now(),
+                    titulo: ordenActivaModal.tituloMercado,
+                    tipo: 'Compra de Contratos (2% Comisión)',
+                    monto: -totalReq,
+                    detalle: `${cantidad} contratos (${opM}) comprados por ${usuarioActual.handle}`
+                });
+
+                guardarTodoEnStorage();
+                actualizarUIBalance();
+                actualizarPreciosVisuales();
+                renderizarPosiciones();
+                renderizarHistorial();
+                renderizarOrderBookVisible();
+
                 cerrarTerminalTrading();
-                return;
-            }
 
-            if (usuarioActual.balance < totalReq) {
-                alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
+                document.getElementById('texto-exito-detalle').innerText = `Has adquirido ${cantidad} contrato(s) en la opción [${opM}] por ${totalReq.toFixed(2)} Pi.`;
+                document.getElementById('modal-exito-apuesta').style.display = 'flex';
+
+            } catch (err) {
+                console.error("Error en compra:", err);
+                alert("Ocurrió un error al procesar la compra: " + err.message);
                 btnConfirmar.disabled = false;
                 btnConfirmar.innerText = "Confirmar Orden al Order Book";
-                return;
             }
-
-            usuarioActual.balance -= totalReq;
-
-            const idM = ordenActivaModal.idMercado;
-            const opM = ordenActivaModal.opcion;
-            const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ';
-
-            preciosMercados[idM][opM] = Math.min(preciosMercados[idM][opM] + (cantidad * 0.002), 0.95);
-            preciosMercados[idM][opOpuesta] = Math.max(1 - preciosMercados[idM][opM], 0.05);
-
-            const nuevaPosicion = {
-                id: 'POS-' + Date.now(),
-                marketId: idM,
-                titulo: ordenActivaModal.tituloMercado,
-                opcion: opM,
-                contratos: cantidad,
-                invertido: totalReq,
-                payout: cantidad * 1.00
-            };
-
-            posicionesActivas.push(nuevaPosicion);
-            
-            guardarEnSupabaseTabla('posiciones_activas', {
-                id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
-                titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
-                invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
-            });
-
-            const nuevaOrdenGlobal = {
-                marketId: idM, tipo: 'COMPRA (Bid)', opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle
-            };
-
-            ordenesGlobales.push(nuevaOrdenGlobal);
-            guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
-
-            guardarTodoEnStorage();
-            actualizarUIBalance();
-            actualizarPreciosVisuales();
-            renderizarPosiciones();
-            renderizarOrderBookVisible();
-            
-            cerrarTerminalTrading();
-
-            document.getElementById('texto-exito-detalle').innerText = `Has adquirido ${cantidad} contrato(s) en la opción [${opM}] por ${totalReq.toFixed(2)} Pi.`;
-            document.getElementById('modal-exito-apuesta').style.display = 'flex';
         }
 
         function renderizarOrderBookVisible() {
@@ -1560,7 +1581,7 @@ God Bless Us!
                         <div style="color: var(--text-muted);">${tx.detalle}</div>
                         <div style="display: flex; justify-content: space-between; margin-top: 4px;">
                             <span style="color: #38bdf8;">${tx.tipo}</span>
-                            <span style="color: #4ade80; font-weight: bold;">+${tx.monto.toFixed(2)} Pi</span>
+                            <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#f87171'}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
                         </div>
                     </div>
                 `;
