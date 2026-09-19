@@ -746,7 +746,7 @@
                 <div>Payout potencial (1 Pi c/u): <span id="modal-payout" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div>
             </div>
 
-            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
+            <button id="btn-confirmar-compra" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
         </div>
     </div>
 
@@ -865,6 +865,7 @@
         let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true';
         let ticketAdminActivoId = null;
         let usuarioAdminSeleccionadoHandle = null;
+        let isSubmitting = false; // Bandera para prevenir doble clic y bloqueo estático del botón
 
         let nombresMercados = {
             1: "¿Bitcoin superará los $100,000?",
@@ -935,7 +936,7 @@
             }
         }
 
-        function guardarTodoEnStorage() {
+        function guardarTodoInStorage() {
             sincronizarBalanceDirectorioLocal();
             localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
             localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
@@ -1353,11 +1354,19 @@
             document.getElementById('modal-amount').value = 1;
             document.getElementById('modal-limit-price').value = precioAskActual.toFixed(2);
             
+            isSubmitting = false; // Restablecer estado de envío al abrir la terminal
+            const btnConfirmar = document.getElementById('btn-confirmar-compra');
+            if(btnConfirmar) {
+                btnConfirmar.disabled = false;
+                btnConfirmar.innerText = "Confirmar Orden al Order Book";
+            }
+
             calcularModalTotal();
             document.getElementById('trading-modal').style.display = 'flex';
         }
 
         function cerrarTerminalTrading() {
+            isSubmitting = false;
             document.getElementById('trading-modal').style.display = 'none';
         }
 
@@ -1400,6 +1409,16 @@
         }
 
         function confirmarCompraRapida() {
+            // Protección contra clics múltiples y duplicaciones
+            if (isSubmitting) return;
+            isSubmitting = true;
+
+            const btnConfirmar = document.getElementById('btn-confirmar-compra');
+            if (btnConfirmar) {
+                btnConfirmar.disabled = true;
+                btnConfirmar.innerText = "Procesando orden...";
+            }
+
             const tipoOrden = document.getElementById('modal-order-type').value;
             const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
             const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
@@ -1413,6 +1432,11 @@
 
             if (usuarioActual.balance < totalReq) {
                 alert("Saldo insuficiente en tu billetera Pi (incluyendo la comisión del 2%).");
+                isSubmitting = false;
+                if (btnConfirmar) {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerText = "Confirmar Orden al Order Book";
+                }
                 return;
             }
 
@@ -1428,7 +1452,7 @@
             }
 
             const nuevaPosicion = {
-                id: 'POS-' + Date.now(), marketId: idM, titulo: ordenActivaModal.tituloMercado, opcion: opM, contratos: cantidad, invertido: totalReq, payout: cantidad * 1.00
+                id: 'POS-' + Date.now() + '-' + Math.floor(Math.random()*1000), marketId: idM, titulo: ordenActivaModal.tituloMercado, opcion: opM, contratos: cantidad, invertido: totalReq, payout: cantidad * 1.00
             };
 
             posicionesActivas.push(nuevaPosicion);
