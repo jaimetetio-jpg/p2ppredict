@@ -2095,35 +2095,34 @@
             ticketsSoporte.forEach(t => {
                 const ultimoMsg = t.mensajes[t.mensajes.length - 1] ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes';
                 html += `
-                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div>Usuario: <b style="color: #38bdf8;">${t.handle}</b></div>
-                            <div style="color: var(--text-muted); margin-top: 2px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Último: ${ultimoMsg}</div>
-                        </div>
-                        <button class="action-btn" style="padding: 6px 10px; font-size: 0.7rem;" onclick="abrirChatAdminModal('${t.id}')">💬 Responder</button>
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 0.75rem;">
+                        <div style="font-weight: bold; color: #38bdf8;">Ticket de: ${t.handle}</div>
+                        <div style="color: var(--text-muted); margin: 2px 0;">Último mensaje: "${ultimoMsg}"</div>
+                        <button class="action-btn" style="font-size: 0.7rem; padding: 5px 10px;" onclick="abrirChatAdminModal('${t.handle}')">💬 Ver y Responder Chat</button>
                     </div>
                 `;
             });
             container.innerHTML = html;
         }
 
-        function abrirChatAdminModal(ticketId) {
-            ticketAdminActivoId = ticketId;
+        function abrirChatAdminModal(handleUsuario) {
+            ticketAdminActivoId = handleUsuario;
+            const ticket = ticketsSoporte.find(t => t.handle === handleUsuario);
+            if (!ticket) return;
+
+            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${handleUsuario}`;
             document.getElementById('admin-chat-modal').style.display = 'flex';
             renderizarMensajesChatAdmin();
         }
 
         function cerrarChatAdminModal() {
             document.getElementById('admin-chat-modal').style.display = 'none';
-            ticketAdminActivoId = null;
         }
 
         function renderizarMensajesChatAdmin() {
-            if (!ticketAdminActivoId) return;
-            const ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
+            const ticket = ticketsSoporte.find(t => t.handle === ticketAdminActivoId);
             if (!ticket) return;
 
-            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${ticket.handle}`;
             const container = document.getElementById('admin-chat-messages-container');
             let html = '';
             ticket.mensajes.forEach(m => {
@@ -2135,12 +2134,11 @@
         }
 
         function enviarMensajeSoporteAdmin() {
-            if (!ticketAdminActivoId) return;
             const input = document.getElementById('chat-admin-input');
             const texto = input.value.trim();
-            if (!texto) return;
+            if (!texto || !ticketAdminActivoId) return;
 
-            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
+            let ticket = ticketsSoporte.find(t => t.handle === ticketAdminActivoId);
             if (!ticket) return;
 
             ticket.mensajes.push({ remitente: 'admin', texto: texto });
