@@ -2095,13 +2095,12 @@
             ticketsSoporte.forEach(t => {
                 const ultimoMsg = t.mensajes[t.mensajes.length - 1] ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes';
                 html += `
-                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <b style="color: #38bdf8;">Ticket: ${t.id}</b>
-                            <span style="color: #4ade80;">Usuario: ${t.handle}</span>
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div>Usuario: <b style="color: #38bdf8;">${t.handle}</b></div>
+                            <div style="color: var(--text-muted); margin-top: 2px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Último: ${ultimoMsg}</div>
                         </div>
-                        <div style="color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Último: ${ultimoMsg}</div>
-                        <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 6px;" onclick="abrirChatAdminModal('${t.id}')">💬 Abrir Conversación y Responder</button>
+                        <button class="action-btn" style="padding: 6px 10px; font-size: 0.7rem;" onclick="abrirChatAdminModal('${t.id}')">💬 Responder</button>
                     </div>
                 `;
             });
@@ -2110,10 +2109,6 @@
 
         function abrirChatAdminModal(ticketId) {
             ticketAdminActivoId = ticketId;
-            const ticket = ticketsSoporte.find(t => t.id === ticketId);
-            if (!ticket) return;
-
-            document.getElementById('admin-chat-title').innerText = `💬 Ticket: ${ticket.id} (${ticket.handle})`;
             document.getElementById('admin-chat-modal').style.display = 'flex';
             renderizarMensajesChatAdmin();
         }
@@ -2121,7 +2116,6 @@
         function cerrarChatAdminModal() {
             document.getElementById('admin-chat-modal').style.display = 'none';
             ticketAdminActivoId = null;
-            renderizarTicketsAdmin();
         }
 
         function renderizarMensajesChatAdmin() {
@@ -2129,20 +2123,22 @@
             const ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
             if (!ticket) return;
 
+            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${ticket.handle}`;
             const container = document.getElementById('admin-chat-messages-container');
             let html = '';
             ticket.mensajes.forEach(m => {
                 const claseCss = m.remitente === 'admin' ? 'user' : 'admin';
-                html += `<div class="chat-msg ${claseCss}"><b>${m.remitente === 'admin' ? 'Tú (Admin)' : ticket.handle}:</b> ${m.texto}</div>`;
+                html += `<div class="chat-msg ${claseCss}"><b>${m.remitente === 'admin' ? 'Admin' : ticket.handle}:</b> ${m.texto}</div>`;
             });
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
         }
 
         function enviarMensajeSoporteAdmin() {
+            if (!ticketAdminActivoId) return;
             const input = document.getElementById('chat-admin-input');
             const texto = input.value.trim();
-            if (!texto || !ticketAdminActivoId) return;
+            if (!texto) return;
 
             let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
             if (!ticket) return;
@@ -2150,9 +2146,9 @@
             ticket.mensajes.push({ remitente: 'admin', texto: texto });
             guardarTodoEnStorage();
             guardarEnSupabaseTabla('tickets_soporte', ticket);
-
             input.value = '';
             renderizarMensajesChatAdmin();
+            renderizarTicketsAdmin();
         }
     </script>
 </body>
