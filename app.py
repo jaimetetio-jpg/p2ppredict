@@ -128,7 +128,7 @@ def inicializar_bd():
                         monto DOUBLE PRECISION,
                         estado TEXT
                     )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS ordenes_clob (
+    c.execute("""CREATE TABLE IF NOT EXISTS orders (
                         id SERIAL PRIMARY KEY,
                         username TEXT,
                         evento_id INTEGER,
@@ -247,7 +247,7 @@ def inicializar_bd():
                     monto REAL, 
                     estado TEXT
                 )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS ordenes_clob (
+    c.execute("""CREATE TABLE IF NOT EXISTS orders (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     username TEXT, 
                     evento_id INTEGER, 
@@ -781,19 +781,19 @@ def obtener_ordenes_clob():
   if evento_id:
     if DATABASE_URL:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE evento_id = %s AND estado = 'activa'"
+          "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'"
           " ORDER BY precio DESC",
           (evento_id,),
       )
     else:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE evento_id = ? AND estado = 'activa'"
+          "SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'"
           " ORDER BY precio DESC",
           (evento_id,),
       )
   else:
     c.execute(
-        "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY id DESC"
+        "SELECT * FROM orders WHERE estado = 'activa' ORDER BY id DESC"
         " LIMIT 50"
     )
   ordenes = [dict(row) for row in c.fetchall()]
@@ -809,12 +809,12 @@ def actualizar_ordenes_dinamico():
   try:
     if DATABASE_URL:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY RANDOM()"
+          "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM()"
           " LIMIT 1"
       )
     else:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY RANDOM()"
+          "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM()"
           " LIMIT 1"
       )
 
@@ -824,24 +824,24 @@ def actualizar_ordenes_dinamico():
       nuevo_precio = max(0.01, round(orden_azar["precio"] + variacion, 3))
       if DATABASE_URL:
         c.execute(
-            "UPDATE ordenes_clob SET precio = %s WHERE id = %s",
+            "UPDATE orders SET precio = %s WHERE id = %s",
             (nuevo_precio, orden_azar["id"]),
         )
       else:
         c.execute(
-            "UPDATE ordenes_clob SET precio = ? WHERE id = ?",
+            "UPDATE orders SET precio = ? WHERE id = ?",
             (nuevo_precio, orden_azar["id"]),
         )
       conn.commit()
 
     if DATABASE_URL:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY precio"
+          "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio"
           " DESC LIMIT 50"
       )
     else:
       c.execute(
-          "SELECT * FROM ordenes_clob WHERE estado = 'activa' ORDER BY precio"
+          "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio"
           " DESC LIMIT 50"
       )
     ordenes = [dict(row) for row in c.fetchall()]
@@ -936,14 +936,14 @@ def crear_orden_clob():
     if accion == "comprar":
       if DATABASE_URL:
         c.execute(
-            "SELECT * FROM ordenes_clob WHERE evento_id = %s AND opcion_id = %s"
+            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
             " AND accion = 'vender' AND estado = 'activa' AND precio <= %s"
             " ORDER BY precio ASC, id ASC FOR UPDATE",
             (evento_id, opcion_id, precio),
         )
       else:
         c.execute(
-            "SELECT * FROM ordenes_clob WHERE evento_id = ? AND opcion_id = ?"
+            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
             " AND accion = 'vender' AND estado = 'activa' AND precio <= ?"
             " ORDER BY precio ASC, id ASC",
             (evento_id, opcion_id, precio),
@@ -1028,12 +1028,12 @@ def crear_orden_clob():
         )
         if DATABASE_URL:
           c.execute(
-              "UPDATE ordenes_clob SET cantidad = %s, estado = %s WHERE id = %s",
+              "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
         else:
           c.execute(
-              "UPDATE ordenes_clob SET cantidad = ?, estado = ? WHERE id = ?",
+              "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
 
@@ -1042,14 +1042,14 @@ def crear_orden_clob():
     else:
       if DATABASE_URL:
         c.execute(
-            "SELECT * FROM ordenes_clob WHERE evento_id = %s AND opcion_id = %s"
+            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
             " AND accion = 'comprar' AND estado = 'activa' AND precio >= %s"
             " ORDER BY precio DESC, id ASC FOR UPDATE",
             (evento_id, opcion_id, precio),
         )
       else:
         c.execute(
-            "SELECT * FROM ordenes_clob WHERE evento_id = ? AND opcion_id = ?"
+            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
             " AND accion = 'comprar' AND estado = 'activa' AND precio >= ?"
             " ORDER BY precio DESC, id ASC",
             (evento_id, opcion_id, precio),
@@ -1108,12 +1108,12 @@ def crear_orden_clob():
         )
         if DATABASE_URL:
           c.execute(
-              "UPDATE ordenes_clob SET cantidad = %s, estado = %s WHERE id = %s",
+              "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
         else:
           c.execute(
-              "UPDATE ordenes_clob SET cantidad = ?, estado = ? WHERE id = ?",
+              "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
               (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
 
@@ -1123,7 +1123,7 @@ def crear_orden_clob():
     if cantidad_restante > 0:
       if DATABASE_URL:
         c.execute(
-            "INSERT INTO ordenes_clob (username, evento_id, opcion_id,"
+            "INSERT INTO orders (username, evento_id, opcion_id,"
             " tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (%s,"
             " %s, %s, %s, %s, %s, %s, %s, %s)",
             (
@@ -1140,7 +1140,7 @@ def crear_orden_clob():
         )
       else:
         c.execute(
-            "INSERT INTO ordenes_clob (username, evento_id, opcion_id,"
+            "INSERT INTO orders (username, evento_id, opcion_id,"
             " tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (?, ?,"
             " ?, ?, ?, ?, ?, ?, ?)",
             (
@@ -1348,7 +1348,6 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
 
-    # Registrar evento y balance total de la plataforma en pi_wallet_events
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
@@ -1506,7 +1505,6 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
 
-    # Registrar evento de retiro y balance total de la plataforma en pi_wallet_events
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
@@ -2362,7 +2360,7 @@ def admin_metricas_temporales():
     res_circulante = c.fetchone()
     circulante_total = res_circulante["circulante_total"] or 0.0
 
-    c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM ordenes_clob")
+    c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
     res_vol = c.fetchone()
     volumen_clob = res_vol["volumen_clob"] or 0.0
 
