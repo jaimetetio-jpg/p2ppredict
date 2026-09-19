@@ -535,7 +535,7 @@ def obtener_saldo(username):
       if saldo_inicial > 0:
         txid = f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        # Corrección aplicada: el número de placeholders (?) coincidía con 6 pero se pasaban 5 argumentos. Ajustado a 5.
+        # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
         c.execute(
             "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
             " VALUES (?, ?, ?, ?, ?)",
@@ -749,7 +749,7 @@ def participar():
           " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
           (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1201,7 +1201,7 @@ def crear_orden_clob():
               ),
           ),
       )
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1345,7 +1345,7 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
     else:
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1364,7 +1364,6 @@ def completar_pago():
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      # Corrección aplicada: de 7 placeholders (?) a 6 argumentos correspondientes
       c.execute(
           "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
           (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
@@ -1504,7 +1503,7 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
     else:
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1523,7 +1522,6 @@ def solicitar_retiro():
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
       balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      # Corrección aplicada: de 7 placeholders (?) a 6 argumentos correspondientes
       c.execute(
           "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
           (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
@@ -1730,7 +1728,7 @@ def cobrar_prediccion(apuesta_id):
           "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = ?",
           (apuesta_id,),
       )
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1927,7 +1925,7 @@ def admin_cerrar_evento():
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
               (nuevo_saldo, usr),
           )
-          # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
+          # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
           c.execute(
               "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
               " VALUES (?, ?, ?, ?, ?)",
@@ -2167,7 +2165,6 @@ def admin_ajustar_balance():
           (monto_nuevo, username),
       )
       fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-      # Corrección aplicada: de 6 placeholders (?) a 5 argumentos correspondientes
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
