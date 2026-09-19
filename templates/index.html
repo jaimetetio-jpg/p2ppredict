@@ -1,5 +1,3 @@
-God Bless Us!1
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -20,7 +18,7 @@ God Bless Us!1
             : null;
 
         if (!supabaseClient) {
-            console.warn("Aviso: Supabase no está configurado o el archivo env.js no se cargó correctamente. El app funcionará con almacenamiento local.");
+            console.warn("Aviso: Supabase não está configurado ou o arquivo env.js não foi carregado corretamente. O app funcionará com armazenamento local.");
         }
     </script>
     <style>
@@ -237,6 +235,20 @@ God Bless Us!1
             font-weight: 600;
             margin-bottom: 8px;
             line-height: 1.4;
+        }
+
+        .countdown-timer {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px dashed #38bdf8;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
         }
 
         .action-btn {
@@ -456,7 +468,37 @@ God Bless Us!1
         </div>
 
         <div id="markets-container">
-            <!-- Los mercados se cargan dinámicamente -->
+            <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                    <span>🏷️ Crypto</span>
+                    <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                </div>
+                <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
+                <div class="countdown-timer" id="countdown-1" data-target="2026-06-30T23:59:59">
+                    <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button>
+                    <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button>
+                </div>
+            </div>
+
+            <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                    <span>🏷️ Pi Ecosystem</span>
+                    <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span>
+                </div>
+                <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div>
+                <div class="countdown-timer" id="countdown-2" data-target="2026-06-30T23:59:59">
+                    <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
+                    <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
+                </div>
+            </div>
         </div>
 
         <!-- GESTIÓN DE BILLETERA PI NETWORK -->
@@ -474,7 +516,7 @@ God Bless Us!1
                         <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button>
                     </div>
                 </div>
-                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div>
+                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado com SDK oficial de Pi Network y Supabase.</div>
             </div>
         </div>
 
@@ -510,7 +552,7 @@ God Bless Us!1
     <div id="view-crear" class="section-view">
         <div class="market-card">
             <div class="market-title">🚀 Crear Nuevo Mercado de Predicción</div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros y aporta liquidez inicial.</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros, fija su fecha de cierre y aporta liquidez inicial.</p>
             
             <div class="form-group">
                 <label>Pregunta / Título de la Predicción</label>
@@ -525,6 +567,12 @@ God Bless Us!1
                     <option value="Tecnología">Tecnología</option>
                     <option value="Comunidad">Comunidad</option>
                 </select>
+            </div>
+
+            <!-- APARTADO DE FECHA Y HORA DE EJECUCIÓN/CIERRE DEL EVENTO -->
+            <div class="form-group">
+                <label>📅 Fecha y Hora de Ejecución / Cierre del Evento</label>
+                <input type="datetime-local" id="nuevo-fecha-cierre" class="form-control">
             </div>
 
             <div class="form-group">
@@ -655,9 +703,9 @@ God Bless Us!1
 
         <div class="market-card">
             <div class="market-title">🛠️ Panel de Administración y Resolución</div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado para habilitar el cobro de los ganadores.</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado o cancélalo si no cumple normativas para reembolsar los fondos.</p>
             <div class="form-group">
-                <label>ID de Mercado a Resolver</label>
+                <label>ID de Mercado a Resolver / Gestionar</label>
                 <select class="form-control" id="admin-market-id">
                     <option value="1">¿Bitcoin superará los $100,000?</option>
                     <option value="2">¿Se habilitará Open Mainnet este trimestre?</option>
@@ -670,7 +718,10 @@ God Bless Us!1
                     <option value="NO">Ganador: NO</option>
                 </select>
             </div>
-            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444;" onclick="declararGanadorAdmin()">Ejecutar Resolución y Liquidación</button>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444;" onclick="declararGanadorAdmin()">Ejecutar Resolución y Liquidación</button>
+                <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #7c2d12, #451a03); border-color: #ea580c;" onclick="cancelarYReembolsarMercadoAdmin()">🚨 Cancelar y Reembolso Total (Sin Comisión)</button>
+            </div>
         </div>
 
         <!-- PANEL DE SOPORTE ADMIN (TICKETS DE RECLAMO) -->
@@ -711,28 +762,33 @@ God Bless Us!1
             </div>
             <p id="modal-market-text" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p>
             
+            <!-- Selector de Tipo de Orden (Market / Limit) -->
+            <div class="form-group">
+                <label>Tipo de Orden</label>
+                <select id="modal-order-type" class="form-control" onchange="cambiarTipoOrdenModal()">
+                    <option value="MARKET">Mercado (Instantánea al precio Ask)</option>
+                    <option value="LIMIT">Limit (Precio personalizado)</option>
+                </select>
+            </div>
+
+            <!-- Campo dinámico para Precio Límite -->
+            <div class="form-group" id="group-limit-price" style="display: none;">
+                <label>Precio Límite Deseado (Pi)</label>
+                <input type="number" id="modal-limit-price" class="form-control" value="0.50" min="0.01" max="0.99" step="0.01" oninput="calcularModalTotal()">
+            </div>
+
             <div class="form-group">
                 <label>Cantidad de Contratos</label>
                 <input type="number" id="modal-amount" class="form-control" value="1" min="1" oninput="calcularModalTotal()">
             </div>
 
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-                <div>Precio unitario dinámico (Ask): <span id="modal-price-unit" style="color: #38bdf8;">0.00</span> Pi</div>
+                <div>Precio unitario aplicado: <span id="modal-price-unit" style="color: #38bdf8;">0.00</span> Pi</div>
                 <div>Inversión Total Requerida: <span id="modal-total-req" style="color: #f59e0b; font-weight: bold;">0.00</span> Pi</div>
                 <div>Payout potencial (1 Pi c/u): <span id="modal-payout" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div>
             </div>
 
-            <button id="btn-confirmar-orden" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
-        </div>
-    </div>
-
-    <!-- NUEVO MODAL DE ÉXITO: APUESTA REALIZADA -->
-    <div id="modal-exito-apuesta" class="modal-overlay">
-        <div class="modal-card" style="text-align: center; padding: 24px 18px;">
-            <div style="font-size: 3rem; margin-bottom: 8px;">🎉</div>
-            <h3 style="font-size: 1.2rem; margin: 0 0 10px 0; color: #4ade80;">¡Apuesta realizada con éxito!</h3>
-            <p id="texto-exito-detalle" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">Tu orden ha sido registrada correctamente en el Order Book.</p>
-            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="cerrarModalExito()">Aceptar</button>
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button>
         </div>
     </div>
 
@@ -876,6 +932,8 @@ God Bless Us!1
             cargarHistorialDesdeDB();
             actualizarSelectsMercadosActivos();
             renderizarOrderBookVisible();
+            
+            setInterval(actualizarRelojesRegresivos, 1000);
         };
 
         async function sincronizarConSupabase() {
@@ -900,7 +958,7 @@ God Bless Us!1
                 let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*');
                 if (!errMerc && mercs && mercs.length > 0) { mercadosDinamicos = mercs; }
             } catch (e) {
-                console.warn("Aviso: No se pudo conectar con Supabase en tiempo de ejecución.", e);
+                console.warn("Aviso: No se pudo conectar com Supabase em tempo de execução.", e);
             }
         }
 
@@ -924,19 +982,15 @@ God Bless Us!1
 
         function guardarTodoEnStorage() {
             sincronizarBalanceDirectorioLocal();
-            try {
-                localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
-                localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
-                localStorage.setItem('p2p_posiciones', JSON.stringify(posicionesActivas));
-                localStorage.setItem('p2p_historial_transacciones', JSON.stringify(historialTransacciones.slice(0, 200)));
-                localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales.slice(-200)));
-                localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
-                localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
-                localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
-                localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
-            } catch (e) {
-                console.warn("localStorage lleno o no disponible, se continúa sin persistencia local.", e);
-            }
+            localStorage.setItem('p2p_usuario', JSON.stringify(usuarioActual));
+            localStorage.setItem('p2p_cuentas_directorio', JSON.stringify(cuentasDirectorio));
+            localStorage.setItem('p2p_posiciones', JSON.stringify(posicionesActivas));
+            localStorage.setItem('p2p_historial_transacciones', JSON.stringify(historialTransacciones));
+            localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales));
+            localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
+            localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
+            localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
+            localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
         }
 
         function sincronizarPersistencia() {
@@ -1051,7 +1105,7 @@ God Bless Us!1
                 let cumpleEstado = true;
 
                 if (estadoActualFiltro === 'Abiertos') { cumpleEstado = (cardEstado === 'Abierto'); }
-                else if (estadoActualFiltro === 'Cerrados') { cumpleEstado = (cardEstado === 'Cerrado'); }
+                else if (estadoActualFiltro === 'Cerrados') { cumpleEstado = (cardEstado === 'Cerrado' || cardEstado === 'Cancelado'); }
 
                 if (cumpleQuery && cumpleCat && cumpleEstado) { card.style.display = 'block'; }
                 else { card.style.display = 'none'; }
@@ -1097,8 +1151,11 @@ God Bless Us!1
                 const btnNo = document.getElementById(`btn-comprar-${id}-NO`);
                 
                 if (estadosMercados[id] !== null) {
-                    if (estadoBadge) { estadoBadge.innerHTML = `🔴 Cerrado (Ganador: ${estadosMercados[id]})`; estadoBadge.style.color = '#ef4444'; }
-                    if (marketCard) { marketCard.setAttribute('data-estado', 'Cerrado'); }
+                    let etiquetaEstado = estadosMercados[id] === 'CANCELADO' ? '🔴 Cancelado (Reembolsado)' : `🔴 Cerrado (Ganador: ${estadosMercados[id]})`;
+                    let colorTexto = estadosMercados[id] === 'CANCELADO' ? '#ea580c' : '#ef4444';
+                    
+                    if (estadoBadge) { estadoBadge.innerHTML = etiquetaEstado; estadoBadge.style.color = colorTexto; }
+                    if (marketCard) { marketCard.setAttribute('data-estado', estadosMercados[id] === 'CANCELADO' ? 'Cancelado' : 'Cerrado'); }
                     if (btnSi) btnSi.disabled = true;
                     if (btnNo) btnNo.disabled = true;
                 } else {
@@ -1156,11 +1213,16 @@ God Bless Us!1
 
             const titulo = document.getElementById('nuevo-titulo').value.trim();
             const categoria = document.getElementById('nuevo-categoria').value;
+            const fechaCierreInput = document.getElementById('nuevo-fecha-cierre').value;
             const opcionInicial = document.getElementById('nuevo-opcion').value;
             const liquidezAportada = parseFloat(document.getElementById('nuevo-liquidez').value);
 
             if (!titulo) {
                 alert("Por favor, ingresa una pregunta o título válido para la predicción.");
+                return;
+            }
+            if (!fechaCierreInput) {
+                alert("Por favor, selecciona la fecha y hora de ejecución/cierre del evento.");
                 return;
             }
             if (!liquidezAportada || liquidezAportada <= 0) {
@@ -1183,7 +1245,8 @@ God Bless Us!1
                 id: nuevoId,
                 titulo: titulo,
                 categoria: categoria,
-                creador: usuarioActual.handle
+                creador: usuarioActual.handle,
+                fechaCierre: fechaCierreInput
             };
 
             mercadosDinamicos.push(marketObj);
@@ -1218,7 +1281,7 @@ God Bless Us!1
                 titulo: 'Creación de Mercado P2P',
                 tipo: 'Creación (0% Comisión)',
                 monto: -liquidezAportada,
-                detalle: `Mercado creado: "${titulo}". Aporte inicial de ${liquidezAportada} Pi en opción ${opcionInicial} por ${usuarioActual.handle}.`
+                detalle: `Mercado creado: "${titulo}". Cierre: ${fechaCierreInput}. Aporte inicial de ${liquidezAportada} Pi.`
             });
 
             guardarTodoEnStorage();
@@ -1230,10 +1293,11 @@ God Bless Us!1
             renderizarHistorial();
 
             document.getElementById('nuevo-titulo').value = '';
+            document.getElementById('nuevo-fecha-cierre').value = '';
             document.getElementById('nuevo-liquidez').value = '5.0';
             switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
 
-            alert("¡Predicción creada con éxito! Se aplicó 0% de comisión por creación y se registró tu liquidez inicial.");
+            alert("¡Predicción creada con éxito! El reloj regresivo ha comenzado a correr.");
         }
 
         function renderizarMercadosDinamicos() {
@@ -1245,6 +1309,9 @@ God Bless Us!1
                         <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span>
                     </div>
                     <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div>
+                    <div class="countdown-timer" id="countdown-1" data-target="2026-06-30T23:59:59">
+                        <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b>
+                    </div>
                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p>
                     <div style="display: flex; gap: 8px;">
                         <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button>
@@ -1258,6 +1325,9 @@ God Bless Us!1
                         <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span>
                     </div>
                     <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div>
+                    <div class="countdown-timer" id="countdown-2" data-target="2026-06-30T23:59:59">
+                        <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b>
+                    </div>
                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
                     <div style="display: flex; gap: 8px;">
                         <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
@@ -1276,7 +1346,7 @@ God Bless Us!1
 
                 const pSi = preciosMercados[m.id]["SÍ"].toFixed(2);
                 const pNo = preciosMercados[m.id]["NO"].toFixed(2);
-                const safeTitle = m.titulo.replace(/["']/g, '');
+                const targetDate = m.fechaCierre || '2026-12-31T23:59:59';
 
                 htmlDinamicoHTML += `
                     <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto">
@@ -1285,16 +1355,57 @@ God Bless Us!1
                             <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span>
                         </div>
                         <div class="market-title">${m.titulo}</div>
+                        <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}">
+                            <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b>
+                        </div>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p>
                         <div style="display: flex; gap: 8px;">
-                            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${safeTitle}', 'SÍ')">Comprar SÍ (Comisión 2%)</button>
-                            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${safeTitle}', 'NO')">Comprar NO (Comisión 2%)</button>
+                            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button>
+                            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button>
                         </div>
                     </div>
                 `;
             });
 
             container.innerHTML = htmlDinamicoHTML;
+        }
+
+        function actualizarRelojesRegresivos() {
+            const countdownElements = document.querySelectorAll('.countdown-timer');
+            const ahora = new Date().getTime();
+
+            countdownElements.forEach(el => {
+                const targetStr = el.getAttribute('data-target');
+                if (!targetStr) return;
+
+                const targetTime = new Date(targetStr).getTime();
+                const diferencia = targetTime - ahora;
+                const display = el.querySelector('.time-display');
+
+                if (!display) return;
+
+                if (diferencia <= 0) {
+                    display.innerText = "¡Evento Finalizado / Cerrado!";
+                    el.style.borderColor = "#ef4444";
+                    el.style.color = "#ef4444";
+                    
+                    const marketId = el.id.replace('countdown-', '');
+                    const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
+                    const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
+                    if (btnSi) btnSi.disabled = true;
+                    if (btnNo) btnNo.disabled = true;
+                } else {
+                    const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+                    const horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+                    const segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+
+                    let textoTiempo = "";
+                    if (dias > 0) textoTiempo += `${dias}d `;
+                    textoTiempo += `${String(horas).padStart(2, '0')}h ${String(minutos).padStart(2, '0')}m ${String(segundos).padStart(2, '0')}s`;
+                    display.innerText = textoTiempo;
+                }
+            });
         }
 
         function abrirTerminalTrading(idMercado, tituloMercado, opcion) {
@@ -1311,13 +1422,13 @@ God Bless Us!1
             let precioAskActual = preciosMercados[idMercado][opcion];
             ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual };
             
-            const btnConfirmar = document.getElementById('btn-confirmar-orden');
-            btnConfirmar.disabled = false;
-            btnConfirmar.innerText = "Confirmar Orden al Order Book";
-
             document.getElementById('modal-title').innerText = `Comprar Contratos [${opcion}] (Comisión 2%)`;
             document.getElementById('modal-market-text').innerText = tituloMercado;
+            document.getElementById('modal-order-type').value = 'MARKET';
+            document.getElementById('group-limit-price').style.display = 'none';
             document.getElementById('modal-amount').value = 1;
+            document.getElementById('modal-limit-price').value = precioAskActual.toFixed(2);
+            
             calcularModalTotal();
             document.getElementById('trading-modal').style.display = 'flex';
         }
@@ -1326,107 +1437,109 @@ God Bless Us!1
             document.getElementById('trading-modal').style.display = 'none';
         }
 
-        function cerrarModalExito() {
-            document.getElementById('modal-exito-apuesta').style.display = 'none';
+        function cambiarTipoOrdenModal() {
+            const tipoOrden = document.getElementById('modal-order-type').value;
+            const groupLimit = document.getElementById('group-limit-price');
+            
+            if (tipoOrden === 'LIMIT') {
+                groupLimit.style.display = 'block';
+                document.getElementById('modal-title').innerText = `Orden Limit [${ordenActivaModal.opcion}] (Comisión 2%)`;
+            } else {
+                groupLimit.style.display = 'none';
+                document.getElementById('modal-title').innerText = `Comprar Contratos [${ordenActivaModal.opcion}] (Comisión 2%)`;
+            }
+            calcularModalTotal();
         }
 
         function calcularModalTotal() {
+            const tipoOrden = document.getElementById('modal-order-type').value;
             const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
-            const precioDinamicoUnitario = ordenActivaModal.precioAskBase * (1 + (cantidad - 1) * 0.003);
-            ordenActivaModal.precioCalculadoUnitario = Math.min(precioDinamicoUnitario, 0.98);
+            
+            let precioFinalUnitario = 0;
 
-            let subtotalReq = cantidad * ordenActivaModal.precioCalculadoUnitario;
+            if (tipoOrden === 'LIMIT') {
+                precioFinalUnitario = parseFloat(document.getElementById('modal-limit-price').value) || ordenActivaModal.precioAskBase;
+            } else {
+                const precioDinamicoUnitario = ordenActivaModal.precioAskBase * (1 + (cantidad - 1) * 0.003);
+                precioFinalUnitario = Math.min(precioDinamicoUnitario, 0.98);
+            }
+
+            ordenActivaModal.precioCalculadoUnitario = precioFinalUnitario;
+            let subtotalReq = cantidad * precioFinalUnitario;
             let totalConComision = subtotalReq * 1.02; 
             const payout = cantidad * 1.00; 
 
-            document.getElementById('modal-price-unit').innerText = ordenActivaModal.precioCalculadoUnitario.toFixed(3);
+            document.getElementById('modal-price-unit').innerText = precioFinalUnitario.toFixed(3);
             document.getElementById('modal-total-req').innerText = totalConComision.toFixed(2) + ' (incluye 2% comisión)';
             document.getElementById('modal-payout').innerText = payout.toFixed(2);
             ordenActivaModal.totalConComision = totalConComision;
         }
 
         function confirmarCompraRapida() {
-            const btnConfirmar = document.getElementById('btn-confirmar-orden');
-            btnConfirmar.disabled = true;
-            btnConfirmar.innerText = "Procesando...";
+            const tipoOrden = document.getElementById('modal-order-type').value;
+            const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+            const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
+            const totalReq = ordenActivaModal.totalConComision;
 
-            try {
-                const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
-                const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
-                const totalReq = ordenActivaModal.totalConComision;
+            if (estadosMercados[ordenActivaModal.idMercado] !== null) {
+                alert("Este mercado ya se encuentra cerrado.");
+                cerrarTerminalTrading();
+                return;
+            }
 
-                if (estadosMercados[ordenActivaModal.idMercado] !== null) {
-                    alert("Este mercado ya se encuentra cerrado.");
-                    cerrarTerminalTrading();
-                    return;
-                }
+            if (usuarioActual.balance < totalReq) {
+                alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
+                return;
+            }
 
-                if (usuarioActual.balance < totalReq) {
-                    alert("Saldo insuficiente en tu billetera Pi para realizar esta operación (incluyendo la comisión del 2%).");
-                    btnConfirmar.disabled = false;
-                    btnConfirmar.innerText = "Confirmar Orden al Order Book";
-                    return;
-                }
+            usuarioActual.balance -= totalReq;
 
-                usuarioActual.balance -= totalReq;
+            const idM = ordenActivaModal.idMercado;
+            const opM = ordenActivaModal.opcion;
+            const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ';
 
-                const idM = ordenActivaModal.idMercado;
-                const opM = ordenActivaModal.opcion;
-                const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ';
-
+            if (tipoOrden === 'MARKET') {
                 preciosMercados[idM][opM] = Math.min(preciosMercados[idM][opM] + (cantidad * 0.002), 0.95);
                 preciosMercados[idM][opOpuesta] = Math.max(1 - preciosMercados[idM][opM], 0.05);
+            }
 
-                const nuevaPosicion = {
-                    id: 'POS-' + Date.now(),
-                    marketId: idM,
-                    titulo: ordenActivaModal.tituloMercado,
-                    opcion: opM,
-                    contratos: cantidad,
-                    invertido: totalReq,
-                    payout: cantidad * 1.00
-                };
+            const nuevaPosicion = {
+                id: 'POS-' + Date.now(),
+                marketId: idM,
+                titulo: ordenActivaModal.tituloMercado,
+                opcion: opM,
+                contratos: cantidad,
+                invertido: totalReq,
+                payout: cantidad * 1.00
+            };
 
-                posicionesActivas.push(nuevaPosicion);
+            posicionesActivas.push(nuevaPosicion);
+            
+            guardarEnSupabaseTabla('posiciones_activas', {
+                id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
+                titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
+                invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
+            });
 
-                guardarEnSupabaseTabla('posiciones_activas', {
-                    id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle,
-                    titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos,
-                    invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout
-                });
+            const etiquetaOrden = tipoOrden === 'LIMIT' ? 'COMPRA LIMIT (Bid)' : 'COMPRA (Bid)';
+            const nuevaOrdenGlobal = {
+                marketId: idM, tipo: etiquetaOrden, opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle
+            };
 
-                const nuevaOrdenGlobal = {
-                    marketId: idM, tipo: 'COMPRA (Bid)', opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle
-                };
+            ordenesGlobales.push(nuevaOrdenGlobal);
+            guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
 
-                ordenesGlobales.push(nuevaOrdenGlobal);
-                guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
-
-                registrarTransaccionEnDB({
-                    id: 'COMPRA-' + Date.now(),
-                    titulo: ordenActivaModal.tituloMercado,
-                    tipo: 'Compra de Contratos (2% Comisión)',
-                    monto: -totalReq,
-                    detalle: `${cantidad} contratos (${opM}) comprados por ${usuarioActual.handle}`
-                });
-
-                guardarTodoEnStorage();
-                actualizarUIBalance();
-                actualizarPreciosVisuales();
-                renderizarPosiciones();
-                renderizarHistorial();
-                renderizarOrderBookVisible();
-
-                cerrarTerminalTrading();
-
-                document.getElementById('texto-exito-detalle').innerText = `Has adquirido ${cantidad} contrato(s) en la opción [${opM}] por ${totalReq.toFixed(2)} Pi.`;
-                document.getElementById('modal-exito-apuesta').style.display = 'flex';
-
-            } catch (err) {
-                console.error("Error en compra:", err);
-                alert("Ocurrió un error al procesar la compra: " + err.message);
-                btnConfirmar.disabled = false;
-                btnConfirmar.innerText = "Confirmar Orden al Order Book";
+            guardarTodoEnStorage();
+            actualizarUIBalance();
+            actualizarPreciosVisuales();
+            renderizarPosiciones();
+            renderizarOrderBookVisible();
+            cerrarTerminalTrading();
+            
+            if (tipoOrden === 'LIMIT') {
+                alert("¡Orden Limit registrada exitosamente en el Order Book con una comisión del 2%!");
+            } else {
+                alert("¡Orden a Mercado ejecutada y guardada permanentemente en el sistema!");
             }
         }
 
@@ -1473,7 +1586,7 @@ God Bless Us!1
             const contenedor = document.getElementById('my-positions-content');
             const posicionesVivas = posicionesActivas.filter(pos => {
                 const ganadorOficial = estadosMercados[pos.marketId];
-                if (ganadorOficial !== null && ganadorOficial !== pos.opcion) { return false; }
+                if (ganadorOficial !== null && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') { return false; }
                 return true;
             });
 
@@ -1485,7 +1598,7 @@ God Bless Us!1
             let html = '';
             posicionesActivas.forEach((pos, idx) => {
                 const ganadorOficial = estadosMercados[pos.marketId];
-                if (ganadorOficial !== null && ganadorOficial !== pos.opcion) { return; }
+                if (ganadorOficial !== null && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') { return; }
 
                 const colorBadge = pos.opcion === 'SÍ' ? '#4ade80' : '#f87171';
                 let botonesHtml = '';
@@ -1497,6 +1610,8 @@ God Bless Us!1
                             <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="venderPosicionAnticipada(${idx})">💸 Vender (${valorVentaAnticipada} Pi)</button>
                         </div>
                     `;
+                } else if (ganadorOficial === 'CANCELADO') {
+                    botonesHtml = `<div style="font-size: 0.75rem; color: #ea580c; font-weight: bold; text-align: center; padding: 4px;">⚠️ Mercado Cancelado / Reembolsado</div>`;
                 } else {
                     botonesHtml = `
                         <div style="display: flex; gap: 6px;">
@@ -1581,7 +1696,7 @@ God Bless Us!1
                         <div style="color: var(--text-muted);">${tx.detalle}</div>
                         <div style="display: flex; justify-content: space-between; margin-top: 4px;">
                             <span style="color: #38bdf8;">${tx.tipo}</span>
-                            <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#f87171'}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                            <span style="color: #4ade80; font-weight: bold;">+${tx.monto.toFixed(2)} Pi</span>
                         </div>
                     </div>
                 `;
@@ -1827,7 +1942,7 @@ God Bless Us!1
             const ganador = document.getElementById('admin-result-select').value;
 
             if (estadosMercados[marketId] !== null) {
-                alert(`¡Atención! El mercado #${marketId} ya fue cerrado y liquidado previamente con el resultado: ${estadosMercados[marketId]}.`);
+                alert(`¡Atención! El mercado #${marketId} ya fue cerrado o cancelado previamente.`);
                 return;
             }
 
@@ -1854,6 +1969,65 @@ God Bless Us!1
             renderizarOrderBookVisible();
 
             alert(`¡El administrador ha declarado a "${ganador}" como ganador oficial del mercado #${marketId}!`);
+            switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
+        }
+
+        function cancelarYReembolsarMercadoAdmin() {
+            const marketSelect = document.getElementById('admin-market-id');
+            const marketId = marketSelect.value;
+            if (!marketId) { alert("No hay mercados pendientes válidos para cancelar."); return; }
+
+            if (estadosMercados[marketId] !== null) {
+                alert(`¡Atención! El mercado #${marketId} ya se encuentra cerrado o cancelado previamente.`);
+                return;
+            }
+
+            const tituloMercado = nombresMercados[marketId] || ('Mercado #' + marketId);
+            let confirmacion = confirm(`¿Estás seguro de CANCELAR el mercado "${tituloMercado}" por incumplimiento de normativas?\n\nEsta acción devolverá automáticamente el 100% de la inversión a todos los usuarios que hayan invertido en él, sin cobrarles ninguna comisión.`);
+            
+            if (!confirmacion) return;
+
+            estadosMercados[marketId] = 'CANCELADO';
+            let nuevasPosicionesActivas = [];
+
+            posicionesActivas.forEach(pos => {
+                if (pos.marketId == marketId) {
+                    let montoReembolso = pos.invertido;
+                    
+                    let cuentaObj = cuentasDirectorio.find(c => c.handle === pos.handle);
+                    if (cuentaObj) {
+                        cuentaObj.balance += montoReembolso;
+                    }
+
+                    if (pos.handle === usuarioActual.handle) {
+                        usuarioActual.balance += montoReembolso;
+                        actualizarUIBalance();
+                    }
+
+                    registrarTransaccionEnDB({
+                        id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                        titulo: `Reembolso por Cancelación: ${pos.titulo}`,
+                        tipo: 'Reembolso (0% Comisión)',
+                        monto: montoReembolso,
+                        detalle: `Devolución íntegra de ${montoReembolso.toFixed(2)} Pi por cancelación del mercado por el admin.`
+                    });
+
+                    eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+                } else {
+                    nuevasPosicionesActivas.push(pos);
+                }
+            });
+
+            posicionesActivas = nuevasPosicionesActivas;
+            guardarTodoEnStorage();
+            restaurarEstadosMercadosVisuales();
+            renderizarPosiciones();
+            renderizarHistorial();
+            actualizarSelectsMercadosActivos();
+            renderizarOrderBookVisible();
+            calcularMetricasFinancierasAdmin();
+
+            alert(`¡Mercado cancelado con éxito! Se han devuelto los fondos de manera íntegra a todos los inversores.`);
             switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
         }
 
