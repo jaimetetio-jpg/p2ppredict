@@ -347,7 +347,6 @@ def inicializar_bd():
 
   conn.commit()
 
-  # REQUISITO 2: Asegurar que solo exista la predicción de la Mainnet de Pi abierta inicialmente si la tabla está vacía
   c.execute("SELECT COUNT(*) as total FROM eventos")
   row = c.fetchone()
   total_evs = row["total"] if row else 0
@@ -355,10 +354,16 @@ def inicializar_bd():
   if total_evs == 0:
     eventos_iniciales = [
         {
+            "titulo": "¿BTC alcanzará los $120,000 antes de finalizar el mes?",
+            "categoria": "Crypto",
+            "fecha_cierre": "2026-12-31",
+            "opciones": [("Sí", 15.0), ("No", 10.0)],
+        },
+        {
             "titulo": "¿Pi Network lanzará su Mainnet abierta global este año?",
             "categoria": "Pi Ecosystem",
             "fecha_cierre": "2026-11-30",
-            "opciones": [("Sí", 0.0), ("No", 0.0)],
+            "opciones": [("Sí", 35.0), ("No", 5.0)],
         },
     ]
     for ev in eventos_iniciales:
@@ -466,16 +471,12 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
-  response.headers["X-Frame-Options"] = "ALLOWALL"
+  response.headers["X-Frame-Options"] = "DENY"
   response.headers["X-XSS-Protection"] = "1; mode=block"
   response.headers["Strict-Transport-Security"] = (
       "max-age=31536000; includeSubDomains"
   )
   response.headers["Access-Control-Allow-Origin"] = "*"
-  response.headers["Access-Control-Allow-Headers"] = (
-      "Content-Type,Authorization"
-  )
-  response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
   response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
   response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
   return response
@@ -483,51 +484,7 @@ def agregar_cabeceras_seguridad(response):
 
 @app.route("/")
 def home():
-  # Se incluye el script inyectado de forma segura al final o integrado en el layout de index.html
   return render_template("index.html")
-
-
-# Se añade el bloque JavaScript incrustado de manera limpia para soporte directo o inyección si se maneja template en linea
-@app.context_processor
-def insertar_script_modal():
-  script_modal_actualizacion = """
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById('modalCrearPrediccion');
-    const btnAbrir = document.getElementById('btnAbrirModalCrear');
-    const btnCerrar = document.getElementById('btnCerrarModal');
-    const botonesOpcion = document.querySelectorAll('.btn-opcion');
-    const inputOpcion = document.getElementById('opcionSeleccionada');
-
-    if (btnAbrir && modal) {
-      btnAbrir.onclick = () => modal.style.display = 'flex';
-    }
-    
-    if (btnCerrar && modal) {
-      btnCerrar.onclick = () => modal.style.display = 'none';
-    }
-    
-    window.onclick = (e) => { 
-      if (modal && e.target == modal) modal.style.display = 'none'; 
-    }
-
-    if (botonesOpcion.length > 0 && inputOpcion) {
-      botonesOpcion.forEach(btn => {
-        btn.onclick = (e) => {
-          botonesOpcion.forEach(b => b.style.opacity = '0.5');
-          e.target.style.opacity = '1';
-          inputOpcion.value = e.target.getAttribute('data-opcion');
-        }
-      });
-      const defaultSi = document.querySelector('[data-opcion="SI"]');
-      const defaultNo = document.querySelector('[data-opcion="NO"]');
-      if (defaultSi) defaultSi.style.opacity = '1';
-      if (defaultNo) defaultNo.style.opacity = '0.5';
-    }
-  });
-</script>
-"""
-  return dict(script_modal_actualizacion=script_modal_actualizacion)
 
 
 @app.route("/api/saldo/<username>", methods=["GET"])
@@ -552,7 +509,6 @@ def obtener_saldo(username):
   row = c.fetchone()
 
   if not row:
-    # REQUISITO 1: Únicamente @jaimetetio queda con saldo inicial de 0.1 Pi. Los demás en 0.0
     saldo_inicial = (
         0.10 if username.lower() in ["@jaimetetio", "jaimetetio"] else 0.0
     )
@@ -847,6 +803,7 @@ def obtener_ordenes_clob():
 
 @app.route("/api/clob/actualizar-dinamico", methods=["GET"])
 def actualizar_ordenes_dinamico():
+  evento_id = request.args.get("evento_id", 1)
   conn = obtener_conexion()
   c = conn.cursor()
   try:
@@ -1391,42 +1348,22 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
 
+    # Registrar evento y balance total de la plataforma en pi_wallet_events
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
-          " %s)",
-          (
-              username,
-              "COMPLETAR_PAGO",
-              monto,
-              balance_total_plataforma,
-              txid or payment_id,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (
-              username,
-              "COMPLETAR_PAGO",
-              monto,
-              balance_total_plataforma,
-              txid or payment_id,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
       )
 
     conn.commit()
@@ -1569,42 +1506,22 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
 
+    # Registrar evento de retiro y balance total de la plataforma en pi_wallet_events
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
-          " %s)",
-          (
-              username,
-              "SOLICITAR_RETIRO",
-              -monto,
-              balance_total_plataforma,
-              txid,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (
-              username,
-              "SOLICITAR_RETIRO",
-              -monto,
-              balance_total_plataforma,
-              txid,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
       )
 
     conn.commit()
@@ -1632,9 +1549,7 @@ def obtener_balance_plataforma():
     else:
       c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
     row = c.fetchone()
-    total_circulante = (
-        row["total_circulante"] if row and row["total_circulante"] else 0.0
-    )
+    total_circulante = row["total_circulante"] if row and row["total_circulante"] else 0.0
 
     if DATABASE_URL:
       c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
@@ -1646,7 +1561,7 @@ def obtener_balance_plataforma():
     return jsonify({
         "success": True,
         "balance_total_pi": total_circulante,
-        "ultimos_eventos_wallet": eventos,
+        "ultimos_eventos_wallet": eventos
     })
   except Exception as e:
     conn.close()
@@ -1889,10 +1804,7 @@ def admin_crear_evento():
         "CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}"
     )
     registrar_audit_log(
-        "Admin",
-        "CREAR_EVENTO",
-        str(ev_id),
-        {"titulo": titulo, "opciones": opciones},
+        "Admin", "CREAR_EVENTO", str(ev_id), {"titulo": titulo, "opciones": opciones}
     )
     return jsonify({"success": True, "mensaje": "Mercado/Evento creado con éxito"})
   except Exception as e:
@@ -2369,6 +2281,9 @@ def admin_obtener_usuario_detalle(username):
     return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ================= NUEVOS ENDPOINTS DE SOPORTE, ANUNCIOS Y MÉTRICAS =================
+
+
 @app.route("/api/admin/anuncios", methods=["GET", "POST"])
 def admin_anuncios():
   conn = obtener_conexion()
@@ -2419,6 +2334,7 @@ def admin_anuncios():
       conn.close()
       return jsonify({"success": False, "error": str(e)}), 500
 
+  # GET
   try:
     c.execute("SELECT * FROM anuncios_globales ORDER BY id DESC LIMIT 10")
     anuncios = [dict(r) for r in c.fetchall()]
