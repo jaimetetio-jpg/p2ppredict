@@ -1212,7 +1212,7 @@
                 detalle: `Mercado creado: "${titulo}". Aporte inicial de ${liquidezAportada} Pi.`
             });
 
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             renderizarMercadosDinamicos();
             actualizarUIBalance();
             actualizarPreciosVisuales();
@@ -1447,7 +1447,7 @@
             ordenesGlobales.push(nuevaOrdenGlobal);
             guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
 
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             actualizarUIBalance();
             actualizarPreciosVisuales();
             renderizarPosiciones();
@@ -1562,7 +1562,7 @@
 
             eliminarDeSupabaseTabla('posiciones_activas', pos.id);
             posicionesActivas.splice(idx, 1);
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             actualizarUIBalance();
             renderizarPosiciones();
             renderizarHistorial();
@@ -1579,7 +1579,7 @@
 
             eliminarDeSupabaseTabla('posiciones_activas', pos.id);
             posicionesActivas.splice(idx, 1);
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             actualizarUIBalance();
             renderizarPosiciones();
             renderizarHistorial();
@@ -1589,7 +1589,7 @@
         function registrarTransaccionEnDB(tx) {
             historialTransacciones.unshift(tx);
             guardarEnSupabaseTabla('historial_transacciones', tx);
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             if (document.getElementById('view-admin').classList.contains('active')) {
                 renderizarHistorialGlobalAdmin();
             }
@@ -1735,7 +1735,7 @@
             if (!u) return;
 
             u.bloqueado = !u.bloqueado;
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             cargarDatosUsuarioAdminSeleccionado();
             calcularMetricasFinancierasAdmin();
             alert(`El usuario ${u.handle} ha sido ${u.bloqueado ? 'BLOQUEADO' : 'DESBLOQUEADO'}.`);
@@ -1781,7 +1781,7 @@
                 monto: tipo === 'CREDITO' ? monto : -monto, detalle: `Admin ajustó saldo a ${u.handle}. Nota: ${nota}`
             });
 
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             cargarDatosUsuarioAdminSeleccionado();
             calcularMetricasFinancierasAdmin();
             cerrarModalAjusteBalance();
@@ -1798,7 +1798,7 @@
             registrarTransaccionEnDB({
                 id: 'DEP-' + Date.now(), titulo: 'Recarga de Billetera Pi', tipo: 'Depósito', monto: monto, detalle: `Recarga de ${monto} Pi`
             });
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             actualizarUIBalance();
             renderizarHistorial();
             alert(`¡Depósito de ${monto} Pi realizado!`);
@@ -1815,7 +1815,7 @@
             registrarTransaccionEnDB({
                 id: 'RET-' + Date.now(), titulo: 'Retiro de Billetera Pi', tipo: 'Retiro', monto: -monto, detalle: `Retiro de ${monto} Pi`
             });
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             actualizarUIBalance();
             renderizarHistorial();
             alert(`Se han retirado ${monto} Pi.`);
@@ -1844,7 +1844,7 @@
             });
 
             posicionesActivas = nuevasPosicionesActivas;
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
             renderizarHistorial();
@@ -1892,7 +1892,7 @@
             });
 
             posicionesActivas = nuevasPosicionesActivas;
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
             renderizarHistorial();
@@ -1924,7 +1924,7 @@
                     ]
                 };
                 ticketsSoporte.push(ticket);
-                guardarTodoEnStorage();
+                guardarTodoInStorage();
                 guardarEnSupabaseTabla('tickets_soporte', ticket);
             }
             return ticket;
@@ -1950,7 +1950,7 @@
             let ticket = obtenerTicketActualUsuario();
             ticket.mensajes.push({ remitente: 'user', texto: texto });
             
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             guardarEnSupabaseTabla('tickets_soporte', ticket);
             input.value = '';
             renderizarMensajesChatUsuario();
@@ -2011,7 +2011,7 @@
             if (!ticket) return;
 
             ticket.mensajes.push({ remitente: 'admin', texto: texto });
-            guardarTodoEnStorage();
+            guardarTodoInStorage();
             guardarEnSupabaseTabla('tickets_soporte', ticket);
             input.value = '';
             renderizarMensajesChatAdminModal();
