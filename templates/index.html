@@ -496,7 +496,7 @@
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
                 <div style="display: flex; gap: 8px;">
                     <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
-                    <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
+                    <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet com suporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
                 </div>
             </div>
         </div>
@@ -2096,33 +2096,32 @@
                 const ultimoMsg = t.mensajes[t.mensajes.length - 1] ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes';
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 0.75rem;">
-                        <div style="font-weight: bold; color: #38bdf8;">Ticket de: ${t.handle}</div>
+                        <div style="font-weight: bold; color: #38bdf8;">Usuario: ${t.handle}</div>
                         <div style="color: var(--text-muted); margin: 2px 0;">Último mensaje: "${ultimoMsg}"</div>
-                        <button class="action-btn" style="font-size: 0.7rem; padding: 5px 10px;" onclick="abrirChatAdminModal('${t.handle}')">💬 Ver y Responder Chat</button>
+                        <button class="action-btn" style="font-size: 0.7rem; padding: 5px 10px;" onclick="abrirChatAdminModal('${t.id}')">💬 Abrir Chat / Responder</button>
                     </div>
                 `;
             });
             container.innerHTML = html;
         }
 
-        function abrirChatAdminModal(handleUsuario) {
-            ticketAdminActivoId = handleUsuario;
-            const ticket = ticketsSoporte.find(t => t.handle === handleUsuario);
-            if (!ticket) return;
-
-            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${handleUsuario}`;
+        function abrirChatAdminModal(ticketId) {
+            ticketAdminActivoId = ticketId;
             document.getElementById('admin-chat-modal').style.display = 'flex';
-            renderizarMensajesChatAdmin();
+            renderizarMensajesAdminModal();
         }
 
         function cerrarChatAdminModal() {
             document.getElementById('admin-chat-modal').style.display = 'none';
+            ticketAdminActivoId = null;
         }
 
-        function renderizarMensajesChatAdmin() {
-            const ticket = ticketsSoporte.find(t => t.handle === ticketAdminActivoId);
+        function renderizarMensajesAdminModal() {
+            if (!ticketAdminActivoId) return;
+            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
             if (!ticket) return;
 
+            document.getElementById('admin-chat-title').innerText = `💬 Chat con ${ticket.handle}`;
             const container = document.getElementById('admin-chat-messages-container');
             let html = '';
             ticket.mensajes.forEach(m => {
@@ -2134,18 +2133,19 @@
         }
 
         function enviarMensajeSoporteAdmin() {
+            if (!ticketAdminActivoId) return;
             const input = document.getElementById('chat-admin-input');
             const texto = input.value.trim();
-            if (!texto || !ticketAdminActivoId) return;
+            if (!texto) return;
 
-            let ticket = ticketsSoporte.find(t => t.handle === ticketAdminActivoId);
+            let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
             if (!ticket) return;
 
             ticket.mensajes.push({ remitente: 'admin', texto: texto });
             guardarTodoEnStorage();
             guardarEnSupabaseTabla('tickets_soporte', ticket);
             input.value = '';
-            renderizarMensajesChatAdmin();
+            renderizarMensajesAdminModal();
             renderizarTicketsAdmin();
         }
     </script>
