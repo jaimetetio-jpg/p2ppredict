@@ -1,4 +1,3 @@
-Aquí DIOS 
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -717,10 +716,11 @@ Aquí DIOS
     <!-- MODAL TERMINAL TRADING -->
     <div id="trading-modal" class="modal-overlay">
         <div class="modal-card">
-            <!-- Indicador superior de éxito y botón de cierre con la 'x' blanca de fondo rojo -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <div id="modal-success-banner" style="display: none; color: #16a34a; font-weight: bold; font-size: 1.3rem;">Éxitoso</div>
-                <h3 id="modal-title" style="font-size: 1rem; margin: 0;">Comprar Contratos</h3>
+            <!-- Cabecera de la ventana modal con la palabra 'Éxitoso' centrada y botón de cierre -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; position: relative;">
+                <div style="width: 28px;"></div>
+                <div id="modal-success-banner" style="display: none; color: #16a34a; font-weight: bold; font-size: 1.3rem; text-align: center; position: absolute; left: 50%; transform: translateX(-50%);">Éxitoso</div>
+                <h3 id="modal-title" style="font-size: 1rem; margin: 0; display: none;"></h3>
                 <button onclick="cerrarTerminalTrading()" style="background: #dc2626; border: none; color: #ffffff; width: 28px; height: 28px; border-radius: 50%; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">&times;</button>
             </div>
             <p id="modal-market-text" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p>
@@ -1350,7 +1350,6 @@ Aquí DIOS
             let precioAskActual = preciosMercados[idMercado][opcion];
             ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual };
             
-            document.getElementById('modal-title').innerText = `Comprar Contratos [${opcion}] (Comisión 2%)`;
             document.getElementById('modal-market-text').innerText = tituloMercado;
             document.getElementById('modal-order-type').value = 'MARKET';
             document.getElementById('group-limit-price').style.display = 'none';
@@ -1360,7 +1359,7 @@ Aquí DIOS
             isSubmitting = false; 
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
             const successBanner = document.getElementById('modal-success-banner');
-            if(successBanner) successBanner.style.display = 'none';
+            if(successBanner) successBanner.style.display = 'block'; // Muestra la palabra "Éxitoso" centrada
             if(btnConfirmar) {
                 btnConfirmar.disabled = false;
                 btnConfirmar.innerText = "Confirmar Orden al Order Book";
@@ -1381,10 +1380,8 @@ Aquí DIOS
             
             if (tipoOrden === 'LIMIT') {
                 groupLimit.style.display = 'block';
-                document.getElementById('modal-title').innerText = `Orden Limit [${ordenActivaModal.opcion}] (Comisión 2%)`;
             } else {
                 groupLimit.style.display = 'none';
-                document.getElementById('modal-title').innerText = `Comprar Contratos [${ordenActivaModal.opcion}] (Comisión 2%)`;
             }
             calcularModalTotal();
         }
