@@ -410,7 +410,6 @@ def solo_pi_browser(f):
   def decorated_function(*args, **kwargs):
     user_agent = request.headers.get("User-Agent", "").lower()
     
-    # Se permite bypass total si se encuentra en modo desarrollo local o entornos de prueba
     if app.debug or request.remote_addr in ["127.0.0.1", "::1", "localhost"]:
       return f(*args, **kwargs)
 
@@ -2429,8 +2428,36 @@ def admin_anuncios():
     return jsonify({"success": True, "anuncios": anuncios})
   except Exception as e:
     conn.close()
-    return jsonify({"success": False, "error": str(e)}), 500
+    return jsonify({"success": False, "error": `str(e)}), 500
 
 
 @app.route("/api/admin/metricas-temporales", methods=["GET"])
-def admin_metricas-temporales(): # Nota: mantener nombre original de la ruta
+def admin_metricas_temporales():  # Corregido el guion medio por un guion bajo
+  if not session.get("is_admin"):
+    return jsonify({"success": False, "error": "No autorizado"}), 401
+
+  try:
+    conn = obtener_conexion()
+    c = conn.cursor()
+    # Consulta general de ejemplo para las métricas
+    c.execute("SELECT COUNT(*) as total_eventos FROM eventos")
+    res_ev = c.fetchone()
+    total_eventos = res_ev["total_eventos"] if res_ev else 0
+
+    c.execute("SELECT COUNT(*) as total_usuarios FROM usuarios")
+    res_usr = c.fetchone()
+    total_usuarios = res_usr["total_usuarios"] if res_usr else 0
+
+    conn.close()
+    return jsonify({
+        "success": True,
+        "total_eventos": total_eventos,
+        "total_usuarios": total_usuarios,
+    })
+  except Exception as e:
+    return jsonify({"success": False, "error": str(e)}), 500
+
+
+if __name__ == "__main__":
+  port = int(os.environ.get("PORT", 5000))
+  app.run(host="0.0.0.0", port=port)
