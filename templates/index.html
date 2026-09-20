@@ -486,18 +486,18 @@
                         <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button>
                     </div>
                 </div>
-                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div>
+                <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado com SDK oficial de Pi Network y Supabase.</div>
             </div>
         </div>
 
-        <!-- HISTORIAL DE APUESTAS Y POSICIONES -->
+        <!-- HISTORIAL DE APUESTAS Y POSICIONES (ACTUALIZADO CON OPCIÓN DE VENTA A MERCADO O LÍMITE) -->
         <div class="accordion-card open" id="acc-apuestas">
             <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')">
-                <span>📦 Historial de Apuestas y Posiciones (Order Book)</span>
+                <span>📦 Posiciones Activas & Historial (Order Book)</span>
                 <span>▾</span>
             </button>
             <div class="accordion-content" style="padding-top: 12px; display: block;">
-                <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-color); margin-bottom: 6px;">🟢 Posiciones Activas / Tickets</div>
+                <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-color); margin-bottom: 6px;">🟢 Tus Compras Activas (Vender a Mercado o Límite)</div>
                 <div id="my-positions-content" style="margin-bottom: 14px;">
                     <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>
                 </div>
@@ -753,6 +753,42 @@
         </div>
     </div>
 
+    <!-- MODAL VENTA ACTIVA (MERCADO O LÍMITE) -->
+    <div id="sell-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💱 Vender Posición Activa</h3>
+                <button onclick="cerrarModalVenta()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <p id="sell-modal-title" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p>
+            
+            <div class="form-group">
+                <label>Tipo de Venta</label>
+                <select id="sell-modal-type" class="form-control" onchange="cambiarTipoVentaModal()">
+                    <option value="MARKET">Venta a Mercado (Instantánea)</option>
+                    <option value="LIMIT">Venta Límite (Precio personalizado)</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="group-sell-limit-price" style="display: none;">
+                <label>Precio Límite de Venta (Pi por contrato)</label>
+                <input type="number" id="sell-limit-price" class="form-control" value="0.50" min="0.01" max="0.99" step="0.01" oninput="calcularTotalVentaModal()">
+            </div>
+
+            <div class="form-group">
+                <label>Contratos a Vender (Máx: <span id="sell-max-contracts">0</span>)</label>
+                <input type="number" id="sell-amount-contracts" class="form-control" value="1" min="1" step="1" oninput="calcularTotalVentaModal()">
+            </div>
+
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                <div>Precio unitario de salida: <span id="sell-price-unit" style="color: #38bdf8;">0.00</span> Pi</div>
+                <div>Retorno Estimado: <span id="sell-total-return" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div>
+            </div>
+
+            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="ejecutarVentaPosicion()">Confirmar Venta</button>
+        </div>
+    </div>
+
     <!-- MODAL AUTH ADMIN -->
     <div id="admin-auth-modal" class="modal-overlay">
         <div class="modal-card">
@@ -876,6 +912,7 @@
         };
 
         let ordenActivaModal = null;
+        let ventaActivaModal = null;
         let categoriaActualFiltro = 'Todos';
         let estadoActualFiltro = 'Todos';
 
@@ -1352,7 +1389,6 @@
             
             document.getElementById('modal-market-text').innerText = tituloMercado;
             
-            // DESBLOQUEAR todos los campos y botones al abrir la ventana de confirmar orden
             const orderTypeSelect = document.getElementById('modal-order-type');
             const limitPriceInput = document.getElementById('modal-limit-price');
             const amountInput = document.getElementById('modal-amount');
@@ -1453,7 +1489,6 @@
             
             if (successBanner) successBanner.style.display = 'block';
 
-            // BLOQUEAR TODO cuando esté activo el TICKET PROCESADO, excepto la 'X' para cerrar
             if (btnConfirmar) {
                 btnConfirmar.disabled = true;
                 btnConfirmar.innerText = "Ticket Procesado";
@@ -1483,7 +1518,7 @@
             }
 
             if (btnClose) {
-                btnClose.disabled = false; // La X se mantiene activa para cerrar
+                btnClose.disabled = false;
                 btnClose.style.opacity = "1";
                 btnClose.style.cursor = "pointer";
             }
@@ -1557,6 +1592,114 @@
             alert("¡Orden ejecutada y guardada permanentemente en el sistema con éxito!");
         }
 
+        // --- LÓGICA DE APERTURA DEL MODAL DE VENTA (MERCADO O LÍMITE) ---
+        function abrirModalVenta(idx) {
+            const pos = posicionesActivas[idx];
+            if (!pos) return;
+
+            let precioBaseMercado = preciosMercados[pos.marketId] ? preciosMercados[pos.marketId][pos.opcion] : 0.50;
+            ventaActivaModal = { index: idx, posicion: pos, precioBase: precioBaseMercado };
+
+            document.getElementById('sell-modal-title').innerText = `${pos.titulo} (${pos.opcion})`;
+            document.getElementById('sell-max-contracts').innerText = pos.contratos;
+            document.getElementById('sell-amount-contracts').value = pos.contratos;
+            document.getElementById('sell-amount-contracts').max = pos.contratos;
+            document.getElementById('sell-modal-type').value = 'MARKET';
+            document.getElementById('group-sell-limit-price').style.display = 'none';
+            document.getElementById('sell-limit-price').value = precioBaseMercado.toFixed(2);
+
+            calcularTotalVentaModal();
+            document.getElementById('sell-modal').style.display = 'flex';
+        }
+
+        function cerrarModalVenta() {
+            document.getElementById('sell-modal').style.display = 'none';
+            ventaActivaModal = null;
+        }
+
+        function cambiarTipoVentaModal() {
+            const tipoVenta = document.getElementById('sell-modal-type').value;
+            const groupLimit = document.getElementById('group-sell-limit-price');
+            if (tipoVenta === 'LIMIT') {
+                groupLimit.style.display = 'block';
+            } else {
+                groupLimit.style.display = 'none';
+            }
+            calcularTotalVentaModal();
+        }
+
+        function calcularTotalVentaModal() {
+            if (!ventaActivaModal) return;
+            const tipoVenta = document.getElementById('sell-modal-type').value;
+            const contratosVender = parseInt(document.getElementById('sell-amount-contracts').value) || 1;
+            const pos = ventaActivaModal.posicion;
+
+            if (contratosVender > pos.contratos) {
+                document.getElementById('sell-amount-contracts').value = pos.contratos;
+            }
+
+            let precioUnitarioVenta = 0;
+            if (tipoVenta === 'LIMIT') {
+                precioUnitarioVenta = parseFloat(document.getElementById('sell-limit-price').value) || ventaActivaModal.precioBase;
+            } else {
+                // Venta a mercado al precio actual con un pequeño descuento de liquidez (ej. 95% del valor base o proporcional)
+                precioUnitarioVenta = Math.max(ventaActivaModal.precioBase * 0.95, 0.01);
+            }
+
+            let retornoTotal = (contratosVender * precioUnitarioVenta);
+            document.getElementById('sell-price-unit').innerText = precioUnitarioVenta.toFixed(3);
+            document.getElementById('sell-total-return').innerText = retornoTotal.toFixed(2);
+            ventaActivaModal.contratosVender = contratosVender;
+            ventaActivaModal.retornoTotal = retornoTotal;
+            ventaActivaModal.precioUnitarioVenta = precioUnitarioVenta;
+        }
+
+        function ejecutarVentaPosicion() {
+            if (!ventaActivaModal) return;
+            const pos = ventaActivaModal.posicion;
+            const idx = ventaActivaModal.index;
+            const contratosVender = ventaActivaModal.contratosVender;
+            const retornoTotal = ventaActivaModal.retornoTotal;
+            const tipoVenta = document.getElementById('sell-modal-type').value;
+
+            usuarioActual.balance += retornoTotal;
+
+            if (contratosVender >= pos.contratos) {
+                eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+                posicionesActivas.splice(idx, 1);
+            } else {
+                pos.contratos -= contratosVender;
+                pos.invertido -= (pos.invertido * (contratosVender / (pos.contratos + contratosVender)));
+                pos.payout -= contratosVender * 1.00;
+                guardarEnSupabaseTabla('posiciones_activas', {
+                    id: pos.id, market_id: String(pos.marketId), handle: usuarioActual.handle,
+                    titulo: pos.titulo, opcion: pos.opcion, contratos: pos.contratos,
+                    invertido: pos.invertido, payout: pos.payout
+                });
+            }
+
+            const etiquetaOrden = tipoVenta === 'LIMIT' ? 'VENTA LIMIT (Ask)' : 'VENTA A MERCADO (Ask)';
+            const nuevaOrdenGlobal = {
+                marketId: pos.marketId, tipo: etiquetaOrden, opcion: pos.opcion, contratos: contratosVender, precio: ventaActivaModal.precioUnitarioVenta, trader: usuarioActual.handle
+            };
+            ordenesGlobales.push(nuevaOrdenGlobal);
+            guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
+
+            registrarTransaccionEnDB({
+                id: 'VEND-' + Date.now(), titulo: pos.titulo, tipo: 'Venta ' + tipoVenta, monto: retornoTotal,
+                detalle: `${contratosVender} contratos (${pos.opcion}) vendidos por ${usuarioActual.handle}`
+            });
+
+            guardarTodoInStorage();
+            actualizarUIBalance();
+            renderizarPosiciones();
+            renderizarOrderBookVisible();
+            renderizarHistorial();
+            cerrarModalVenta();
+
+            alert(`¡Venta realizada con éxito! Se acreditaron ${retornoTotal.toFixed(2)} Pi a tu balance.`);
+        }
+
         function renderizarOrderBookVisible() {
             sincronizarPersistencia();
             const marketIdFiltro = document.getElementById('orderbook-market-filter').value;
@@ -1617,11 +1760,10 @@
                 const colorBadge = pos.opcion === 'SÍ' ? '#4ade80' : '#f87171';
                 let botonesHtml = '';
                 if (ganadorOficial === null) {
-                    const valorVentaAnticipada = (pos.invertido * 0.9).toFixed(2);
                     botonesHtml = `
                         <div style="display: flex; gap: 6px; margin-bottom: 4px;">
                             <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2a2e43, #1f2233); border-color: #3a3f58; color: #8c92ac; font-size: 0.75rem; padding: 7px; cursor: default;" disabled>Activa</button>
-                            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="venderPosicionAnticipada(${idx})">💸 Vender (${valorVentaAnticipada} Pi)</button>
+                            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${idx})">💱 Vender (Mercado / Límite)</button>
                         </div>
                     `;
                 } else if (ganadorOficial === 'CANCELADO') {
@@ -1649,24 +1791,6 @@
                 `;
             });
             contenedor.innerHTML = html === '' ? '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>' : html;
-        }
-
-        function venderPosicionAnticipada(idx) {
-            const pos = posicionesActivas[idx];
-            const retornoVenta = pos.invertido * 0.9;
-            usuarioActual.balance += retornoVenta;
-
-            registrarTransaccionEnDB({
-                id: 'VEND-' + Date.now(), titulo: pos.titulo, tipo: 'Venta Anticipada', monto: retornoVenta, detalle: `${pos.contratos} contratos (${pos.opcion}) vendidos por ${usuarioActual.handle}`
-            });
-
-            eliminarDeSupabaseTabla('posiciones_activas', pos.id);
-            posicionesActivas.splice(idx, 1);
-            guardarTodoInStorage();
-            actualizarUIBalance();
-            renderizarPosiciones();
-            renderizarHistorial();
-            alert(`¡Se han acreditado ${retornoVenta.toFixed(2)} Pi a tu balance!`);
         }
 
         function cobrarPrediccion(idx) {
@@ -1718,7 +1842,6 @@
             contenedor.innerHTML = html;
         }
 
-        // --- Funciones Adicionales de Billetera, Admin y Soporte ---
         function depositarConPiNetwork() {
             const monto = parseFloat(document.getElementById('wallet-amount').value);
             if (!monto || monto <= 0) { alert("Ingresa un monto válido para recargar."); return; }
