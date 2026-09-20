@@ -225,7 +225,6 @@ def inicializar_bd():
                         txid TEXT,
                         fecha TEXT
                     )""")
-    # Tabla global_audit_logs agregada correctamente
     c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
                         id SERIAL PRIMARY KEY,
                         username TEXT,
@@ -354,7 +353,6 @@ def inicializar_bd():
                     txid TEXT,
                     fecha TEXT
                 )""")
-    # Equivalente SQLite para entorno local
     c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT,
@@ -488,7 +486,6 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
     pass
 
 
-# Función auxiliar útil para registrar operaciones en la nueva tabla global de auditoría
 def registrar_global_audit(username, accion, detalle):
   try:
     conn = obtener_conexion()
@@ -709,7 +706,6 @@ def participar():
     row = c.fetchone()
     if row and row.get("is_frozen"):
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
@@ -718,8 +714,7 @@ def participar():
     saldo_actual = row["saldo_disponible"] if row else 0
     if not row or saldo_actual < monto:
       conn.rollback()
-      conn.close()
-      return jsonify({"success": False, "error": "Saldo insuficiente"})
+      return jsonify({"success": False, "error": "Saldo insuficiente"}), 400
 
     if DATABASE_URL:
       c.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
@@ -729,8 +724,7 @@ def participar():
 
     if not evento or evento["estado"] != "activo":
       conn.rollback()
-      conn.close()
-      return jsonify({"success": False, "error": "Mercado no disponible"})
+      return jsonify({"success": False, "error": "Mercado no disponible"}), 400
 
     if DATABASE_URL:
       c.execute(
@@ -746,8 +740,7 @@ def participar():
 
     if not opcion:
       conn.rollback()
-      conn.close()
-      return jsonify({"success": False, "error": "Opción inválida"})
+      return jsonify({"success": False, "error": "Opción inválida"}), 400
 
     nuevo_saldo = saldo_actual - monto
 
@@ -803,9 +796,11 @@ def participar():
       )
 
     conn.commit()
-    
-    # Registro automático de trazabilidad en global_audit_logs
-    registrar_global_audit(username, "PARTICIPAR_APUESTA", f"Apuesta de {monto} en '{evento['titulo']}' por '{opcion['nombre']}'")
+    registrar_global_audit(
+        username,
+        "PARTICIPAR_APUESTA",
+        f"Apuesta de {monto} en '{evento['titulo']}' por '{opcion['nombre']}'",
+    )
 
     return jsonify({
         "success": True,
@@ -813,10 +808,12 @@ def participar():
         "mensaje": "¡Apuesta registrada con éxito!",
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/clob/ordenes", methods=["GET"])
@@ -849,7 +846,6 @@ def obtener_ordenes_clob():
 
 @app.route("/api/clob/actualizar-dinamico", methods=["GET"])
 def actualizar_ordenes_dinamico():
-  evento_id = request.args.get("evento_id", 1)
   conn = obtener_conexion()
   c = conn.cursor()
   try:
@@ -894,8 +890,9 @@ def actualizar_ordenes_dinamico():
     conn.close()
     return jsonify({"success": True, "ordenes": ordenes, "timestamp": time.time()})
   except Exception as e:
-    conn.rollback()
-    conn.close()
+    if conn:
+      conn.rollback()
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -935,7 +932,6 @@ def crear_orden_clob():
 
     if row_user and row_user.get("is_frozen"):
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
@@ -944,11 +940,10 @@ def crear_orden_clob():
     costo_inicial = precio * cantidad if accion == "comprar" else cantidad
     if not row_user or row_user["saldo_disponible"] < costo_inicial:
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Saldo insuficiente para colocar la orden",
-      })
+      }), 400
 
     nuevo_saldo_creador = row_user["saldo_disponible"] - costo_inicial
     if DATABASE_URL:
@@ -1258,9 +1253,11 @@ def crear_orden_clob():
       )
 
     conn.commit()
-    
-    # Registro automático en la tabla global de auditoría de la orden CLOB
-    registrar_global_audit(username, "CLOB_ORDEN", f"Acción: {accion} | Cantidad: {cantidad} | Precio: {precio}")
+    registrar_global_audit(
+        username,
+        "CLOB_ORDEN",
+        f"Acción: {accion} | Cantidad: {cantidad} | Precio: {precio}",
+    )
 
     return jsonify({
         "success": True,
@@ -1271,10 +1268,12 @@ def crear_orden_clob():
         ),
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/pi/aprobar-pago", methods=["POST"])
@@ -1351,7 +1350,6 @@ def completar_pago():
 
     if row and row.get("is_frozen"):
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
@@ -1401,24 +1399,47 @@ def completar_pago():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s,"
+          " %s, %s)",
+          (
+              username,
+              "COMPLETAR_PAGO",
+              monto,
+              balance_total_plataforma,
+              txid or payment_id,
+              fecha,
+          ),
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (
+              username,
+              "COMPLETAR_PAGO",
+              monto,
+              balance_total_plataforma,
+              txid or payment_id,
+              fecha,
+          ),
       )
 
     conn.commit()
-    
-    # Registro automático de la recarga en la auditoría global
-    registrar_global_audit(username, "RECARGA_PI", f"Recarga completada de {monto} Pi (TxID: {txid or payment_id})")
+    registrar_global_audit(
+        username,
+        "RECARGA_PI",
+        f"Recarga completada de {monto} Pi (TxID: {txid or payment_id})",
+    )
 
     return jsonify({
         "success": True,
@@ -1427,10 +1448,12 @@ def completar_pago():
         "mensaje": f"Recarga de {monto} Pi acreditada con éxito.",
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/pi/retirar", methods=["POST"])
@@ -1486,7 +1509,6 @@ def solicitar_retiro():
 
     if row and row.get("is_frozen"):
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
@@ -1494,11 +1516,10 @@ def solicitar_retiro():
 
     if not row or row["saldo_disponible"] < monto:
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Saldo insuficiente para procesar el retiro",
-      })
+      }), 400
 
     saldo_actual = row["saldo_disponible"]
     nuevo_saldo = saldo_actual - monto
@@ -1534,7 +1555,6 @@ def solicitar_retiro():
 
     if pi_response.status_code not in [200, 201]:
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "La pasarela de Pi Network rechazó el desembolso",
@@ -1562,24 +1582,47 @@ def solicitar_retiro():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s,"
+          " %s, %s)",
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
 
     conn.commit()
-    
-    # Registro automático del retiro en la auditoría global
-    registrar_global_audit(username, "RETIRO_PI", f"Retiro de {monto} Pi a la billetera {wallet_destino} (TxID: {txid})")
+    registrar_global_audit(
+        username,
+        "RETIRO_PI",
+        f"Retiro de {monto} Pi a la billetera {wallet_destino} (TxID: {txid})",
+    )
 
     return jsonify({
         "success": True,
@@ -1589,10 +1632,12 @@ def solicitar_retiro():
         "mensaje": f"Retiro de {monto} Pi procesado con éxito.",
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/pi/balance-plataforma", methods=["GET"])
@@ -1605,7 +1650,9 @@ def obtener_balance_plataforma():
     else:
       c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
     row = c.fetchone()
-    total_circulante = row["total_circulante"] if row and row["total_circulante"] else 0.0
+    total_circulante = (
+        row["total_circulante"] if row and row["total_circulante"] else 0.0
+    )
 
     if DATABASE_URL:
       c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
@@ -1617,10 +1664,11 @@ def obtener_balance_plataforma():
     return jsonify({
         "success": True,
         "balance_total_pi": total_circulante,
-        "ultimos_eventos_wallet": eventos
+        "ultimos_eventos_wallet": eventos,
     })
   except Exception as e:
-    conn.close()
+    if conn:
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -1696,7 +1744,6 @@ def cobrar_prediccion(apuesta_id):
     u_check = c.fetchone()
     if u_check and u_check.get("is_frozen"):
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
@@ -1716,12 +1763,10 @@ def cobrar_prediccion(apuesta_id):
     apuesta = c.fetchone()
     if not apuesta:
       conn.rollback()
-      conn.close()
       return jsonify({"success": False, "error": "Apuesta no encontrada"}), 404
 
     if apuesta["estado"] != "Ganada":
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": (
@@ -1745,7 +1790,6 @@ def cobrar_prediccion(apuesta_id):
     u_row = c.fetchone()
     if not u_row:
       conn.rollback()
-      conn.close()
       return jsonify({"success": False, "error": "Usuario no existe"}), 400
 
     nuevo_saldo = u_row["saldo_disponible"] + premio
@@ -1796,9 +1840,11 @@ def cobrar_prediccion(apuesta_id):
       )
 
     conn.commit()
-    
-    # Registro automático del cobro en la auditoría global
-    registrar_global_audit(username, "COBRO_PREMIO", f"Cobro exitoso de premio por {premio} (Apuesta ID: {apuesta_id})")
+    registrar_global_audit(
+        username,
+        "COBRO_PREMIO",
+        f"Cobro exitoso de premio por {premio} (Apuesta ID: {apuesta_id})",
+    )
 
     return jsonify({
         "success": True,
@@ -1806,10 +1852,12 @@ def cobrar_prediccion(apuesta_id):
         "mensaje": f"¡Premio de {premio} cobrado con éxito!",
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/admin/crear-evento", methods=["POST"])
@@ -1864,14 +1912,19 @@ def admin_crear_evento():
         "CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}"
     )
     registrar_audit_log(
-        "Admin", "CREAR_EVENTO", str(ev_id), {"titulo": titulo, "opciones": opciones}
+        "Admin",
+        "CREAR_EVENTO",
+        str(ev_id),
+        {"titulo": titulo, "opciones": opciones},
     )
     return jsonify({"success": True, "mensaje": "Mercado/Evento creado con éxito"})
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/admin/cerrar-evento", methods=["POST"])
@@ -1897,11 +1950,10 @@ def admin_cerrar_evento():
 
     if not evento or evento["estado"] == "cerrado":
       conn.rollback()
-      conn.close()
       return jsonify({
           "success": False,
           "error": "El evento no existe o ya está cerrado",
-      })
+      }), 400
 
     if DATABASE_URL:
       c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (ganador_id,))
@@ -1911,8 +1963,7 @@ def admin_cerrar_evento():
 
     if not opcion_ganadora:
       conn.rollback()
-      conn.close()
-      return jsonify({"success": False, "error": "Opción ganadora inválida"})
+      return jsonify({"success": False, "error": "Opción ganadora inválida"}), 400
 
     nombre_ganador = opcion_ganadora["nombre"]
     titulo_evento = evento["titulo"]
@@ -2035,10 +2086,12 @@ def admin_cerrar_evento():
         ),
     })
   except Exception as e:
-    conn.rollback()
+    if conn:
+      conn.rollback()
     return jsonify({"success": False, "error": str(e)}), 500
   finally:
-    conn.close()
+    if conn:
+      conn.close()
 
 
 @app.route("/api/admin/toggle-freeze", methods=["POST"])
@@ -2093,8 +2146,9 @@ def admin_toggle_freeze():
         "mensaje": f"Cuenta de {username} {accion_desc} exitosamente.",
     })
   except Exception as e:
-    conn.rollback()
-    conn.close()
+    if conn:
+      conn.rollback()
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2268,8 +2322,9 @@ def admin_ajustar_balance():
         ),
     })
   except Exception as e:
-    conn.rollback()
-    conn.close()
+    if conn:
+      conn.rollback()
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2337,11 +2392,9 @@ def admin_obtener_usuario_detalle(username):
         "historial_apuestas": historial_apuestas,
     })
   except Exception as e:
-    conn.close()
+    if conn:
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ================= NUEVOS ENDPOINTS DE SOPORTE, ANUNCIOS Y MÉTRICAS =================
 
 
 @app.route("/api/admin/anuncios", methods=["GET", "POST"])
@@ -2390,18 +2443,19 @@ def admin_anuncios():
       conn.close()
       return jsonify({"success": True, "mensaje": "Anuncio publicado con éxito"})
     except Exception as e:
-      conn.rollback()
-      conn.close()
+      if conn:
+        conn.rollback()
+        conn.close()
       return jsonify({"success": False, "error": str(e)}), 500
 
-  # GET
   try:
     c.execute("SELECT * FROM anuncios_globales ORDER BY id DESC LIMIT 10")
     anuncios = [dict(r) for r in c.fetchall()]
     conn.close()
     return jsonify({"success": True, "anuncios": anuncios})
   except Exception as e:
-    conn.close()
+    if conn:
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2436,7 +2490,8 @@ def admin_metricas_temporales():
         },
     })
   except Exception as e:
-    conn.close()
+    if conn:
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2462,7 +2517,8 @@ def obtener_posiciones_activas(username):
     conn.close()
     return jsonify({"success": True, "posiciones_activas": posiciones})
   except Exception as e:
-    conn.close()
+    if conn:
+      conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
 
 
