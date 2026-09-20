@@ -471,7 +471,7 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
-  # CORRECCIÓN: Cambiado de 'DENY' a 'SAMEORIGIN' para permitir que Pi Browser cargue la app en iframe
+  # CONFIGURACIÓN CLAVE PARA PI BROWSER: Permite que el navegador de Pi cargue la app en iframe mediante SAMEORIGIN
   response.headers["X-Frame-Options"] = "SAMEORIGIN"
   response.headers["X-XSS-Protection"] = "1; mode=block"
   response.headers["Strict-Transport-Security"] = (
@@ -1350,18 +1350,39 @@ def completar_pago():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
+          " %s)",
+          (
+              username,
+              "COMPLETAR_PAGO",
+              monto,
+              balance_total_plataforma,
+              txid or payment_id,
+              fecha,
+          ),
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (
+              username,
+              "COMPLETAR_PAGO",
+              monto,
+              balance_total_plataforma,
+              txid or payment_id,
+              fecha,
+          ),
       )
 
     conn.commit()
@@ -1507,18 +1528,39 @@ def solicitar_retiro():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
+          " %s)",
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      balance_total_plataforma = (
+          res_tot["total"] if res_tot and res_tot["total"] else 0.0
+      )
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
+          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (
+              username,
+              "SOLICITAR_RETIRO",
+              -monto,
+              balance_total_plataforma,
+              txid,
+              fecha,
+          ),
       )
 
     conn.commit()
@@ -1546,7 +1588,9 @@ def obtener_balance_plataforma():
     else:
       c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
     row = c.fetchone()
-    total_circulante = row["total_circulante"] if row and row["total_circulante"] else 0.0
+    total_circulante = (
+        row["total_circulante"] if row and row["total_circulante"] else 0.0
+    )
 
     if DATABASE_URL:
       c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
@@ -1558,7 +1602,7 @@ def obtener_balance_plataforma():
     return jsonify({
         "success": True,
         "balance_total_pi": total_circulante,
-        "ultimos_eventos_wallet": eventos
+        "ultimos_eventos_wallet": eventos,
     })
   except Exception as e:
     conn.close()
@@ -1801,7 +1845,10 @@ def admin_crear_evento():
         "CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}"
     )
     registrar_audit_log(
-        "Admin", "CREAR_EVENTO", str(ev_id), {"titulo": titulo, "opciones": opciones}
+        "Admin",
+        "CREAR_EVENTO",
+        str(ev_id),
+        {"titulo": titulo, "opciones": opciones},
     )
     return jsonify({"success": True, "mensaje": "Mercado/Evento creado con éxito"})
   except Exception as e:
@@ -2357,7 +2404,7 @@ def admin_metricas_temporales():
 
     c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
     res_vol = c.fetchone()
-    volumen_clob = res_vol["volumen_clob"] or 0.0
+    volumen_clov = res_vol["volumen_clob"] or 0.0
 
     conn.close()
     return jsonify({
@@ -2365,7 +2412,7 @@ def admin_metricas_temporales():
         "metricas": {
             "total_usuarios": total_usuarios,
             "circulante_total": circulante_total,
-            "volumen_clob": volumen_clob,
+            "volumen_clob": volumen_clov,
         },
     })
   except Exception as e:
