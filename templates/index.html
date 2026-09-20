@@ -865,7 +865,7 @@
         let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true';
         let ticketAdminActivoId = null;
         let usuarioAdminSeleccionadoHandle = null;
-        let isSubmitting = false; // Bandera para prevenir doble clic y bloqueo estático del botón
+        let isSubmitting = false; // Bandera para prevenir doble clic y actualizar texto a Exitoso
 
         let nombresMercados = {
             1: "¿Bitcoin superará los $100,000?",
@@ -1416,7 +1416,7 @@
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
             if (btnConfirmar) {
                 btnConfirmar.disabled = true;
-                btnConfirmar.innerText = "Exitoso!";
+                btnConfirmar.innerText = "¡Exitoso!";
             }
 
             const tipoOrden = document.getElementById('modal-order-type').value;
