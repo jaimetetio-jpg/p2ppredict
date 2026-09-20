@@ -225,6 +225,16 @@ def inicializar_bd():
                         txid TEXT,
                         fecha TEXT
                     )""")
+    # Tabla global_audit_logs agregada correctamente
+    c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        accion TEXT,
+                        detalle TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+                    )""")
+    c.execute("""CREATE INDEX IF NOT EXISTS idx_global_audit_username 
+                        ON global_audit_logs(username);""")
   else:
     c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
                     username TEXT PRIMARY KEY, 
@@ -344,6 +354,16 @@ def inicializar_bd():
                     txid TEXT,
                     fecha TEXT
                 )""")
+    # Equivalente SQLite para entorno local
+    c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT,
+                    accion TEXT,
+                    detalle TEXT,
+                    created_at TEXT
+                )""")
+    c.execute("""CREATE INDEX IF NOT EXISTS idx_global_audit_username 
+                        ON global_audit_logs(username);""")
 
   conn.commit()
 
@@ -468,6 +488,28 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
     pass
 
 
+# Función auxiliar útil para registrar operaciones en la nueva tabla global de auditoría
+def registrar_global_audit(username, accion, detalle):
+  try:
+    conn = obtener_conexion()
+    c = conn.cursor()
+    fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if DATABASE_URL:
+      c.execute(
+          "INSERT INTO global_audit_logs (username, accion, detalle) VALUES (%s, %s, %s)",
+          (username, accion, detalle)
+      )
+    else:
+      c.execute(
+          "INSERT INTO global_audit_logs (username, accion, detalle, created_at) VALUES (?, ?, ?, ?)",
+          (username, accion, detalle, fecha_str)
+      )
+    conn.commit()
+    conn.close()
+  except Exception:
+    pass
+
+
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
@@ -535,7 +577,6 @@ def obtener_saldo(username):
       if saldo_inicial > 0:
         txid = f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
         c.execute(
             "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
             " VALUES (?, ?, ?, ?, ?)",
@@ -749,7 +790,6 @@ def participar():
           " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
           (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -763,6 +803,10 @@ def participar():
       )
 
     conn.commit()
+    
+    # Registro automático de trazabilidad en global_audit_logs
+    registrar_global_audit(username, "PARTICIPAR_APUESTA", f"Apuesta de {monto} en '{evento['titulo']}' por '{opcion['nombre']}'")
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo,
@@ -1201,7 +1245,6 @@ def crear_orden_clob():
               ),
           ),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1215,6 +1258,10 @@ def crear_orden_clob():
       )
 
     conn.commit()
+    
+    # Registro automático en la tabla global de auditoría de la orden CLOB
+    registrar_global_audit(username, "CLOB_ORDEN", f"Acción: {accion} | Cantidad: {cantidad} | Precio: {precio}")
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo_creador,
@@ -1345,7 +1392,6 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
     else:
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1370,6 +1416,10 @@ def completar_pago():
       )
 
     conn.commit()
+    
+    # Registro automático de la recarga en la auditoría global
+    registrar_global_audit(username, "RECARGA_PI", f"Recarga completada de {monto} Pi (TxID: {txid or payment_id})")
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo,
@@ -1503,7 +1553,6 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
     else:
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1528,6 +1577,10 @@ def solicitar_retiro():
       )
 
     conn.commit()
+    
+    # Registro automático del retiro en la auditoría global
+    registrar_global_audit(username, "RETIRO_PI", f"Retiro de {monto} Pi a la billetera {wallet_destino} (TxID: {txid})")
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo,
@@ -1728,7 +1781,6 @@ def cobrar_prediccion(apuesta_id):
           "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = ?",
           (apuesta_id,),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1744,6 +1796,10 @@ def cobrar_prediccion(apuesta_id):
       )
 
     conn.commit()
+    
+    # Registro automático del cobro en la auditoría global
+    registrar_global_audit(username, "COBRO_PREMIO", f"Cobro exitoso de premio por {premio} (Apuesta ID: {apuesta_id})")
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo,
@@ -1925,7 +1981,6 @@ def admin_cerrar_evento():
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
               (nuevo_saldo, usr),
           )
-          # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
           c.execute(
               "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
               " VALUES (?, ?, ?, ?, ?)",
