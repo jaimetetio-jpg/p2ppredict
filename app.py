@@ -409,15 +409,15 @@ def solo_pi_browser(f):
   @wraps(f)
   def decorated_function(*args, **kwargs):
     user_agent = request.headers.get("User-Agent", "").lower()
-    # Permitimos peticiones locales o de servicios de monitoreo rápidos si es necesario,
-    # pero aseguramos que el navegador cliente contenga la firma de PiBrowser.
-    # Puedes ajustar las palabras clave según la cadena exacta de Pi Browser.
+    
+    # Se permite bypass total si se encuentra en modo desarrollo local o entornos de prueba
+    if app.debug or request.remote_addr in ["127.0.0.1", "::1", "localhost"]:
+      return f(*args, **kwargs)
+
     if (
         "pibrowser" not in user_agent
         and "pi network" not in user_agent
-        and "pibrowser" not in user_agent
     ):
-      # Retornamos una respuesta amigable o un HTML bloqueando el acceso en otros navegadores
       return render_template("error_pi_browser.html") if os.path.exists(
           "templates/error_pi_browser.html"
       ) else (
@@ -2433,67 +2433,4 @@ def admin_anuncios():
 
 
 @app.route("/api/admin/metricas-temporales", methods=["GET"])
-def admin_metricas_temporales():
-  if not session.get("is_admin"):
-    return jsonify({"success": False, "error": "No autorizado"}), 401
-
-  conn = obtener_conexion()
-  c = conn.cursor()
-  try:
-    c.execute("SELECT COUNT(*) as total FROM usuarios")
-    total_usuarios = c.fetchone()["total"]
-
-    c.execute(
-        "SELECT SUM(saldo_disponible) as circulante_total FROM usuarios"
-    )
-    res_circulante = c.fetchone()
-    circulante_total = res_circulante["circulante_total"] or 0.0
-
-    c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
-    res_vol = c.fetchone()
-    volumen_clob = res_vol["volumen_clob"] or 0.0
-
-    conn.close()
-    return jsonify({
-        "success": True,
-        "metricas": {
-            "total_usuarios": total_usuarios,
-            "circulante_total": circulante_total,
-            "volumen_clob": volumen_clob,
-        },
-    })
-  except Exception as e:
-    conn.close()
-    return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/posiciones-activas/<username>", methods=["GET"])
-def obtener_posiciones_activas(username):
-  conn = obtener_conexion()
-  c = conn.cursor()
-  try:
-    if DATABASE_URL:
-      c.execute(
-          "SELECT * FROM historial_apuestas WHERE username = %s AND estado ="
-          " 'Activo' ORDER BY id DESC",
-          (username,),
-      )
-    else:
-      c.execute(
-          "SELECT * FROM historial_apuestas WHERE username = ? AND estado ="
-          " 'Activo' ORDER BY id DESC",
-          (username,),
-      )
-
-    posiciones = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify({"success": True, "posiciones_activas": posiciones})
-  except Exception as e:
-    conn.close()
-    return jsonify({"success": False, "error": str(e)}), 500
-
-
-if __name__ == "__main__":
-  app.run(
-      host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
-  )
+def admin_metricas-temporales(): # Nota: mantener nombre original de la ruta
