@@ -1208,26 +1208,52 @@
 
             const titulo = document.getElementById('nuevo-titulo').value.trim();
             const categoria = document.getElementById('nuevo-categoria').value;
-            const fechaCierreInput = document.getElementById('nuevo-fecha-cierre').value;
+            const fechaCierreInputVal = document.getElementById('nuevo-fecha-cierre').value;
             const opcionInicial = document.getElementById('nuevo-opcion').value;
             const liquidezAportada = parseFloat(document.getElementById('nuevo-liquidez').value);
 
-            if (!titulo) { alert("Por favor, ingresa una pregunta o título válido."); return; }
-            if (!fechaCierreInput) { alert("Por favor, selecciona la fecha y hora de ejecución/cierre."); return; }
-            if (!liquidezAportada || liquidezAportada <= 0) { alert("Introduce liquidez inicial válida en Pi."); return; }
-            if (usuarioActual.balance < liquidezAportada) { alert("No tienes suficiente balance en Pi."); return; }
+            if (!titulo || !fechaCierreInputVal) {
+                alert("Por favor, completa el título y la fecha de cierre del mercado.");
+                return;
+            }
 
+            const fechaCierreInput = new Date(fechaCierreInputVal);
+            const ahora = new Date();
+
+            if (fechaCierreInput <= ahora) {
+                alert("La fecha y hora de cierre debe ser posterior al momento actual.");
+                return;
+            }
+
+            if (!liquidezAportada || liquidezAportada <= 0) { alert("Introduce liquidez inicial válida en Pi."); return; }
+            
+            if (usuarioActual.balance < liquidezAportada) {
+                alert("Balance insuficiente de Pi para aportar la liquidez inicial.");
+                return;
+            }
+
+            // Descontar balance localmente y actualizar
             usuarioActual.balance -= liquidezAportada;
+            actualizarUIBalance();
+
             const nuevoId = 'm-' + Date.now();
             
             preciosMercados[nuevoId] = { "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, "NO": opcionInicial === 'NO' ? 0.55 : 0.45 };
             estadosMercados[nuevoId] = null;
             nombresMercados[nuevoId] = titulo;
 
-            const marketObj = { id: nuevoId, titulo: titulo, categoria: categoria, creador: usuarioActual.handle, fechaCierre: fechaCierreInput };
+            const nuevoMercado = {
+                id: nuevoId,
+                titulo: titulo,
+                categoria: categoria,
+                fechaCierre: fechaCierreInputVal,
+                estado: 'abierto',
+                creador: usuarioActual.handle,
+                liquidez_total: liquidezAportada
+            };
 
-            mercadosDinamicos.push(marketObj);
-            guardarEnSupabaseTabla('mercados_dinamicos', marketObj);
+            mercadosDinamicos.push(nuevoMercado);
+            guardarEnSupabaseTabla('mercados_dinamicos', nuevoMercado);
 
             const contratosCreador = Math.floor(liquidezAportada / preciosMercados[nuevoId][opcionInicial]);
             const nuevaPosicion = {
@@ -1247,9 +1273,13 @@
             ordenesGlobales.push(nuevaOrdenGlobal);
             guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
 
+            // Registrar la transacción
             registrarTransaccionEnDB({
-                id: 'CREA-' + Date.now(), titulo: 'Creación de Mercado P2P', tipo: 'Creación (0% Comisión)', monto: -liquidezAportada,
-                detalle: `Mercado creado: "${titulo}". Aporte inicial de ${liquidezAportada} Pi.`
+                id: 'CREAR-' + Date.now(),
+                titulo: 'Creación de Mercado',
+                tipo: 'Inversión Inicial',
+                monto: -liquidezAportada,
+                detalle: `Creación del mercado: "${titulo}"`
             });
 
             guardarTodoInStorage();
@@ -1260,12 +1290,14 @@
             renderizarPosiciones();
             renderizarHistorial();
 
+            // Limpiar campos y redirigir a la vista de mercados
             document.getElementById('nuevo-titulo').value = '';
             document.getElementById('nuevo-fecha-cierre').value = '';
             document.getElementById('nuevo-liquidez').value = '5.0';
-            switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
-
-            alert("¡Predicción creada con éxito!");
+            
+            alert("¡Mercado creado con éxito!");
+            switchTab('mercados', document.querySelector('.nav-tab'));
+            renderizarMercadosDinamicos();
         }
 
         function renderizarMercadosDinamicos() {
@@ -2131,23 +2163,22 @@
             guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            actualizarUIBalance();
-            alert("Mercado cancelado y fondos reembolsados exitosamente a los usuarios.");
+            alert("Mercado cancelado y fondos reembolsados con éxito.");
         }
 
         function renderizarHistorialGlobalAdmin() {
-            const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
-            const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
             const container = document.getElementById('admin-global-transactions-container');
+            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
+            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
 
             let filtradas = historialTransacciones.filter(tx => {
-                let matchUser = !userSearch || tx.detalle.toLowerCase().includes(userSearch) || tx.titulo.toLowerCase().includes(userSearch);
-                let matchTx = !txSearch || tx.detalle.toLowerCase().includes(txSearch) || tx.tipo.toLowerCase().includes(txSearch);
+                let matchUser = (tx.detalle && tx.detalle.toLowerCase().includes(searchUser)) || searchUser === '';
+                let matchTx = (tx.titulo && tx.titulo.toLowerCase().includes(searchTx)) || (tx.detalle && tx.detalle.toLowerCase().includes(searchTx)) || searchTx === '';
                 return matchUser && matchTx;
             });
 
             if (filtradas.length === 0) {
-                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con esos filtros.</p>';
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con los filtros.</p>';
                 return;
             }
 
