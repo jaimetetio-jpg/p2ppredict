@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="env.js"></script>
     <script>
-        Pi.init({ version: "2.0", sandbox: false });
+        Pi.init({ version: "2.0", sandbox: true });
 
         const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || '';
         const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || '';
@@ -1416,7 +1416,7 @@
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
             if (btnConfirmar) {
                 btnConfirmar.disabled = true;
-                btnConfirmar.innerText = "Procesando orden...";
+                btnConfirmar.innerText = "Exitoso!";
             }
 
             const tipoOrden = document.getElementById('modal-order-type').value;
@@ -1476,7 +1476,9 @@
             actualizarPreciosVisuales();
             renderizarPosiciones();
             renderizarOrderBookVisible();
-            cerrarTerminalTrading();
+            setTimeout(() => {
+                cerrarTerminalTrading();
+            }, 600);
             
             alert("¡Orden ejecutada y guardada permanentemente en el sistema con éxito!");
         }
