@@ -471,14 +471,13 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
-  response.headers["X-Frame-Options"] = "DENY"
+  # CORRECCIÓN: Cambiado de 'DENY' a 'SAMEORIGIN' para permitir que Pi Browser cargue la app en iframe
+  response.headers["X-Frame-Options"] = "SAMEORIGIN"
   response.headers["X-XSS-Protection"] = "1; mode=block"
   response.headers["Strict-Transport-Security"] = (
       "max-age=31536000; includeSubDomains"
   )
   response.headers["Access-Control-Allow-Origin"] = "*"
-  response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
-  response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
   return response
 
 
@@ -535,7 +534,6 @@ def obtener_saldo(username):
       if saldo_inicial > 0:
         txid = f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
         c.execute(
             "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
             " VALUES (?, ?, ?, ?, ?)",
@@ -749,7 +747,6 @@ def participar():
           " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
           (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1201,7 +1198,6 @@ def crear_orden_clob():
               ),
           ),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1345,7 +1341,6 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
     else:
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1503,7 +1498,6 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
     else:
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1728,7 +1722,6 @@ def cobrar_prediccion(apuesta_id):
           "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = ?",
           (apuesta_id,),
       )
-      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1925,7 +1918,6 @@ def admin_cerrar_evento():
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
               (nuevo_saldo, usr),
           )
-          # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
           c.execute(
               "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
               " VALUES (?, ?, ?, ?, ?)",
@@ -2286,9 +2278,6 @@ def admin_obtener_usuario_detalle(username):
     return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ================= NUEVOS ENDPOINTS DE SOPORTE, ANUNCIOS Y MÉTRICAS =================
-
-
 @app.route("/api/admin/anuncios", methods=["GET", "POST"])
 def admin_anuncios():
   conn = obtener_conexion()
@@ -2339,7 +2328,6 @@ def admin_anuncios():
       conn.close()
       return jsonify({"success": False, "error": str(e)}), 500
 
-  # GET
   try:
     c.execute("SELECT * FROM anuncios_globales ORDER BY id DESC LIMIT 10")
     anuncios = [dict(r) for r in c.fetchall()]
