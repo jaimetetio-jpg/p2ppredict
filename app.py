@@ -402,6 +402,39 @@ def inicializar_bd():
 inicializar_bd()
 
 
+# ================= PARCHE 1: VALIDACIÓN EXCLUSIVA PARA PI BROWSER =================
+def solo_pi_browser(f):
+  from functools import wraps
+
+  @wraps(f)
+  def decorated_function(*args, **kwargs):
+    user_agent = request.headers.get("User-Agent", "").lower()
+    # Permitimos peticiones locales o de servicios de monitoreo rápidos si es necesario,
+    # pero aseguramos que el navegador cliente contenga la firma de PiBrowser.
+    # Puedes ajustar las palabras clave según la cadena exacta de Pi Browser.
+    if (
+        "pibrowser" not in user_agent
+        and "pi network" not in user_agent
+        and "pibrowser" not in user_agent
+    ):
+      # Retornamos una respuesta amigable o un HTML bloqueando el acceso en otros navegadores
+      return render_template("error_pi_browser.html") if os.path.exists(
+          "templates/error_pi_browser.html"
+      ) else (
+          jsonify({
+              "success": False,
+              "error": (
+                  "Acceso restringido. Esta aplicación solo está disponible"
+                  " exclusivamente a través de Pi Browser."
+              ),
+          }),
+          403,
+      )
+    return f(*args, **kwargs)
+
+  return decorated_function
+
+
 def registrar_log_admin(accion, detalles):
   try:
     conn = obtener_conexion()
@@ -481,7 +514,21 @@ def agregar_cabeceras_seguridad(response):
   return response
 
 
+# ================= PARCHE 2: RUTA KEEP-ALIVE PARA EVITAR QUE SE DUERMA EL SERVIDOR =================
+@app.route("/api/keep-alive", methods=["GET"])
+def keep_alive():
+  return (
+      jsonify({
+          "status": "online",
+          "timestamp": time.time(),
+          "message": "Servidor activo y validado rápidamente.",
+      }),
+      200,
+  )
+
+
 @app.route("/")
+@solo_pi_browser
 def home():
   return render_template("index.html")
 
