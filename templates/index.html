@@ -716,7 +716,6 @@
     <!-- MODAL TERMINAL TRADING -->
     <div id="trading-modal" class="modal-overlay">
         <div class="modal-card">
-            <!-- Cabecera de la ventana modal con la palabra 'Compra' en azul y centrada, y botón de cierre -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; position: relative;">
                 <div style="width: 28px;"></div>
                 <div id="modal-success-banner" style="display: none; color: #2563eb; font-weight: bold; font-size: 1.3rem; text-align: center; position: absolute; left: 50%; transform: translateX(-50%);">Compra</div>
@@ -1335,30 +1334,35 @@
             container.innerHTML = htmlDinamicoHTML;
         }
 
+        // --- BUCLE CORREGIDO Y ROBUSTO PARA LA FECHA DEL EVENTO ---
         function actualizarRelojesRegresivos() {
             const countdownElements = document.querySelectorAll('.countdown-timer');
-            const ahora = new Date().getTime();
+            const ahora = Date.now();
 
             countdownElements.forEach(el => {
                 const targetStr = el.getAttribute('data-target');
                 if (!targetStr) return;
 
                 const targetTime = new Date(targetStr).getTime();
+                if (isNaN(targetTime)) return;
+
                 const diferencia = targetTime - ahora;
                 const display = el.querySelector('.time-display');
 
                 if (!display) return;
 
                 if (diferencia <= 0) {
-                    display.innerText = "¡Evento Finalizado / Cerrado!";
-                    el.style.borderColor = "#ef4444";
-                    el.style.color = "#ef4444";
-                    
-                    const marketId = el.id.replace('countdown-', '');
-                    const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
-                    const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
-                    if (btnSi) btnSi.disabled = true;
-                    if (btnNo) btnNo.disabled = true;
+                    if (display.innerText !== "¡Evento Finalizado / Cerrado!") {
+                        display.innerText = "¡Evento Finalizado / Cerrado!";
+                        el.style.borderColor = "#ef4444";
+                        el.style.color = "#ef4444";
+                        
+                        const marketId = el.id.replace('countdown-', '');
+                        const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
+                        const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
+                        if (btnSi) btnSi.disabled = true;
+                        if (btnNo) btnNo.disabled = true;
+                    }
                 } else {
                     const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
                     const horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -1592,7 +1596,6 @@
             alert("¡Orden ejecutada y guardada permanentemente en el sistema con éxito!");
         }
 
-        // --- LÓGICA DE APERTURA DEL MODAL DE VENTA (MERCADO O LÍMITE) ---
         function abrirModalVenta(idx) {
             const pos = posicionesActivas[idx];
             if (!pos) return;
@@ -2082,7 +2085,7 @@
             const ganador = document.getElementById('admin-result-select').value;
 
             if (!marketId || estadosMercados[marketId] !== null) {
-                alert("Selecciona un mercado válido y activo.");
+                alert("Selecciona un mercado activo y válido.");
                 return;
             }
 
@@ -2090,17 +2093,21 @@
             guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            alert(`¡Mercado resuelto con éxito! Ganador oficial declarado: ${ganador}`);
+            renderizarOrderBookVisible();
+            actualizarSelectsMercadosActivos();
+            alert(`¡Mercado resuelto con éxito! Ganador declarado: ${ganador}`);
         }
 
         function cancelarYReembolsarMercadoAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
             if (!marketId || estadosMercados[marketId] !== null) {
-                alert("Selecciona un mercado válido y activo.");
+                alert("Selecciona un mercado activo.");
                 return;
             }
 
-            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado? Se reembolsará el 100% de la inversión a todos los usuarios con posiciones activas.")) return;
+            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado? Se realizará un reembolso total sin comisiones a todos los inversores.")) {
+                return;
+            }
 
             estadosMercados[marketId] = 'CANCELADO';
 
@@ -2112,27 +2119,30 @@
                         titulo: 'Reembolso por Cancelación',
                         tipo: 'Reembolso 100%',
                         monto: pos.invertido,
-                        detalle: `Reembolso de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado.`
+                        detalle: `Mercado cancelado: "${pos.titulo}". Reembolso de inversión inicial.`
                     });
                 }
             });
+
+            posicionesActivas = posicionesActivas.filter(pos => pos.marketId != marketId);
 
             guardarTodoInStorage();
             actualizarUIBalance();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            renderizarHistorial();
-            alert("¡Mercado cancelado y fondos reembolsados exitosamente sin comisiones!");
+            renderizarOrderBookVisible();
+            actualizarSelectsMercadosActivos();
+            alert("¡Mercado cancelado y fondos reembolsados exitosamente!");
         }
 
         function renderizarHistorialGlobalAdmin() {
             const container = document.getElementById('admin-global-transactions-container');
-            const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
-            const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
+            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
+            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
 
-            let filtradas = historialTransacciones.filter(tx => {
-                let matchUser = !userSearch || (tx.detalle && tx.detalle.toLowerCase().includes(userSearch));
-                let matchTx = !txSearch || (tx.titulo && tx.titulo.toLowerCase().includes(txSearch)) || (tx.detalle && tx.detalle.toLowerCase().includes(txSearch));
+            const filtradas = historialTransacciones.filter(tx => {
+                const matchUser = !searchUser || tx.detalle.toLowerCase().includes(searchUser) || tx.titulo.toLowerCase().includes(searchUser);
+                const matchTx = !searchTx || tx.detalle.toLowerCase().includes(searchTx) || tx.tipo.toLowerCase().includes(searchTx);
                 return matchUser && matchTx;
             });
 
@@ -2143,13 +2153,14 @@
 
             let html = '';
             filtradas.forEach(tx => {
+                const colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
                         <div style="font-weight: bold; color: var(--text-color);">${tx.titulo}</div>
                         <div style="color: var(--text-muted);">${tx.detalle}</div>
                         <div style="display: flex; justify-content: space-between; margin-top: 4px;">
                             <span style="color: #38bdf8;">${tx.tipo}</span>
-                            <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#ef4444'}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                            <span style="color: ${colorMonto}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
                         </div>
                     </div>
                 `;
