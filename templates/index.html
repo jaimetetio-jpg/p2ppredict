@@ -1642,7 +1642,6 @@
             if (tipoVenta === 'LIMIT') {
                 precioUnitarioVenta = parseFloat(document.getElementById('sell-limit-price').value) || ventaActivaModal.precioBase;
             } else {
-                // Venta a mercado al precio actual con un pequeño descuento de liquidez (ej. 95% del valor base o proporcional)
                 precioUnitarioVenta = Math.max(ventaActivaModal.precioBase * 0.95, 0.01);
             }
 
@@ -2091,7 +2090,6 @@
             guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            actualizarSelectsMercadosActivos();
             alert(`¡Mercado resuelto con éxito! Ganador oficial declarado: ${ganador}`);
         }
 
@@ -2102,16 +2100,19 @@
                 return;
             }
 
-            if (!confirm("¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin comisiones?")) return;
+            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado? Se reembolsará el 100% de la inversión a todos los usuarios con posiciones activas.")) return;
 
             estadosMercados[marketId] = 'CANCELADO';
-            
+
             posicionesActivas.forEach(pos => {
                 if (pos.marketId == marketId) {
                     usuarioActual.balance += pos.invertido;
                     registrarTransaccionEnDB({
-                        id: 'REEM-' + Date.now() + '-' + Math.floor(Math.random()*1000), titulo: 'Reembolso por Cancelación', tipo: 'Reembolso Total', monto: pos.invertido,
-                        detalle: `Reembolso de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado: ${pos.titulo}`
+                        id: 'REEM-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                        titulo: 'Reembolso por Cancelación',
+                        tipo: 'Reembolso 100%',
+                        monto: pos.invertido,
+                        detalle: `Reembolso de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado.`
                     });
                 }
             });
@@ -2120,8 +2121,8 @@
             actualizarUIBalance();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            actualizarSelectsMercadosActivos();
-            alert("¡Mercado cancelado y fondos reembolsados con éxito a los usuarios!");
+            renderizarHistorial();
+            alert("¡Mercado cancelado y fondos reembolsados exitosamente sin comisiones!");
         }
 
         function renderizarHistorialGlobalAdmin() {
@@ -2129,28 +2130,27 @@
             const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
             const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
 
-            let filtrados = historialTransacciones.filter(tx => {
-                let matchUser = userSearch === '' || (tx.detalle && tx.detalle.toLowerCase().includes(userSearch));
-                let matchTx = txSearch === '' || (tx.titulo && tx.titulo.toLowerCase().includes(txSearch)) || (tx.detalle && tx.detalle.toLowerCase().includes(txSearch));
+            let filtradas = historialTransacciones.filter(tx => {
+                let matchUser = !userSearch || (tx.detalle && tx.detalle.toLowerCase().includes(userSearch));
+                let matchTx = !txSearch || (tx.titulo && tx.titulo.toLowerCase().includes(txSearch)) || (tx.detalle && tx.detalle.toLowerCase().includes(txSearch));
                 return matchUser && matchTx;
             });
 
-            if (filtrados.length === 0) {
-                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros aplicados.</p>';
+            if (filtradas.length === 0) {
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con la búsqueda.</p>';
                 return;
             }
 
             let html = '';
-            filtrados.forEach(tx => {
-                const colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
+            filtradas.forEach(tx => {
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
-                        <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                            <span style="color: var(--text-color);">${tx.titulo}</span>
-                            <span style="color: ${colorMonto};">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                        <div style="font-weight: bold; color: var(--text-color);">${tx.titulo}</div>
+                        <div style="color: var(--text-muted);">${tx.detalle}</div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                            <span style="color: #38bdf8;">${tx.tipo}</span>
+                            <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#ef4444'}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
                         </div>
-                        <div style="color: var(--text-muted); margin-top: 2px;">${tx.detalle}</div>
-                        <div style="color: #38bdf8; font-size: 0.7rem; margin-top: 2px;">Tipo: ${tx.tipo}</div>
                     </div>
                 `;
             });
