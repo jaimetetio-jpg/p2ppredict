@@ -2124,37 +2124,32 @@
 
             if (!marketId) { alert("Selecciona un mercado válido."); return; }
 
-            if (!confirm(`¿Estás seguro de declarar al "${ganador}" como ganador oficial del mercado #${marketId}?`)) return;
+            if (!confirm(`¿Estás seguro de declarar al ${ganador} como ganador oficial de este mercado?`)) return;
 
             estadosMercados[marketId] = ganador;
-
             guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            renderizarOrderBookVisible();
-            actualizarSelectsMercadosActivos();
-
-            alert(`¡Mercado #${marketId} cerrado con éxito! El resultado ganador es: ${ganador}. Los usuarios ya pueden cobrar sus premios.`);
+            alert(`Mercado resuelto con éxito. Ganador oficial: ${ganador}`);
         }
 
         function cancelarYReembolsarMercadoAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
             if (!marketId) { alert("Selecciona un mercado válido."); return; }
 
-            if (!confirm(`⚠️ ¿Deseas CANCELAR el mercado #${marketId} y reembolsar el 100% de la inversión inicial/compras a los usuarios?`)) return;
+            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin aplicar comisiones?")) return;
 
             estadosMercados[marketId] = 'CANCELADO';
-
-            // Reembolsar posiciones asociadas a este mercado
+            
             posicionesActivas.forEach(pos => {
                 if (pos.marketId == marketId) {
                     usuarioActual.balance += pos.invertido;
                     registrarTransaccionEnDB({
-                        id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                        id: 'REEM-' + Date.now() + '-' + Math.floor(Math.random()*1000),
                         titulo: 'Reembolso por Cancelación',
-                        tipo: 'Reembolso 100%',
+                        tipo: 'Reembolso Admin',
                         monto: pos.invertido,
-                        detalle: `Reembolso automático de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado`
+                        detalle: `Reembolso de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado: ${pos.titulo}`
                     });
                 }
             });
@@ -2163,20 +2158,20 @@
             actualizarUIBalance();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            renderizarOrderBookVisible();
-            actualizarSelectsMercadosActivos();
-
-            alert("¡Mercado cancelado y fondos reembolsados exitosamente a los inversores!");
+            renderizarHistorial();
+            alert("Mercado cancelado y fondos reembolsados exitosamente.");
         }
 
         function renderizarHistorialGlobalAdmin() {
+            const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
+            const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
             const container = document.getElementById('admin-global-transactions-container');
-            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
-            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
 
             let filtradas = historialTransacciones.filter(tx => {
-                let matchUser = !searchUser || tx.detalle.toLowerCase().includes(searchUser) || tx.titulo.toLowerCase().includes(searchUser);
-                let matchTx = !searchTx || tx.detalle.toLowerCase().includes(searchTx) || tx.tipo.toLowerCase().includes(searchTx);
+                let matchUser = true;
+                let matchTx = true;
+                if (userSearch) { matchUser = tx.detalle.toLowerCase().includes(userSearch) || tx.titulo.toLowerCase().includes(userSearch); }
+                if (txSearch) { matchTx = tx.detalle.toLowerCase().includes(txSearch) || tx.tipo.toLowerCase().includes(txSearch); }
                 return matchUser && matchTx;
             });
 
