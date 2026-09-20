@@ -471,13 +471,14 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
-  # CONFIGURACIÓN CLAVE PARA PI BROWSER: Permite que el navegador de Pi cargue la app en iframe mediante SAMEORIGIN
-  response.headers["X-Frame-Options"] = "SAMEORIGIN"
+  response.headers["X-Frame-Options"] = "DENY"
   response.headers["X-XSS-Protection"] = "1; mode=block"
   response.headers["Strict-Transport-Security"] = (
       "max-age=31536000; includeSubDomains"
   )
   response.headers["Access-Control-Allow-Origin"] = "*"
+  response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+  response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
   return response
 
 
@@ -534,6 +535,7 @@ def obtener_saldo(username):
       if saldo_inicial > 0:
         txid = f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+        # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
         c.execute(
             "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
             " VALUES (?, ?, ?, ?, ?)",
@@ -747,6 +749,7 @@ def participar():
           " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
           (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
       )
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1198,6 +1201,7 @@ def crear_orden_clob():
               ),
           ),
       )
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1341,6 +1345,7 @@ def completar_pago():
           (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
       )
     else:
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1350,39 +1355,18 @@ def completar_pago():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
-          " %s)",
-          (
-              username,
-              "COMPLETAR_PAGO",
-              monto,
-              balance_total_plataforma,
-              txid or payment_id,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (
-              username,
-              "COMPLETAR_PAGO",
-              monto,
-              balance_total_plataforma,
-              txid or payment_id,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "COMPLETAR_PAGO", monto, balance_total_plataforma, txid or payment_id, fecha)
       )
 
     conn.commit()
@@ -1519,6 +1503,7 @@ def solicitar_retiro():
           (username, "Retiro Pi Blockchain", -monto, txid, fecha),
       )
     else:
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1528,39 +1513,18 @@ def solicitar_retiro():
     if DATABASE_URL:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s,"
-          " %s)",
-          (
-              username,
-              "SOLICITAR_RETIRO",
-              -monto,
-              balance_total_plataforma,
-              txid,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
       )
     else:
       c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
       res_tot = c.fetchone()
-      balance_total_plataforma = (
-          res_tot["total"] if res_tot and res_tot["total"] else 0.0
-      )
+      balance_total_plataforma = res_tot["total"] if res_tot and res_tot["total"] else 0.0
       c.execute(
-          "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-          " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-          (
-              username,
-              "SOLICITAR_RETIRO",
-              -monto,
-              balance_total_plataforma,
-              txid,
-              fecha,
-          ),
+          "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+          (username, "SOLICITAR_RETIRO", -monto, balance_total_plataforma, txid, fecha)
       )
 
     conn.commit()
@@ -1588,9 +1552,7 @@ def obtener_balance_plataforma():
     else:
       c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
     row = c.fetchone()
-    total_circulante = (
-        row["total_circulante"] if row and row["total_circulante"] else 0.0
-    )
+    total_circulante = row["total_circulante"] if row and row["total_circulante"] else 0.0
 
     if DATABASE_URL:
       c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
@@ -1602,7 +1564,7 @@ def obtener_balance_plataforma():
     return jsonify({
         "success": True,
         "balance_total_pi": total_circulante,
-        "ultimos_eventos_wallet": eventos,
+        "ultimos_eventos_wallet": eventos
     })
   except Exception as e:
     conn.close()
@@ -1766,6 +1728,7 @@ def cobrar_prediccion(apuesta_id):
           "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = ?",
           (apuesta_id,),
       )
+      # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
       c.execute(
           "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
           " VALUES (?, ?, ?, ?, ?)",
@@ -1845,10 +1808,7 @@ def admin_crear_evento():
         "CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}"
     )
     registrar_audit_log(
-        "Admin",
-        "CREAR_EVENTO",
-        str(ev_id),
-        {"titulo": titulo, "opciones": opciones},
+        "Admin", "CREAR_EVENTO", str(ev_id), {"titulo": titulo, "opciones": opciones}
     )
     return jsonify({"success": True, "mensaje": "Mercado/Evento creado con éxito"})
   except Exception as e:
@@ -1965,6 +1925,7 @@ def admin_cerrar_evento():
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
               (nuevo_saldo, usr),
           )
+          # Corrección de conteo de placeholders de SQLite (?, ?, ?, ?, ?)
           c.execute(
               "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
               " VALUES (?, ?, ?, ?, ?)",
@@ -2325,6 +2286,9 @@ def admin_obtener_usuario_detalle(username):
     return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ================= NUEVOS ENDPOINTS DE SOPORTE, ANUNCIOS Y MÉTRICAS =================
+
+
 @app.route("/api/admin/anuncios", methods=["GET", "POST"])
 def admin_anuncios():
   conn = obtener_conexion()
@@ -2375,6 +2339,7 @@ def admin_anuncios():
       conn.close()
       return jsonify({"success": False, "error": str(e)}), 500
 
+  # GET
   try:
     c.execute("SELECT * FROM anuncios_globales ORDER BY id DESC LIMIT 10")
     anuncios = [dict(r) for r in c.fetchall()]
@@ -2404,7 +2369,7 @@ def admin_metricas_temporales():
 
     c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
     res_vol = c.fetchone()
-    volumen_clov = res_vol["volumen_clob"] or 0.0
+    volumen_clob = res_vol["volumen_clob"] or 0.0
 
     conn.close()
     return jsonify({
@@ -2412,7 +2377,7 @@ def admin_metricas_temporales():
         "metricas": {
             "total_usuarios": total_usuarios,
             "circulante_total": circulante_total,
-            "volumen_clob": volumen_clov,
+            "volumen_clob": volumen_clob,
         },
     })
   except Exception as e:
