@@ -1204,7 +1204,6 @@
                 const valorAdminAnterior = selectAdmin.value;
                 let htmlAdmin = '';
                 for (let id in estadosMercados) {
-                    // Permitir resolver mercados que estén activos, o esperando resolución
                     if (estadosMercados[id] === null || estadosMercados[id] === 'ESPERANDO_RESOLUCION') {
                         htmlAdmin += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)} (${estadosMercados[id] === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`;
                     }
@@ -1421,7 +1420,6 @@
                         if (btnSi) btnSi.disabled = true;
                         if (btnNo) btnNo.disabled = true;
 
-                        // Cambio automático a punto naranja "Esperando Resolución" cuando el reloj se activa
                         if (estadosMercados[marketId] === null) {
                             estadosMercados[marketId] = 'ESPERANDO_RESOLUCION';
                             
@@ -1435,7 +1433,6 @@
                                 marketCard.setAttribute('data-estado', 'Esperando Resolución');
                             }
 
-                            // Envío de notificación automática al administrador por cada mercado finalizado
                             if (!mercadosNotificadosAdmin[marketId]) {
                                 mercadosNotificadosAdmin[marketId] = true;
                                 
@@ -2067,76 +2064,109 @@
         function enviarMensajeSoporteAdmin() {
             const input = document.getElementById('chat-admin-input');
             const texto = input.value.trim();
-            if (!texto || !ticketAdminActivoId) return;
+            if (!texto) return;
 
             let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
-            if (ticket) {
-                ticket.mensajes.push({ remitente: 'admin', texto: texto, hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
-                guardarEnSupabaseTabla('tickets_soporte', ticket);
-                guardarTodoInStorage();
-                input.value = '';
-                renderizarMensajesAdminModal();
-                renderizarTicketsAdmin();
-            }
+            if (!ticket) return;
+
+            ticket.mensajes.push({ remitente: 'admin', texto: texto, hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+            guardarEnSupabaseTabla('tickets_soporte', ticket);
+            guardarTodoInStorage();
+            input.value = '';
+            renderizarMensajesAdminModal();
+            renderizarTicketsAdmin();
         }
 
         function calcularMetricasFinancierasAdmin() {
-            let totalSupply = 0;
-            cuentasDirectorio.forEach(c => { totalSupply += c.balance; });
-            document.getElementById('admin-total-supply').innerText = totalSupply.toFixed(2) + ' Pi';
-
-            let sortedCuentas = [...cuentasDirectorio].sort((a,b) => b.balance - a.balance);
-            let topHtml = '';
-            sortedCuentas.slice(0, 5).forEach((c, idx) => {
-                topHtml += `<div style="display: flex; justify-content: space-between;"><span>${idx+1}. ${c.handle}</span><b style="color: #38bdf8;">${c.balance.toFixed(2)} Pi</b></div>`;
-            });
-            document.getElementById('admin-top-users-container').innerHTML = topHtml;
-
-            let selectUser = document.getElementById('admin-user-select');
-            let userHtml = '<option value="">-- Seleccionar Usuario --</option>';
+            let totalCirculante = 0;
             cuentasDirectorio.forEach(c => {
-                userHtml += `<option value="${c.handle}">${c.handle} (${c.balance.toFixed(2)} Pi)</option>`;
+                totalCirculante += Number(c.balance);
             });
-            selectUser.innerHTML = userHtml;
+
+            const elSuply = document.getElementById('admin-total-supply');
+            if (elSuply) elSuply.innerText = totalCirculante.toFixed(2) + ' Pi';
+
+            const topContainer = document.getElementById('admin-top-users-container');
+            if (topContainer) {
+                let sorted = [...cuentasDirectorio].sort((a,b) => b.balance - a.balance);
+                let htmlTop = '';
+                sorted.slice(0, 5).forEach((usr, idx) => {
+                    htmlTop += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-color);">
+                        <span>${idx + 1}. ${usr.handle} ${usr.bloqueado ? '🔴 (Bloqueado)' : ''}</span>
+                        <b style="color: #4ade80;">${Number(usr.balance).toFixed(2)} Pi</b>
+                    </div>`;
+                });
+                topContainer.innerHTML = htmlTop || '<p style="font-size: 0.75rem; color: var(--text-muted);">No hay cuentas registradas.</p>';
+            }
+
+            const selectUser = document.getElementById('admin-user-select');
+            if (selectUser) {
+                const valAnt = selectUser.value;
+                let htmlUsrs = '<option value="">-- Seleccionar Usuario --</option>';
+                cuentasDirectorio.forEach(c => {
+                    htmlUsrs += `<option value="${c.handle}">${c.handle} (${Number(c.balance).toFixed(2)} Pi)</option>`;
+                });
+                selectUser.innerHTML = htmlUsrs;
+                if (valAnt && selectUser.querySelector(`option[value="${valAnt}"]`)) { selectUser.value = valAnt; }
+            }
         }
 
         function cargarDatosUsuarioAdminSeleccionado() {
-            const handle = document.getElementById('admin-user-select').value;
-            usuarioAdminSeleccionadoHandle = handle;
-            const card = document.getElementById('admin-user-details-card');
+            const handleSel = document.getElementById('admin-user-select').value;
+            const cardDetails = document.getElementById('admin-user-details-card');
             const btnBloqueo = document.getElementById('admin-btn-bloqueo');
 
-            if (!handle) {
-                card.style.display = 'none';
+            if (!handleSel) {
+                cardDetails.style.display = 'none';
+                usuarioAdminSeleccionadoHandle = null;
                 return;
             }
 
-            let u = cuentasDirectorio.find(c => c.handle === handle);
-            if (u) {
-                document.getElementById('adm-det-handle').innerText = u.handle;
-                document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi';
-                document.getElementById('adm-det-status').innerText = u.bloqueado ? 'BLOQUEADO 🔒' : 'Activo 🟢';
-                document.getElementById('adm-det-status').style.color = u.bloqueado ? '#ef4444' : '#4ade80';
-                
-                btnBloqueo.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
-                card.style.display = 'block';
+            usuarioAdminSeleccionadoHandle = handleSel;
+            let u = cuentasDirectorio.find(c => c.handle === handleSel);
+            if (!u) return;
+
+            cardDetails.style.display = 'block';
+            document.getElementById('adm-det-handle').innerText = u.handle;
+            document.getElementById('adm-det-balance').innerText = Number(u.balance).toFixed(2) + ' Pi';
+            
+            const statusEl = document.getElementById('adm-det-status');
+            if (u.bloqueado) {
+                statusEl.innerText = "BLOQUEADO";
+                statusEl.style.color = "#ef4444";
+                btnBloqueo.innerText = "🔓 Desbloquear Cuenta";
+                btnBloqueo.style.background = "linear-gradient(145deg, #166534, #14532d)";
+                btnBloqueo.style.borderColor = "#22c55e";
+            } else {
+                statusEl.innerText = "Activo";
+                statusEl.style.color = "#4ade80";
+                btnBloqueo.innerText = "🔒 Bloquear Cuenta";
+                btnBloqueo.style.background = "linear-gradient(145deg, #b91c1c, #991b1b)";
+                btnBloqueo.style.borderColor = "#ef4444";
             }
         }
 
         function toggleBloqueoCuentaActual() {
-            if (!usuarioAdminSeleccionadoHandle) return;
-            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-            if (u) {
-                u.bloqueado = !u.bloqueado;
-                guardarTodoInStorage();
-                cargarDatosUsuarioAdminSeleccionado();
-                alert(`Cuenta de ${u.handle} ${u.bloqueado ? 'bloqueada' : 'desbloqueada'} correctamente.`);
+            if (!usuarioAdminSeleccionadoHandle) {
+                alert("Selecciona primero una cuenta de usuario en el selector.");
+                return;
             }
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (!u) return;
+
+            u.bloqueado = !u.bloqueado;
+            guardarTodoInStorage();
+            cargarDatosUsuarioAdminSeleccionado();
+            calcularMetricasFinancierasAdmin();
+            alert(`La cuenta de ${u.handle} ha sido ${u.bloqueado ? 'BLOQUEADA' : 'DESBLOQUEADA'} exitosamente.`);
         }
 
         function abrirModalAjusteBalance() {
-            if (!usuarioAdminSeleccionadoHandle) { alert("Primero selecciona un usuario de la lista."); return; }
-            document.getElementById('admin-balance-modal-subtitle').innerText = `Modificando saldo para la cuenta: ${usuarioAdminSeleccionadoHandle}`;
+            if (!usuarioAdminSeleccionadoHandle) {
+                alert("Selecciona primero una cuenta de usuario para ajustar su balance.");
+                return;
+            }
+            document.getElementById('admin-balance-modal-subtitle').innerText = `Modificando saldo para: ${usuarioAdminSeleccionadoHandle}`;
             document.getElementById('admin-adj-monto').value = '';
             document.getElementById('admin-adj-nota').value = '';
             document.getElementById('admin-balance-modal').style.display = 'flex';
@@ -2148,19 +2178,26 @@
 
         function ejecutarAjusteBalanceAdmin() {
             if (!usuarioAdminSeleccionadoHandle) return;
+            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+            if (!u) return;
+
             const tipo = document.getElementById('admin-adj-tipo').value;
             const monto = parseFloat(document.getElementById('admin-adj-monto').value);
             const nota = document.getElementById('admin-adj-nota').value.trim();
 
-            if (!monto || monto <= 0) { alert("Ingresa un monto válido."); return; }
+            if (!monto || monto <= 0) {
+                alert("Introduce un monto válido mayor a 0.");
+                return;
+            }
 
-            let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-            if (!u) return;
+            if (tipo === 'DEBITO' && u.balance < monto) {
+                alert("El usuario no posee suficiente balance para este débito.");
+                return;
+            }
 
             if (tipo === 'CREDITO') {
                 u.balance += monto;
             } else {
-                if (u.balance < monto) { alert("El usuario no tiene suficiente saldo para este débito."); return; }
                 u.balance -= monto;
             }
 
@@ -2170,86 +2207,29 @@
             }
 
             registrarTransaccionEnDB({
-                id: 'ADJ-' + Date.now(), titulo: `Ajuste Admin (${tipo})`, tipo: 'Admin Ajuste',
-                monto: tipo === 'CREDITO' ? monto : -monto, detalle: `Ajuste manual a ${u.handle}: ${nota || 'Sin nota'}`
+                id: 'ADJ-' + Date.now(),
+                titulo: `Ajuste Admin (${tipo})`,
+                tipo: 'Auditoría Balance',
+                monto: tipo === 'CREDITO' ? monto : -monto,
+                detalle: `Usuario: ${u.handle} | Nota: ${nota || 'Sin nota'} (Admin)`
             });
 
             guardarTodoInStorage();
             cargarDatosUsuarioAdminSeleccionado();
             calcularMetricasFinancierasAdmin();
             cerrarModalAjusteBalance();
-            alert("¡Ajuste de balance aplicado con éxito!");
-        }
-
-        function declararGanadorAdmin() {
-            const marketId = document.getElementById('admin-market-id').value;
-            const resultadoGanador = document.getElementById('admin-result-select').value;
-
-            if (!marketId) {
-                alert("Selecciona un mercado válido para declarar resolución.");
-                return;
-            }
-
-            estadosMercados[marketId] = resultadoGanador;
-            guardarTodoInStorage();
-            restaurarEstadosMercadosVisuales();
-            actualizarSelectsMercadosActivos();
-            renderizarPosiciones();
-            renderizarOrderBookVisible();
-
-            alert(`¡Resolución ejecutada con éxito! El mercado ha quedado cerrado definitivamente con ganador: ${resultadoGanador}. Los usuarios ganadores ya pueden cobrar sus premios.`);
-        }
-
-        function cancelarYReembolsarMercadoAdmin() {
-            const marketId = document.getElementById('admin-market-id').value;
-            if (!marketId) {
-                alert("Selecciona un mercado válido para cancelar.");
-                return;
-            }
-
-            if (!confirm("¿Estás seguro de cancelar este mercado? Se reembolsará íntegramente el dinero invertido a todos los participantes sin aplicar comisiones.")) {
-                return;
-            }
-
-            estadosMercados[marketId] = 'CANCELADO';
-
-            // Reembolsar posiciones activas asociadas a este mercado
-            posicionesActivas.forEach(pos => {
-                if (pos.marketId == marketId) {
-                    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
-                    usuarioActual.balance += pos.invertido;
-                    registrarTransaccionEnDB({
-                        id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
-                        titulo: 'Reembolso por Cancelación',
-                        tipo: 'Reembolso 100%',
-                        monto: pos.invertido,
-                        detalle: `Reembolso total del mercado cancelado: "${pos.titulo}"`
-                    });
-                }
-            });
-
-            guardarTodoInStorage();
-            restaurarEstadosMercadosVisuales();
-            actualizarSelectsMercadosActivos();
-            actualizarUIBalance();
-            renderizarPosiciones();
-            renderizarOrderBookVisible();
-            renderizarHistorial();
-
-            alert("El mercado ha sido cancelado y los fondos se han reembolsado correctamente.");
+            alert(`¡Ajuste de balance aplicado con éxito a ${u.handle}!`);
         }
 
         function renderizarHistorialGlobalAdmin() {
+            const container = document.getElementById('admin-global-transactions-container');
             const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
             const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
-            const container = document.getElementById('admin-global-transactions-container');
 
             let filtradas = historialTransacciones.filter(tx => {
-                let matchU = true;
-                let matchT = true;
-                if (searchUser && !tx.detalle.toLowerCase().includes(searchUser) && !tx.titulo.toLowerCase().includes(searchUser)) { matchU = false; }
-                if (searchTx && !tx.detalle.toLowerCase().includes(searchTx) && !tx.tipo.toLowerCase().includes(searchTx)) { matchT = false; }
-                return matchU && matchT;
+                let matchUser = !searchUser || JSON.stringify(tx).toLowerCase().includes(searchUser);
+                let matchTx = !searchTx || tx.detalle.toLowerCase().includes(searchTx) || tx.titulo.toLowerCase().includes(searchTx);
+                return matchUser && matchTx;
             });
 
             if (filtradas.length === 0) {
@@ -2261,14 +2241,109 @@
             filtradas.forEach(tx => {
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
-                        <div style="font-weight: bold; color: var(--text-color);">${tx.titulo} <span style="float: right; color: #38bdf8;">${tx.tipo}</span></div>
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--text-color);">
+                            <span>${tx.titulo}</span>
+                            <span style="color: #4ade80;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                        </div>
                         <div style="color: var(--text-muted); margin-top: 2px;">${tx.detalle}</div>
-                        <div style="color: #4ade80; font-weight: bold; margin-top: 2px;">Monto: ${tx.monto > 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</div>
+                        <div style="color: #38bdf8; margin-top: 2px; font-size: 0.7rem;">Tipo: ${tx.tipo}</div>
                     </div>
                 `;
             });
             container.innerHTML = html;
         }
+
+        function declararGanadorAdmin() {
+            const marketId = document.getElementById('admin-market-id').value;
+            const ganadorOficial = document.getElementById('admin-result-select').value;
+
+            if (!marketId) {
+                alert("Selecciona un mercado válido para resolver.");
+                return;
+            }
+
+            if (estadosMercados[marketId] !== null && estadosMercados[marketId] !== 'ESPERANDO_RESOLUCION') {
+                alert("Este mercado ya fue declarado o cerrado previamente.");
+                return;
+            }
+
+            estadosMercados[marketId] = ganadorOficial;
+            
+            const estadoBadge = document.getElementById('estado-mercado-' + marketId);
+            const marketCard = document.querySelector(`.market-card[data-id="${marketId}"]`);
+            const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
+            const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
+
+            if (estadoBadge) {
+                estadoBadge.innerHTML = `🔴 Cerrado (Ganador: ${ganadorOficial})`;
+                estadoBadge.style.color = '#ef4444';
+            }
+            if (marketCard) {
+                marketCard.setAttribute('data-estado', 'Cerrado');
+            }
+            if (btnSi) btnSi.disabled = true;
+            if (btnNo) btnNo.disabled = true;
+
+            guardarTodoInStorage();
+            actualizarSelectsMercadosActivos();
+            renderizarPosiciones();
+            renderizarOrderBookVisible();
+            alert(`¡Se ha declarado oficialmente al "${ganadorOficial}" como ganador del mercado! Los usuarios ya pueden cobrar sus premios.`);
+        }
+
+        function cancelarYReembolsarMercadoAdmin() {
+            const marketId = document.getElementById('admin-market-id').value;
+            if (!marketId) {
+                alert("Selecciona un mercado válido para cancelar.");
+                return;
+            }
+
+            if (!confirm("⚠️ ¿Estás totalmente seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin aplicar comisión?")) {
+                return;
+            }
+
+            estadosMercados[marketId] = 'CANCELADO';
+
+            posicionesActivas.forEach(pos => {
+                if (pos.marketId == marketId) {
+                    usuarioActual.balance += pos.invertido;
+                    registrarTransaccionEnDB({
+                        id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                        titulo: 'Reembolso por Cancelación',
+                        tipo: 'Reembolso Admin',
+                        monto: pos.invertido,
+                        detalle: `Reembolso total de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado: ${pos.titulo}`
+                    });
+                }
+            });
+
+            posicionesActivas = posicionesActivas.filter(pos => pos.marketId != marketId);
+
+            const estadoBadge = document.getElementById('estado-mercado-' + marketId);
+            const marketCard = document.querySelector(`.market-card[data-id="${marketId}"]`);
+            const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
+            const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
+
+            if (estadoBadge) {
+                estadoBadge.innerHTML = '🔴 Cancelado (Reembolsado)';
+                estadoBadge.style.color = '#ea580c';
+            }
+            if (marketCard) {
+                marketCard.setAttribute('data-estado', 'Cancelado');
+            }
+            if (btnSi) btnSi.disabled = true;
+            if (btnNo) btnNo.disabled = true;
+
+            guardarTodoInStorage();
+            actualizarUIBalance();
+            actualizarSelectsMercadosActivos();
+            renderizarPosiciones();
+            renderizarOrderBookVisible();
+            renderizarHistorial();
+
+            alert("¡Mercado cancelado con éxito y fondos reembolsados íntegramente a los usuarios!");
+        }
     </script>
 </body>
 </html>
+
