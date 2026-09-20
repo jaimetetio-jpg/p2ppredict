@@ -716,7 +716,9 @@
     <!-- MODAL TERMINAL TRADING -->
     <div id="trading-modal" class="modal-overlay">
         <div class="modal-card">
+            <!-- Indicador superior de éxito y botón de cierre con la 'x' -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div id="modal-success-banner" style="display: none; color: #4ade80; font-weight: bold; font-size: 0.9rem;">✓ Éxitoso</div>
                 <h3 id="modal-title" style="font-size: 1rem; margin: 0;">Comprar Contratos</h3>
                 <button onclick="cerrarTerminalTrading()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button>
             </div>
@@ -865,7 +867,7 @@
         let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true';
         let ticketAdminActivoId = null;
         let usuarioAdminSeleccionadoHandle = null;
-        let isSubmitting = false; // Bandera para prevenir doble clic y actualizar texto a Exitoso
+        let isSubmitting = false; // Bandera para prevenir doble clic
 
         let nombresMercados = {
             1: "¿Bitcoin superará los $100,000?",
@@ -1354,8 +1356,10 @@
             document.getElementById('modal-amount').value = 1;
             document.getElementById('modal-limit-price').value = precioAskActual.toFixed(2);
             
-            isSubmitting = false; // Restablecer estado de envío al abrir la terminal
+            isSubmitting = false; 
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
+            const successBanner = document.getElementById('modal-success-banner');
+            if(successBanner) successBanner.style.display = 'none';
             if(btnConfirmar) {
                 btnConfirmar.disabled = false;
                 btnConfirmar.innerText = "Confirmar Orden al Order Book";
@@ -1409,14 +1413,16 @@
         }
 
         function confirmarCompraRapida() {
-            // Protección contra clics múltiples y duplicaciones
             if (isSubmitting) return;
             isSubmitting = true;
 
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
+            const successBanner = document.getElementById('modal-success-banner');
+            
+            if (successBanner) successBanner.style.display = 'block';
             if (btnConfirmar) {
                 btnConfirmar.disabled = true;
-                btnConfirmar.innerText = "¡Exitoso!";
+                btnConfirmar.innerText = "Procesado";
             }
 
             const tipoOrden = document.getElementById('modal-order-type').value;
@@ -1433,6 +1439,7 @@
             if (usuarioActual.balance < totalReq) {
                 alert("Saldo insuficiente en tu billetera Pi (incluyendo la comisión del 2%).");
                 isSubmitting = false;
+                if (successBanner) successBanner.style.display = 'none';
                 if (btnConfirmar) {
                     btnConfirmar.disabled = false;
                     btnConfirmar.innerText = "Confirmar Orden al Order Book";
