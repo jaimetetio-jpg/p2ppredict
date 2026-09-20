@@ -464,7 +464,7 @@
         <div class="filter-pills" id="estado-filter-pills" style="margin-bottom: 14px;">
             <button class="pill active" onclick="setStatusFilter('Todos', this)">Todos</button>
             <button class="pill" onclick="setStatusFilter('Abiertos', this)">Abiertos</button>
-            <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Finalizados</button>
+            <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Esperando Resolución</button>
         </div>
 
         <div id="markets-container">
@@ -897,6 +897,9 @@
             2: null
         };
 
+        // Control para notificaciones al admin enviadas por cada mercado finalizado
+        let mercadosNotificadosAdmin = JSON.parse(localStorage.getItem('p2p_mercados_notificados')) || {};
+
         let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
 
         const CLAVE_ADMIN_SECRETA = "Anthony*2023";
@@ -984,6 +987,7 @@
             localStorage.setItem('p2p_ordenes_globales', JSON.stringify(ordenesGlobales));
             localStorage.setItem('p2p_precios_mercados', JSON.stringify(preciosMercados));
             localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados));
+            localStorage.setItem('p2p_mercados_notificados', JSON.stringify(mercadosNotificadosAdmin));
             localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte));
             localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos));
         }
@@ -996,6 +1000,7 @@
             ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || [];
             preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || preciosMercados;
             estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || estadosMercados;
+            mercadosNotificadosAdmin = JSON.parse(localStorage.getItem('p2p_mercados_notificados')) || {};
             ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || [];
             mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
         }
@@ -1100,7 +1105,7 @@
                 let cumpleEstado = true;
 
                 if (estadoActualFiltro === 'Abiertos') { cumpleEstado = (cardEstado === 'Abierto'); }
-                else if (estadoActualFiltro === 'Cerrados') { cumpleEstado = (cardEstado === 'Cerrado' || cardEstado === 'Cancelado'); }
+                else if (estadoActualFiltro === 'Cerrados') { cumpleEstado = (cardEstado === 'Cerrado' || cardEstado === 'Esperando Resolución' || cardEstado === 'Cancelado'); }
 
                 if (cumpleQuery && cumpleCat && cumpleEstado) { card.style.display = 'block'; }
                 else { card.style.display = 'none'; }
@@ -1146,11 +1151,26 @@
                 const btnNo = document.getElementById(`btn-comprar-${id}-NO`);
                 
                 if (estadosMercados[id] !== null) {
-                    let etiquetaEstado = estadosMercados[id] === 'CANCELADO' ? '🔴 Cancelado (Reembolsado)' : `🔴 Cerrado (Ganador: ${estadosMercados[id]})`;
-                    let colorTexto = estadosMercados[id] === 'CANCELADO' ? '#ea580c' : '#ef4444';
+                    let etiquetaEstado = '';
+                    let colorTexto = '';
+                    let estadoDataAttr = 'Cerrado';
+
+                    if (estadosMercados[id] === 'CANCELADO') {
+                        etiquetaEstado = '🔴 Cancelado (Reembolsado)';
+                        colorTexto = '#ea580c';
+                        estadoDataAttr = 'Cancelado';
+                    } else if (estadosMercados[id] === 'ESPERANDO_RESOLUCION') {
+                        etiquetaEstado = '🟠 Esperando Resolución';
+                        colorTexto = '#f97316';
+                        estadoDataAttr = 'Esperando Resolución';
+                    } else {
+                        etiquetaEstado = `🔴 Cerrado (Ganador: ${estadosMercados[id]})`;
+                        colorTexto = '#ef4444';
+                        estadoDataAttr = 'Cerrado';
+                    }
                     
                     if (estadoBadge) { estadoBadge.innerHTML = etiquetaEstado; estadoBadge.style.color = colorTexto; }
-                    if (marketCard) { marketCard.setAttribute('data-estado', estadosMercados[id] === 'CANCELADO' ? 'Cancelado' : 'Cerrado'); }
+                    if (marketCard) { marketCard.setAttribute('data-estado', estadoDataAttr); }
                     if (btnSi) btnSi.disabled = true;
                     if (btnNo) btnNo.disabled = true;
                 } else {
@@ -1184,8 +1204,9 @@
                 const valorAdminAnterior = selectAdmin.value;
                 let htmlAdmin = '';
                 for (let id in estadosMercados) {
-                    if (estadosMercados[id] === null) {
-                        htmlAdmin += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)}</option>`;
+                    // Permitir resolver mercados que estén activos, o esperando resolución
+                    if (estadosMercados[id] === null || estadosMercados[id] === 'ESPERANDO_RESOLUCION') {
+                        htmlAdmin += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)} (${estadosMercados[id] === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`;
                     }
                 }
                 if (htmlAdmin === '') { htmlAdmin = '<option value="">No hay mercados pendientes por resolver</option>'; }
@@ -1387,6 +1408,7 @@
                 }
 
                 const diferencia = targetTime - ahora;
+                const marketId = el.id.replace('countdown-', '');
 
                 if (diferencia <= 0) {
                     if (display.innerText !== "¡Evento Finalizado / Cerrado!") {
@@ -1394,11 +1416,49 @@
                         el.style.borderColor = "#ef4444";
                         el.style.color = "#ef4444";
                         
-                        const marketId = el.id.replace('countdown-', '');
                         const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`);
                         const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`);
                         if (btnSi) btnSi.disabled = true;
                         if (btnNo) btnNo.disabled = true;
+
+                        // Cambio automático a punto naranja "Esperando Resolución" cuando el reloj se activa
+                        if (estadosMercados[marketId] === null) {
+                            estadosMercados[marketId] = 'ESPERANDO_RESOLUCION';
+                            
+                            const estadoBadge = document.getElementById('estado-mercado-' + marketId);
+                            const marketCard = document.querySelector(`.market-card[data-id="${marketId}"]`);
+                            if (estadoBadge) {
+                                estadoBadge.innerHTML = '🟠 Esperando Resolución';
+                                estadoBadge.style.color = '#f97316';
+                            }
+                            if (marketCard) {
+                                marketCard.setAttribute('data-estado', 'Esperando Resolución');
+                            }
+
+                            // Envío de notificación automática al administrador por cada mercado finalizado
+                            if (!mercadosNotificadosAdmin[marketId]) {
+                                mercadosNotificadosAdmin[marketId] = true;
+                                
+                                let tituloMercadoActual = nombresMercados[marketId] || ('Mercado #' + marketId);
+                                let notifTicket = ticketsSoporte.find(t => t.handle === 'admin_notificaciones');
+                                if (!notifTicket) {
+                                    notifTicket = { id: 'TCK-ADMIN-NOTIF', handle: 'Sistema de Notificaciones', mensajes: [] };
+                                    ticketsSoporte.push(notifTicket);
+                                }
+                                notifTicket.mensajes.push({
+                                    remitente: 'admin',
+                                    texto: `🚨 AVISO DE CIERRE: El mercado "${tituloMercadoActual}" (ID: ${marketId}) ha finalizado por temporizador y requiere resolución urgente del administrador para cerrar definitivamente la predicción.`,
+                                    hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                                });
+                                guardarEnSupabaseTabla('tickets_soporte', notifTicket);
+                            }
+
+                            guardarTodoInStorage();
+                            actualizarSelectsMercadosActivos();
+                            if(document.getElementById('view-admin').classList.contains('active')) {
+                                renderizarTicketsAdmin();
+                            }
+                        }
                     }
                 } else {
                     const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
@@ -1422,7 +1482,7 @@
             }
 
             if (estadosMercados[idMercado] !== null) {
-                alert("Este mercado ya se encuentra cerrado o resuelto.");
+                alert("Este mercado ya se encuentra cerrado o en proceso de resolución.");
                 return;
             }
             let precioAskActual = preciosMercados[idMercado][opcion];
@@ -1569,7 +1629,7 @@
             const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario;
             const totalReq = ordenActivaModal.totalConComision;
 
-            if (estadosMercados[ordenActivaModal.idMercado] !== null) {
+            if (estadosMercados[ordenActivaModal.idMercado] !== null && estadosMercados[ordenActivaModal.idMercado] !== 'ESPERANDO_RESOLUCION') {
                 alert("Este mercado ya se encuentra cerrado.");
                 cerrarTerminalTrading();
                 return;
@@ -1745,14 +1805,15 @@
             const tbody = document.getElementById('orderbook-table-body');
             const bannerStatus = document.getElementById('orderbook-market-status-banner');
             
-            if (!marketIdFiltro || estadosMercados[marketIdFiltro] !== null) {
+            if (!marketIdFiltro || (estadosMercados[marketIdFiltro] !== null && estadosMercados[marketIdFiltro] !== 'ESPERANDO_RESOLUCION')) {
                 if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay mercado activo seleccionado o está cerrado.</span>`;
                 if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Seleccione un mercado válido.</td></tr>';
                 return;
             }
 
+            let estadoTextoBanner = estadosMercados[marketIdFiltro] === 'ESPERANDO_RESOLUCION' ? '🟠 Esperando Resolución del Administrador' : 'Activo / Abierto';
             bannerStatus.innerHTML = `
-                <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: Activo / Abierto</div>
+                <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div>
                 <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div>
             `;
 
@@ -1782,7 +1843,7 @@
             const contenedor = document.getElementById('my-positions-content');
             const posicionesVivas = posicionesActivas.filter(pos => {
                 const ganadorOficial = estadosMercados[pos.marketId];
-                if (ganadorOficial !== null && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return false;
+                if (ganadorOficial !== null && ganadorOficial !== 'ESPERANDO_RESOLUCION' && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return false;
                 return true;
             });
 
@@ -1794,7 +1855,7 @@
             let html = '';
             posicionesActivas.forEach((pos, idx) => {
                 const ganadorOficial = estadosMercados[pos.marketId];
-                if (ganadorOficial !== null && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return;
+                if (ganadorOficial !== null && ganadorOficial !== 'ESPERANDO_RESOLUCION' && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return;
 
                 const colorBadge = pos.opcion === 'SÍ' ? '#4ade80' : '#f87171';
                 let botonesHtml = '';
@@ -1805,6 +1866,8 @@
                             <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${idx})">💱 Vender (Mercado / Límite)</button>
                         </div>
                     `;
+                } else if (ganadorOficial === 'ESPERANDO_RESOLUCION') {
+                    botonesHtml = `<div style="font-size: 0.75rem; color: #f97316; font-weight: bold; text-align: center; padding: 4px;">🟠 Esperando Resolución del Administrador</div>`;
                 } else if (ganadorOficial === 'CANCELADO') {
                     botonesHtml = `<div style="font-size: 0.75rem; color: #ea580c; font-weight: bold; text-align: center; padding: 4px;">⚠️ Mercado Cancelado / Reembolsado</div>`;
                 } else {
@@ -2120,77 +2183,87 @@
 
         function declararGanadorAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
-            const ganador = document.getElementById('admin-result-select').value;
+            const resultadoGanador = document.getElementById('admin-result-select').value;
 
-            if (!marketId) { alert("Selecciona un mercado válido."); return; }
+            if (!marketId) {
+                alert("Selecciona un mercado válido para declarar resolución.");
+                return;
+            }
 
-            if (!confirm(`¿Estás seguro de declarar al ${ganador} como ganador oficial de este mercado?`)) return;
-
-            estadosMercados[marketId] = ganador;
+            estadosMercados[marketId] = resultadoGanador;
             guardarTodoInStorage();
             restaurarEstadosMercadosVisuales();
+            actualizarSelectsMercadosActivos();
             renderizarPosiciones();
-            alert(`Mercado resuelto con éxito. Ganador oficial: ${ganador}`);
+            renderizarOrderBookVisible();
+
+            alert(`¡Resolución ejecutada con éxito! El mercado ha quedado cerrado definitivamente con ganador: ${resultadoGanador}. Los usuarios ganadores ya pueden cobrar sus premios.`);
         }
 
         function cancelarYReembolsarMercadoAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
-            if (!marketId) { alert("Selecciona un mercado válido."); return; }
+            if (!marketId) {
+                alert("Selecciona un mercado válido para cancelar.");
+                return;
+            }
 
-            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin aplicar comisiones?")) return;
+            if (!confirm("¿Estás seguro de cancelar este mercado? Se reembolsará íntegramente el dinero invertido a todos los participantes sin aplicar comisiones.")) {
+                return;
+            }
 
             estadosMercados[marketId] = 'CANCELADO';
-            
+
+            // Reembolsar posiciones activas asociadas a este mercado
             posicionesActivas.forEach(pos => {
                 if (pos.marketId == marketId) {
+                    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
                     usuarioActual.balance += pos.invertido;
                     registrarTransaccionEnDB({
-                        id: 'REEM-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                        id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
                         titulo: 'Reembolso por Cancelación',
-                        tipo: 'Reembolso Admin',
+                        tipo: 'Reembolso 100%',
                         monto: pos.invertido,
-                        detalle: `Reembolso de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado: ${pos.titulo}`
+                        detalle: `Reembolso total del mercado cancelado: "${pos.titulo}"`
                     });
                 }
             });
 
             guardarTodoInStorage();
-            actualizarUIBalance();
             restaurarEstadosMercadosVisuales();
+            actualizarSelectsMercadosActivos();
+            actualizarUIBalance();
             renderizarPosiciones();
+            renderizarOrderBookVisible();
             renderizarHistorial();
-            alert("Mercado cancelado y fondos reembolsados exitosamente.");
+
+            alert("El mercado ha sido cancelado y los fondos se han reembolsado correctamente.");
         }
 
         function renderizarHistorialGlobalAdmin() {
-            const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
-            const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
+            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
+            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
             const container = document.getElementById('admin-global-transactions-container');
 
             let filtradas = historialTransacciones.filter(tx => {
-                let matchUser = true;
-                let matchTx = true;
-                if (userSearch) { matchUser = tx.detalle.toLowerCase().includes(userSearch) || tx.titulo.toLowerCase().includes(userSearch); }
-                if (txSearch) { matchTx = tx.detalle.toLowerCase().includes(txSearch) || tx.tipo.toLowerCase().includes(txSearch); }
-                return matchUser && matchTx;
+                let matchU = true;
+                let matchT = true;
+                if (searchUser && !tx.detalle.toLowerCase().includes(searchUser) && !tx.titulo.toLowerCase().includes(searchUser)) { matchU = false; }
+                if (searchTx && !tx.detalle.toLowerCase().includes(searchTx) && !tx.tipo.toLowerCase().includes(searchTx)) { matchT = false; }
+                return matchU && matchT;
             });
 
             if (filtradas.length === 0) {
-                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros dados.</p>';
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con la búsqueda.</p>';
                 return;
             }
 
             let html = '';
             filtradas.forEach(tx => {
-                const colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
-                        <div style="font-weight: bold; color: var(--text-color);">${tx.titulo}</div>
-                        <div style="color: var(--text-muted);">${tx.detalle}</div>
-                        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-                            <span style="color: #38bdf8;">${tx.tipo}</span>
-                            <span style="color: ${colorMonto}; font-weight: bold;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
-                        </div>
+                        <div style="font-weight: bold; color: var(--text-color);">${tx.titulo} <span style="float: right; color: #38bdf8;">${tx.tipo}</span></div>
+                        <div style="color: var(--text-muted); margin-top: 2px;">${tx.detalle}</div>
+                        <div style="color: #4ade80; font-weight: bold; margin-top: 2px;">Monto: ${tx.monto > 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</div>
                     </div>
                 `;
             });
