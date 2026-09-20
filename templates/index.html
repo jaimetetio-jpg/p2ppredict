@@ -1330,8 +1330,8 @@
                     </div>
                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p>
                     <div style="display: flex; gap: 8px;">
-                        <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
-                        <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
+                        <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet com soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button>
+                        <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet com soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button>
                     </div>
                 </div>
             `;
@@ -1374,13 +1374,23 @@
                 const targetStr = el.getAttribute('data-target');
                 if (!targetStr) return;
 
-                const targetTime = new Date(targetStr).getTime();
-                if (isNaN(targetTime)) return;
+                // Asegurar compatibilidad de formato de fecha en navegadores móviles (añadir segundos si faltan)
+                let fechaLimpia = targetStr;
+                if (fechaLimpia.length === 16) { // Formato YYYY-MM-DDTHH:mm
+                    fechaLimpia += ":00";
+                }
 
-                const diferencia = targetTime - ahora;
+                const targetTime = new Date(fechaLimpia).getTime();
                 const display = el.querySelector('.time-display');
 
                 if (!display) return;
+
+                if (isNaN(targetTime)) {
+                    display.innerText = "Fecha inválida";
+                    return;
+                }
+
+                const diferencia = targetTime - ahora;
 
                 if (diferencia <= 0) {
                     if (display.innerText !== "¡Evento Finalizado / Cerrado!") {
