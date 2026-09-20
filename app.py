@@ -494,12 +494,12 @@ def registrar_global_audit(username, accion, detalle):
     if DATABASE_URL:
       c.execute(
           "INSERT INTO global_audit_logs (username, accion, detalle) VALUES (%s, %s, %s)",
-          (username, accion, detalle)
+          (username, accion, detalle),
       )
     else:
       c.execute(
           "INSERT INTO global_audit_logs (username, accion, detalle, created_at) VALUES (?, ?, ?, ?)",
-          (username, accion, detalle, fecha_str)
+          (username, accion, detalle, fecha_str),
       )
     conn.commit()
     conn.close()
