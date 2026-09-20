@@ -1,4 +1,3 @@
-Aquí tienes el repositorio completo y actualizado en un solo bloque de código. Se han implementado los parches necesarios para mantener activa y sincronizada en tiempo real la conexión entre el servidor, Supabase y la interfaz de la aplicación en el Pi Browser. Esto evita que el Order Book y los dividendos/precios se queden estancados o con datos obsoletos, actualizándolos de forma continua conforme varían las apuestas y órdenes de los usuarios.
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1754,7 +1753,7 @@ Aquí tienes el repositorio completo y actualizado en un solo bloque de código.
             const bannerStatus = document.getElementById('orderbook-market-status-banner');
             
             if (!marketIdFiltro || estadosMercados[marketIdFiltro] !== null) {
-                if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay mercado activo seleccionado o está cerrado.</span>`;
+                if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay mercado activo seleccionado ou está cerrado.</span>`;
                 if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Seleccione un mercado válido.</td></tr>';
                 return;
             }
@@ -2145,9 +2144,7 @@ Aquí tienes el repositorio completo y actualizado en un solo bloque de código.
         function cancelarYReembolsarMercadoAdmin() {
             const marketId = document.getElementById('admin-market-id').value;
             if (!marketId) { alert("Selecciona un mercado válido."); return; }
-            if (estadosMercados[marketId] !== null) { alert("Este mercado ya está cerrado."); return; }
-
-            if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado? Se reembolsará el 100% de la inversión a los tenedores de posiciones activas sin comisiones.")) return;
+            if (estadosMercados[marketId] !== null) { alert("Este mercado ya está cerrado o resuelto."); return; }
 
             estadosMercados[marketId] = 'CANCELADO';
 
@@ -2156,50 +2153,50 @@ Aquí tienes el repositorio completo y actualizado en un solo bloque de código.
                     usuarioActual.balance += pos.invertido;
                     registrarTransaccionEnDB({
                         id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000),
-                        titulo: pos.titulo,
-                        tipo: 'Reembolso por Cancelación',
+                        titulo: 'Reembolso por Cancelación',
+                        tipo: 'Reembolso Total',
                         monto: pos.invertido,
-                        detalle: `Reembolso total de ${pos.invertido.toFixed(2)} Pi por cancelación del mercado`
+                        detalle: `Reembolso de ${pos.invertido.PI || pos.invertido} Pi por cancelación del mercado: ${pos.titulo}`
                     });
-                    eliminarDeSupabaseTabla('posiciones_activas', pos.id);
                 }
             });
 
-            posicionesActivas = posicionesActivas.filter(pos => pos.marketId != marketId);
             guardarTodoInStorage();
+            actualizarUIBalance();
             restaurarEstadosMercadosVisuales();
             renderizarPosiciones();
-            actualizarUIBalance();
-            alert("Mercado cancelado y fondos reembolsados exitosamente a los usuarios afectados.");
+            renderizarHistorial();
+            alert("¡Mercado cancelado y fondos reembolsados íntegramente a los usuarios afectados sin comisiones!");
             switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
         }
 
         function renderizarHistorialGlobalAdmin() {
-            const userQuery = document.getElementById('admin-user-search').value.toLowerCase();
-            const txQuery = document.getElementById('admin-tx-search').value.toLowerCase();
             const container = document.getElementById('admin-global-transactions-container');
+            const searchUser = document.getElementById('admin-user-search').value.toLowerCase();
+            const searchTx = document.getElementById('admin-tx-search').value.toLowerCase();
 
             let filtradas = historialTransacciones.filter(tx => {
-                const matchUser = JSON.stringify(tx).toLowerCase().includes(userQuery);
-                const matchTx = (tx.titulo.toLowerCase().includes(txQuery) || tx.detalle.toLowerCase().includes(txQuery) || tx.tipo.toLowerCase().includes(txQuery));
+                let matchUser = !searchUser || (tx.detalle && tx.detalle.toLowerCase().includes(searchUser)) || (tx.titulo && tx.titulo.toLowerCase().includes(searchUser));
+                let matchTx = !searchTx || (tx.detalle && tx.detalle.toLowerCase().includes(searchTx)) || (tx.tipo && tx.tipo.toLowerCase().includes(searchTx));
                 return matchUser && matchTx;
             });
 
             if (filtradas.length === 0) {
-                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con esos filtros.</p>';
+                container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con la búsqueda.</p>';
                 return;
             }
 
             let html = '';
             filtradas.forEach(tx => {
+                let colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
                 html += `
                     <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
-                        <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--text-color);">
-                            <span>${tx.titulo}</span>
-                            <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#ef4444'};">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+                        <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                            <span style="color: var(--text-color);">${tx.titulo}</span>
+                            <span style="color: ${colorMonto};">${tx.monto > 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
                         </div>
                         <div style="color: var(--text-muted); margin-top: 2px;">${tx.detalle}</div>
-                        <div style="color: #38bdf8; margin-top: 2px;">Tipo: ${tx.tipo}</div>
+                        <div style="font-size: 0.65rem; color: #38bdf8; margin-top: 2px;">Tipo: ${tx.tipo}</div>
                     </div>
                 `;
             });
@@ -2208,4 +2205,3 @@ Aquí tienes el repositorio completo y actualizado en un solo bloque de código.
     </script>
 </body>
 </html>
-
