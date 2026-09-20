@@ -272,7 +272,7 @@
         .action-btn:disabled {
             background: #374151 !important;
             border-color: #4b5563 !important;
-            color: #16a34a !important; /* Modificado a color verde para 'Procesado' inhabilitado */
+            color: #16a34a !important;
             cursor: not-allowed;
             transform: none !important;
             box-shadow: none !important;
@@ -727,7 +727,7 @@
             
             <div class="form-group">
                 <label>Tipo de Orden</label>
-                <select id="modal-order-type" class="form-control" onchange="cambiarTipoOrdenModal()">
+                <select id="modal-order-type" class="form-control" disabled style="opacity: 0.9; cursor: not-allowed;">
                     <option value="MARKET">Mercado (Instantánea al precio Ask)</option>
                     <option value="LIMIT">Limit (Precio personalizado)</option>
                 </select>
@@ -1359,7 +1359,7 @@
             isSubmitting = false; 
             const btnConfirmar = document.getElementById('btn-confirmar-compra');
             const successBanner = document.getElementById('modal-success-banner');
-            if(successBanner) successBanner.style.display = 'block'; // Muestra la palabra "Compra" centrada
+            if(successBanner) successBanner.style.display = 'block';
             if(btnConfirmar) {
                 btnConfirmar.disabled = false;
                 btnConfirmar.innerText = "Confirmar Orden al Order Book";
@@ -1420,7 +1420,9 @@
             if (successBanner) successBanner.style.display = 'block';
             if (btnConfirmar) {
                 btnConfirmar.disabled = true;
-                btnConfirmar.innerText = "Procesado";
+                btnConfirmar.innerText = "Ticket Procesado";
+                btnConfirmar.style.fontSize = "1.1rem";
+                btnConfirmar.style.fontWeight = "bold";
             }
 
             const tipoOrden = document.getElementById('modal-order-type').value;
@@ -1441,6 +1443,7 @@
                 if (btnConfirmar) {
                     btnConfirmar.disabled = false;
                     btnConfirmar.innerText = "Confirmar Orden al Order Book";
+                    btnConfirmar.style.fontSize = "0.85rem";
                 }
                 return;
             }
@@ -1483,7 +1486,7 @@
             renderizarOrderBookVisible();
             setTimeout(() => {
                 cerrarTerminalTrading();
-            }, 600);
+            }, 1000);
             
             alert("¡Orden ejecutada y guardada permanentemente en el sistema con éxito!");
         }
