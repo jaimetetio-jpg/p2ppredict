@@ -739,8 +739,8 @@
             </div>
 
             <div class="form-group">
-                <label>Cantidad de Contratos (Bloqueado por selección previa)</label>
-                <input type="number" id="modal-amount" class="form-control" value="1" readonly style="background: rgba(255,255,255,0.05); color: var(--text-muted); cursor: not-allowed; opacity: 0.8;" oninput="calcularModalTotal()">
+                <label>Cantidad de Contratos</label>
+                <input type="number" id="modal-amount" class="form-control" value="1" min="1" step="1" oninput="calcularModalTotal()">
             </div>
 
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
@@ -1354,9 +1354,13 @@
             document.getElementById('modal-order-type').value = 'MARKET';
             document.getElementById('group-limit-price').style.display = 'none';
             
-            // Cantidad fija bloqueada según la selección previa del comprador
+            // Permitir modificar libremente la cantidad de contratos en el modal
             document.getElementById('modal-amount').value = 1;
-            document.getElementById('modal-amount').readOnly = true;
+            document.getElementById('modal-amount').readOnly = false;
+            document.getElementById('modal-amount').style.background = 'var(--card-bg)';
+            document.getElementById('modal-amount').style.color = 'var(--text-color)';
+            document.getElementById('modal-amount').style.cursor = 'text';
+            document.getElementById('modal-amount').style.opacity = '1';
             
             document.getElementById('modal-limit-price').value = precioAskActual.toFixed(2);
             
