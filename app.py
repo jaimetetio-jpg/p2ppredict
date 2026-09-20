@@ -471,7 +471,6 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
 @app.after_request
 def agregar_cabeceras_seguridad(response):
   response.headers["X-Content-Type-Options"] = "nosniff"
-  # Permitir cargar en iframes para Pi Browser
   response.headers["X-Frame-Options"] = "SAMEORIGIN"
   response.headers["Content-Security-Policy"] = "frame-ancestors *"
   response.headers["X-XSS-Protection"] = "1; mode=block"
