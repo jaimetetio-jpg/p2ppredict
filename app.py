@@ -409,7 +409,7 @@ def solo_pi_browser(f):
   @wraps(f)
   def decorated_function(*args, **kwargs):
     user_agent = request.headers.get("User-Agent", "").lower()
-    
+
     if app.debug or request.remote_addr in ["127.0.0.1", "::1", "localhost"]:
       return f(*args, **kwargs)
 
@@ -2428,18 +2428,17 @@ def admin_anuncios():
     return jsonify({"success": True, "anuncios": anuncios})
   except Exception as e:
     conn.close()
-    return jsonify({"success": False, "error": `str(e)}), 500
+    return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/admin/metricas-temporales", methods=["GET"])
-def admin_metricas_temporales():  # Corregido el guion medio por un guion bajo
+def admin_metricas_temporales():
   if not session.get("is_admin"):
     return jsonify({"success": False, "error": "No autorizado"}), 401
 
   try:
     conn = obtener_conexion()
     c = conn.cursor()
-    # Consulta general de ejemplo para las métricas
     c.execute("SELECT COUNT(*) as total_eventos FROM eventos")
     res_ev = c.fetchone()
     total_eventos = res_ev["total_eventos"] if res_ev else 0
