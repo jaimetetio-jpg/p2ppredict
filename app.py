@@ -232,6 +232,12 @@ def inicializar_bd():
                         detalle TEXT,
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
                     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT,
+                        mensaje TEXT,
+                        fecha TEXT
+                    )""")
     c.execute("""CREATE INDEX IF NOT EXISTS idx_global_audit_username 
                         ON global_audit_logs(username);""")
   else:
@@ -359,6 +365,12 @@ def inicializar_bd():
                     accion TEXT,
                     detalle TEXT,
                     created_at TEXT
+                )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT,
+                    mensaje TEXT,
+                    fecha TEXT
                 )""")
     c.execute("""CREATE INDEX IF NOT EXISTS idx_global_audit_username 
                         ON global_audit_logs(username);""")
@@ -2520,6 +2532,34 @@ def obtener_posiciones_activas(username):
     if conn:
       conn.close()
     return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/support/tickets/<int:ticket_id>", methods=["DELETE"])
+def delete_support_ticket(ticket_id):
+  try:
+    conn = obtener_conexion()
+    cursor = conn.cursor()
+
+    if DATABASE_URL:
+      cursor.execute("DELETE FROM support_tickets WHERE id = %s", (ticket_id,))
+    else:
+      cursor.execute("DELETE FROM support_tickets WHERE id = ?", (ticket_id,))
+
+    conn.commit()
+
+    rowcount = getattr(cursor, "rowcount", 1)
+
+    cursor.close()
+    conn.close()
+
+    if rowcount == 0:
+      return jsonify({"error": "Ticket no encontrado"}), 404
+
+    return jsonify(
+        {"message": "Notificación de cierre eliminada correctamente"}
+    ), 200
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
