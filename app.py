@@ -1094,7 +1094,6 @@ def crear_orden_clob():
 
     else:
       # Lógica CLOB de Venta: Buscar bids (órdenes de compra de otros usuarios)
-      # Se ordenan de mayor a menor precio para que el vendedor obtenga el mejor precio disponible en el mercado
       if DATABASE_URL:
         c.execute(
             "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE",
@@ -1129,18 +1128,14 @@ def crear_orden_clob():
           break
 
         match_cant = min(cantidad_restante, contra["cantidad"])
-        # El precio de ejecución óptimo en el match de venta lo define la oferta existente del comprador (bid)
         match_precio = contra["precio"]
 
         monto_transaccion = match_precio * match_cant
         monto_ganado_venta += monto_transaccion
         match_realizado = True
 
-        # 1. Descontar el saldo al comprador que hizo la oferta de compra (el saldo ya estaba retenido o se debita ahora)
-        # Acreditar de inmediato el dinero al balance del vendedor actual
         nuevo_saldo_creador += monto_transaccion
 
-        # 2. Registrar el historial de apuesta/posición para el comprador que absorbió la venta
         if DATABASE_URL:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -1160,7 +1155,6 @@ def crear_orden_clob():
               (contra["username"], titulo_ev, nombre_op, monto_transaccion, "Activo")
           )
 
-        # 3. Actualizar la orden de la contraparte (comprador)
         nueva_contra_cant = contra["cantidad"] - match_cant
         nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
         
@@ -1176,6 +1170,17 @@ def crear_orden_clob():
           )
 
         cantidad_restante -= match_cant
+
+      # Si no hay absolutamente ninguna orden de compra en el libro y es una orden de mercado pura:
+      if not contra_ordenes and tipo_orden == "market":
+        conn.rollback()
+        return jsonify({
+            "success": False,
+            "error": (
+                "No hay liquidez en el mercado para ejecutar la orden a precio de"
+                " mercado."
+            ),
+        }), 400
 
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
     if cantidad_restante > 0:
