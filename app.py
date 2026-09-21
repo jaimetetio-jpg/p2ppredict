@@ -1093,6 +1093,7 @@ def crear_orden_clob():
         cantidad_restante -= match_cant
 
     else:
+      # Lógica CLOB Pura: Buscar bids reales (órdenes de compra de otros usuarios)
       if DATABASE_URL:
         c.execute(
             "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
@@ -1109,6 +1110,25 @@ def crear_orden_clob():
         )
       contra_ordenes = c.fetchall()
 
+      # Si es una venta a mercado instantánea (o precio 0/bajo), podemos aceptar los mejores bids disponibles
+      if not contra_ordenes and tipo_orden == "market":
+        if DATABASE_URL:
+          c.execute(
+              "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
+              " AND accion = 'comprar' AND estado = 'activa'"
+              " ORDER BY precio DESC, id ASC FOR UPDATE",
+              (evento_id, opcion_id),
+          )
+        else:
+          c.execute(
+              "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
+              " AND accion = 'comprar' AND estado = 'activa'"
+              " ORDER BY precio DESC, id ASC",
+              (evento_id, opcion_id),
+          )
+        contra_ordenes = c.fetchall()
+
+      match_realizado = False
       for contra in contra_ordenes:
         if cantidad_restante <= 0:
           break
@@ -1117,20 +1137,14 @@ def crear_orden_clob():
         match_precio = contra["precio"]
 
         monto_venta = match_precio * match_cant
-
         nuevo_saldo_creador += monto_venta
+        match_realizado = True
+
         if DATABASE_URL:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
               (nuevo_saldo_creador, username),
           )
-        else:
-          c.execute(
-              "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-              (nuevo_saldo_creador, username),
-          )
-
-        if DATABASE_URL:
           c.execute(
               "INSERT INTO historial_apuestas (username, titulo_evento,"
               " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
@@ -1143,6 +1157,10 @@ def crear_orden_clob():
               ),
           )
         else:
+          c.execute(
+              "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
+              (nuevo_saldo_creador, username),
+          )
           c.execute(
               "INSERT INTO historial_apuestas (username, titulo_evento,"
               " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
@@ -1171,6 +1189,13 @@ def crear_orden_clob():
           )
 
         cantidad_restante -= match_cant
+
+      # PARCHE CLOB ESTRICTO: Si no hay liquidez (bids) en el mercado y es orden de venta, 
+      # la cantidad restante NO se absorbe mágicamente, sino que se queda PENDIENTE en el Order Book.
+      if cantidad_restante > 0 and tipo_orden == "market" and not match_realizado:
+        # Revertir el descuento inicial temporal si no se hizo match de nada y se prefiere dejar pendiente
+        # (O mantener la orden abierta en el libro de ventas esperando compradores)
+        pass
 
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
     if cantidad_restante > 0:
@@ -1220,8 +1245,8 @@ def crear_orden_clob():
               costo_inicial,
               (
                   "Vendida"
-                  if accion == "vender"
-                  else "Completada/Ordenada"
+                  if accion == "vender" and cantidad_restante == 0
+                  else "Pendiente / En Libro"
               ),
           ),
       )
@@ -1247,8 +1272,8 @@ def crear_orden_clob():
               costo_inicial,
               (
                   "Vendida"
-                  if accion == "vender"
-                  else "Completada/Ordenada"
+                  if accion == "vender" and cantidad_restante == 0
+                  else "Pendiente / En Libro"
               ),
           ),
       )
@@ -1271,13 +1296,17 @@ def crear_orden_clob():
         f"Acción: {accion} | Cantidad: {cantidad} | Precio: {precio}",
     )
 
+    mensaje_respuesta = (
+        f"Orden procesada. Ejecutado: {cantidad - cantidad_restante} / "
+        f"Colocado en libro: {cantidad_restante}"
+    )
+    if cantidad_restante == cantidad and accion == "vender":
+      mensaje_respuesta = "No hay liquidez inmediata en el mercado. Tu orden de venta ha quedado pendiente en el libro de órdenes."
+
     return jsonify({
         "success": True,
         "nuevo_saldo": nuevo_saldo_creador,
-        "mensaje": (
-            f"Orden procesada. Ejecutado: {cantidad - cantidad_restante} /"
-            f" Colocado en libro: {cantidad_restante}"
-        ),
+        "mensaje": mensaje_respuesta,
     })
   except Exception as e:
     if conn:
