@@ -1,3 +1,4 @@
+Entendido. A continuación tienes el repositorio Flask completo e integrado en un único bloque de código, incorporando de manera segura todas las correcciones, validaciones y parches CLOB estrictos previamente solicitados, sin perder ninguna funcionalidad ni dañar la estructura base:
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -1110,7 +1111,6 @@ def crear_orden_clob():
         )
       contra_ordenes = c.fetchall()
 
-      # Si es una venta a mercado instantánea (o precio 0/bajo), podemos aceptar los mejores bids disponibles
       if not contra_ordenes and tipo_orden == "market":
         if DATABASE_URL:
           c.execute(
@@ -1193,8 +1193,6 @@ def crear_orden_clob():
       # PARCHE CLOB ESTRICTO: Si no hay liquidez (bids) en el mercado y es orden de venta, 
       # la cantidad restante NO se absorbe mágicamente, sino que se queda PENDIENTE en el Order Book.
       if cantidad_restante > 0 and tipo_orden == "market" and not match_realizado:
-        # Revertir el descuento inicial temporal si no se hizo match de nada y se prefiere dejar pendiente
-        # (O mantener la orden abierta en el libro de ventas esperando compradores)
         pass
 
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
@@ -2597,3 +2595,4 @@ if __name__ == "__main__":
   app.run(
       host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
   )
+
