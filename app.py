@@ -949,6 +949,7 @@ def crear_orden_clob():
           "error": "Tu cuenta se encuentra suspendida temporalmente.",
       }), 403
 
+    # Validación de saldo o activos iniciales necesarios según la acción
     costo_inicial = precio * cantidad if accion == "comprar" else cantidad
     if not row_user or row_user["saldo_disponible"] < costo_inicial:
       conn.rollback()
@@ -986,7 +987,9 @@ def crear_orden_clob():
     titulo_ev = ev_row["titulo"] if ev_row else "Mercado P2P"
     nombre_op = op_row["nombre"] if op_row else "Opción"
 
+    # ================= MOTOR DE EMPAREJAMIENTO (MATCHING ENGINE) =================
     if accion == "comprar":
+      # Buscar órdenes de VENTA en el Order Book cuyo precio sea menor o igual al de compra
       if DATABASE_URL:
         c.execute(
             "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
@@ -1010,6 +1013,7 @@ def crear_orden_clob():
         match_cant = min(cantidad_restante, contra["cantidad"])
         match_precio = contra["precio"]
 
+        # Devolver diferencia si el precio de ejecución es mejor (más barato)
         diferencia_precio = (precio - match_precio) * match_cant
         if diferencia_precio > 0:
           nuevo_saldo_creador += diferencia_precio
@@ -1050,6 +1054,7 @@ def crear_orden_clob():
                 (nuevo_saldo_vendedor, contra["username"]),
             )
 
+        # Registrar historial para el comprador
         if DATABASE_URL:
           c.execute(
               "INSERT INTO historial_apuestas (username, titulo_evento,"
@@ -1093,81 +1098,86 @@ def crear_orden_clob():
         cantidad_restante -= match_cant
 
     else:
-      # Lógica CLOB de Venta corregida: Priorizar la liquidez existente en el libro de compras (Bids)
+      # Lógica CLOB para VENTA: Emparejar contra órdenes de COMPRA existentes (Bids)
+      # Buscamos órdenes de compra con un precio mayor o igual al precio de venta ofrecido
       if DATABASE_URL:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC FOR UPDATE",
-            (evento_id, opcion_id)
+            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
+            " AND accion = 'comprar' AND estado = 'activa' AND precio >= %s"
+            " ORDER BY precio DESC, id ASC FOR UPDATE",
+            (evento_id, opcion_id, precio),
         )
       else:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC",
-            (evento_id, opcion_id)
+            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
+            " AND accion = 'comprar' AND estado = 'activa' AND precio >= ?"
+            " ORDER BY precio DESC, id ASC",
+            (evento_id, opcion_id, precio),
         )
       contra_ordenes = c.fetchall()
-
-      match_realizado = False
-      monto_ganado_venta = 0.0
 
       for contra in contra_ordenes:
         if cantidad_restante <= 0:
           break
 
         match_cant = min(cantidad_restante, contra["cantidad"])
-        match_precio = contra["precio"]
+        match_precio = contra["precio"]  # Se respeta la oferta de compra existente (mejor precio para el vendedor)
 
         monto_transaccion = match_precio * match_cant
-        monto_ganado_venta += monto_transaccion
-        match_realizado = True
-
         nuevo_saldo_creador += monto_transaccion
 
         if DATABASE_URL:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-              (nuevo_saldo_creador, username)
+              (nuevo_saldo_creador, username),
           )
+          # Registrar apuesta activa para el comprador original de esa orden
           c.execute(
-              "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-              (contra["username"], titulo_ev, nombre_op, monto_transaccion, "Activo")
+              "INSERT INTO historial_apuestas (username, titulo_evento,"
+              " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
+              (
+                  contra["username"],
+                  titulo_ev,
+                  nombre_op,
+                  monto_transaccion,
+                  "Activo",
+              ),
           )
         else:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-              (nuevo_saldo_creador, username)
+              (nuevo_saldo_creador, username),
           )
           c.execute(
-              "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-              (contra["username"], titulo_ev, nombre_op, monto_transaccion, "Activo")
+              "INSERT INTO historial_apuestas (username, titulo_evento,"
+              " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
+              (
+                  contra["username"],
+                  titulo_ev,
+                  nombre_op,
+                  monto_transaccion,
+                  "Activo",
+              ),
           )
 
         nueva_contra_cant = contra["cantidad"] - match_cant
-        nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
-        
+        nuevo_estado_contra = (
+            "completada" if nueva_contra_cant <= 0 else "activa"
+        )
         if DATABASE_URL:
           c.execute(
               "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-              (nueva_contra_cant, nuevo_estado_contra, contra["id"])
+              (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
         else:
           c.execute(
               "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-              (nueva_contra_cant, nuevo_estado_contra, contra["id"])
+              (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
           )
 
         cantidad_restante -= match_cant
 
-      # Si no hay absolutamente ninguna orden de compra en el libro y es una orden de mercado pura:
-      if not contra_ordenes and tipo_orden == "market":
-        conn.rollback()
-        return jsonify({
-            "success": False,
-            "error": (
-                "No hay liquidez en el mercado para ejecutar la orden a precio de"
-                " mercado."
-            ),
-        }), 400
-
+    # Si sobra cantidad tras el matching, la orden remanente se queda abierta en el Order Book
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
     if cantidad_restante > 0:
       if DATABASE_URL:
@@ -1205,6 +1215,7 @@ def crear_orden_clob():
             ),
         )
 
+    # Registro en historiales generales y transacciones
     if DATABASE_URL:
       c.execute(
           "INSERT INTO historial_apuestas (username, titulo_evento,"
@@ -1215,8 +1226,8 @@ def crear_orden_clob():
               f"CLOB {accion.capitalize()} ({cantidad} a {precio})",
               costo_inicial,
               (
-                  "Vendida"
-                  if accion == "vender" and cantidad_restante == 0
+                  "Completada/Emparejada"
+                  if cantidad_restante == 0
                   else "Pendiente / En Libro"
               ),
           ),
@@ -1242,8 +1253,8 @@ def crear_orden_clob():
               f"CLOB {accion.capitalize()} ({cantidad} a {precio})",
               costo_inicial,
               (
-                  "Vendida"
-                  if accion == "vender" and cantidad_restante == 0
+                  "Completada/Emparejada"
+                  if cantidad_restante == 0
                   else "Pendiente / En Libro"
               ),
           ),
@@ -1271,8 +1282,6 @@ def crear_orden_clob():
         f"Orden procesada. Ejecutado: {cantidad - cantidad_restante} / "
         f"Colocado en libro: {cantidad_restante}"
     )
-    if cantidad_restante == cantidad and accion == "vender":
-      mensaje_respuesta = "No hay liquidez inmediata en el mercado. Tu orden de venta ha quedado pendiente en el libro de órdenes."
 
     return jsonify({
         "success": True,
