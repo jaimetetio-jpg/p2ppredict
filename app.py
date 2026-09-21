@@ -1,4 +1,3 @@
-Aquí tienes el repositorio completo e integrado en un solo bloque con todas las mejoras de seguridad, robustez y los parches necesarios para el funcionamiento óptimo de la aplicación P2P / Prediction Market.
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -1094,32 +1093,18 @@ def crear_orden_clob():
         cantidad_restante -= match_cant
 
     else:
-      # Lógica CLOB de Venta: Buscar bids (órdenes de compra de otros usuarios)
+      # Lógica CLOB de Venta corregida: Priorizar la liquidez existente en el libro de compras (Bids)
       if DATABASE_URL:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE",
-            (evento_id, opcion_id, precio)
+            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC FOR UPDATE",
+            (evento_id, opcion_id)
         )
       else:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' AND precio >= ? ORDER BY precio DESC, id ASC",
-            (evento_id, opcion_id, precio)
+            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC",
+            (evento_id, opcion_id)
         )
       contra_ordenes = c.fetchall()
-
-      # Si es una orden de venta a mercado o no hay precios exactos >= precio, buscamos cualquier bid activo disponible para dar liquidez
-      if not contra_ordenes:
-        if DATABASE_URL:
-          c.execute(
-              "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC FOR UPDATE",
-              (evento_id, opcion_id)
-          )
-        else:
-          c.execute(
-              "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC",
-              (evento_id, opcion_id)
-          )
-        contra_ordenes = c.fetchall()
 
       match_realizado = False
       monto_ganado_venta = 0.0
@@ -2583,4 +2568,3 @@ if __name__ == "__main__":
   app.run(
       host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
   )
-
