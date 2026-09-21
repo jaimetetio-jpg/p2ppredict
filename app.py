@@ -13,7 +13,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Configuración estricta de CORS adaptada a políticas de seguridad seguras
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY", "p2ppredict_secret_key_ultra_segura_2026"
 )
@@ -527,7 +528,6 @@ def agregar_cabeceras_seguridad(response):
   response.headers["Strict-Transport-Security"] = (
       "max-age=31536000; includeSubDomains"
   )
-  response.headers["Access-Control-Allow-Origin"] = "*"
   response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
   response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
   return response
@@ -1700,6 +1700,8 @@ def admin_login():
   password = data.get("password", "")
 
   if check_password_hash(ADMIN_PASSWORD_HASH, password):
+    session.clear()
+    session.regenerate = True
     session["is_admin"] = True
     registrar_log_admin(
         "LOGIN_EXITOSO", "Administrador inició sesión correctamente."
