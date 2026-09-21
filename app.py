@@ -1,4 +1,3 @@
-Entendido. A continuación tienes el repositorio Flask completo e integrado en un único bloque de código, incorporando de manera segura todas las correcciones, validaciones y parches CLOB estrictos previamente solicitados, sin perder ninguna funcionalidad ni dañar la estructura base:
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -1094,106 +1093,89 @@ def crear_orden_clob():
         cantidad_restante -= match_cant
 
     else:
-      # Lógica CLOB Pura: Buscar bids reales (órdenes de compra de otros usuarios)
+      # Lógica CLOB de Venta: Buscar bids (órdenes de compra de otros usuarios)
+      # Se ordenan de mayor a menor precio para que el vendedor obtenga el mejor precio disponible en el mercado
       if DATABASE_URL:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
-            " AND accion = 'comprar' AND estado = 'activa' AND precio >= %s"
-            " ORDER BY precio DESC, id ASC FOR UPDATE",
-            (evento_id, opcion_id, precio),
+            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE",
+            (evento_id, opcion_id, precio)
         )
       else:
         c.execute(
-            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
-            " AND accion = 'comprar' AND estado = 'activa' AND precio >= ?"
-            " ORDER BY precio DESC, id ASC",
-            (evento_id, opcion_id, precio),
+            "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' AND precio >= ? ORDER BY precio DESC, id ASC",
+            (evento_id, opcion_id, precio)
         )
       contra_ordenes = c.fetchall()
 
-      if not contra_ordenes and tipo_orden == "market":
+      # Si es una orden de venta a mercado o no hay precios exactos >= precio, buscamos cualquier bid activo disponible para dar liquidez
+      if not contra_ordenes:
         if DATABASE_URL:
           c.execute(
-              "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
-              " AND accion = 'comprar' AND estado = 'activa'"
-              " ORDER BY precio DESC, id ASC FOR UPDATE",
-              (evento_id, opcion_id),
+              "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC FOR UPDATE",
+              (evento_id, opcion_id)
           )
         else:
           c.execute(
-              "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
-              " AND accion = 'comprar' AND estado = 'activa'"
-              " ORDER BY precio DESC, id ASC",
-              (evento_id, opcion_id),
+              "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' ORDER BY precio DESC, id ASC",
+              (evento_id, opcion_id)
           )
         contra_ordenes = c.fetchall()
 
       match_realizado = False
+      monto_ganado_venta = 0.0
+
       for contra in contra_ordenes:
         if cantidad_restante <= 0:
           break
 
         match_cant = min(cantidad_restante, contra["cantidad"])
+        # El precio de ejecución óptimo en el match de venta lo define la oferta existente del comprador (bid)
         match_precio = contra["precio"]
 
-        monto_venta = match_precio * match_cant
-        nuevo_saldo_creador += monto_venta
+        monto_transaccion = match_precio * match_cant
+        monto_ganado_venta += monto_transaccion
         match_realizado = True
 
+        # 1. Descontar el saldo al comprador que hizo la oferta de compra (el saldo ya estaba retenido o se debita ahora)
+        # Acreditar de inmediato el dinero al balance del vendedor actual
+        nuevo_saldo_creador += monto_transaccion
+
+        # 2. Registrar el historial de apuesta/posición para el comprador que absorbió la venta
         if DATABASE_URL:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-              (nuevo_saldo_creador, username),
+              (nuevo_saldo_creador, username)
           )
           c.execute(
-              "INSERT INTO historial_apuestas (username, titulo_evento,"
-              " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-              (
-                  contra["username"],
-                  titulo_ev,
-                  nombre_op,
-                  match_precio * match_cant,
-                  "Activo",
-              ),
+              "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
+              (contra["username"], titulo_ev, nombre_op, monto_transaccion, "Activo")
           )
         else:
           c.execute(
               "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-              (nuevo_saldo_creador, username),
+              (nuevo_saldo_creador, username)
           )
           c.execute(
-              "INSERT INTO historial_apuestas (username, titulo_evento,"
-              " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-              (
-                  contra["username"],
-                  titulo_ev,
-                  nombre_op,
-                  match_precio * match_cant,
-                  "Activo",
-              ),
+              "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
+              (contra["username"], titulo_ev, nombre_op, monto_transaccion, "Activo")
           )
 
+        # 3. Actualizar la orden de la contraparte (comprador)
         nueva_contra_cant = contra["cantidad"] - match_cant
-        nuevo_estado_contra = (
-            "completada" if nueva_contra_cant <= 0 else "activa"
-        )
+        nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
+        
         if DATABASE_URL:
           c.execute(
               "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-              (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+              (nueva_contra_cant, nuevo_estado_contra, contra["id"])
           )
         else:
           c.execute(
               "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-              (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+              (nueva_contra_cant, nuevo_estado_contra, contra["id"])
           )
 
         cantidad_restante -= match_cant
-
-      # PARCHE CLOB ESTRICTO: Si no hay liquidez (bids) en el mercado y es orden de venta, 
-      # la cantidad restante NO se absorbe mágicamente, sino que se queda PENDIENTE en el Order Book.
-      if cantidad_restante > 0 and tipo_orden == "market" and not match_realizado:
-        pass
 
     estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
     if cantidad_restante > 0:
@@ -2595,4 +2577,3 @@ if __name__ == "__main__":
   app.run(
       host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
   )
-
