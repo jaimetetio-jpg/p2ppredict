@@ -13,6 +13,11 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 
+# ================= APARTADO DE VALIDACIÓN - KEY TXT =================
+# Clave de validación oficial agregada directamente al repositorio
+VALIDATION_KEY_TXT = "8c73ed3c39ffc42821ce971267c7b58d01487ed71624c57309cc6079dd976f5f8f462164ffbdc8424ba6d641e94332ef1d8b17e8789cb1385717cceaecf6eb79"
+# =====================================================================
+
 # Configuración estricta de CORS adaptada a políticas de seguridad seguras
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 app.secret_key = os.environ.get(
