@@ -102,7 +102,28 @@ def obtener_conexion():
         return conn
 
 
+def actualizar_esquema_db():
+    if not DATABASE_URL:
+        return
+    conn = obtener_conexion()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            ALTER TABLE usuarios 
+            ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;
+        """)
+        conn.commit()
+        print("Esquema actualizado: columna 'is_frozen' lista.")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error actualizando la base de datos: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+
 def inicializar_bd():
+    actualizar_esquema_db()
     conn = obtener_conexion()
     c = conn.cursor()
     if DATABASE_URL:
