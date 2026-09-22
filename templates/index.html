@@ -1472,94 +1472,58 @@ function procesarRespuestaBackendOrden(respuestaBackend, idMercado, tituloMercad
     cerrarTerminalTrading(); 
 } 
 
-function confirmarCompraRapida() { 
-    if (isSubmitting) return; 
-    isSubmitting = true; 
-    const btnConfirmar = document.getElementById('btn-confirmar-compra'); 
-    const successBanner = document.getElementById('modal-success-banner'); 
-    const orderTypeSelect = document.getElementById('modal-order-type'); 
-    const limitPriceInput = document.getElementById('modal-limit-price'); 
-    const amountInput = document.getElementById('modal-amount'); 
-    const btnClose = document.getElementById('btn-modal-close'); 
-    if (successBanner) successBanner.style.display = 'block'; 
-    if (btnConfirmar) { 
-        btnConfirmar.disabled = true; 
-        btnConfirmar.innerText = "Ticket Procesado"; 
-        btnConfirmar.style.fontSize = "1.1rem"; 
-        btnConfirmar.style.fontWeight = "bold"; 
-        btnConfirmar.style.opacity = "0.9"; 
-        btnConfirmar.style.cursor = "not-allowed"; 
-    } 
-    if (orderTypeSelect) { 
-        orderTypeSelect.disabled = true; 
-        orderTypeSelect.style.opacity = "0.7"; 
-        orderTypeSelect.style.cursor = "not-allowed"; 
-    } 
-    if (limitPriceInput) { 
-        limitPriceInput.disabled = true; 
-        limitPriceInput.style.opacity = "0.7"; 
-        limitPriceInput.style.cursor = "not-allowed"; 
-    } 
-    if (amountInput) { 
-        amountInput.readOnly = true; 
-        amountInput.disabled = true; 
-        amountInput.style.opacity = "0.7"; 
-        amountInput.style.cursor = "not-allowed"; 
-    } 
-    if (btnClose) { 
-        btnClose.disabled = false; 
-        btnClose.style.opacity = "1"; 
-        btnClose.style.cursor = "pointer"; 
-    } 
-    const tipoOrden = document.getElementById('modal-order-type').value; 
-    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1; 
-    const precioFinalUnitario = ordenActivaModal.precioCalculadoUnitario; 
-    const totalReq = ordenActivaModal.totalConComision; 
-    if (estadosMercados[ordenActivaModal.idMercado] !== null && estadosMercados[ordenActivaModal.idMercado] !== 'ESPERANDO_RESOLUCION') { 
-        alert("Este mercado ya se encuentra cerrado."); 
-        cerrarTerminalTrading(); 
-        return; 
-    } 
-    if (usuarioActual.balance < totalReq) { 
-        alert("Saldo insuficiente en tu billetera Pi (incluyendo la comisión del 2%)."); 
-        isSubmitting = false; 
-        if (successBanner) successBanner.style.display = 'none'; 
-        if (btnConfirmar) { 
-            btnConfirmar.disabled = false; 
-            btnConfirmar.innerText = "Confirmar Orden al Order Book"; 
-            btnConfirmar.style.fontSize = "0.85rem"; 
-        } 
-        if (orderTypeSelect) orderTypeSelect.disabled = false; 
-        if (limitPriceInput) limitPriceInput.disabled = false; 
-        if (amountInput) amountInput.readOnly = false; 
-        return; 
-    } 
-    usuarioActual.balance -= totalReq; 
-    const idM = ordenActivaModal.idMercado; 
-    const opM = ordenActivaModal.opcion; 
-    const opOpuesta = opM === 'SÍ' ? 'NO' : 'SÍ'; 
-    if (tipoOrden === 'MARKET') { 
-        preciosMercados[idM][opM] = Math.min(preciosMercados[idM][opM] + (cantidad * 0.002), 0.95); 
-        preciosMercados[idM][opOpuesta] = Math.max(1 - preciosMercados[idM][opM], 0.05); 
-    } 
-    const nuevaPosicion = { id: 'POS-' + Date.now() + '-' + Math.floor(Math.random()*1000), marketId: idM, titulo: ordenActivaModal.tituloMercado, opcion: opM, contratos: cantidad, invertido: totalReq, payout: cantidad * 1.00, estadoOrden: 'ACTIVO' }; 
-    posicionesActivas.push(nuevaPosicion); 
-    guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle, titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos, invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout, estado_orden: nuevaPosicion.estadoOrden }); 
-    const etiquetaOrden = tipoOrden === 'LIMIT' ? 'COMPRA LIMIT (Bid)' : 'COMPRA (Bid)'; 
-    const nuevaOrdenGlobal = { marketId: idM, tipo: etiquetaOrden, opcion: opM, contratos: cantidad, precio: precioFinalUnitario, trader: usuarioActual.handle }; 
-    ordenesGlobales.push(nuevaOrdenGlobal); 
-    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ id: 'TX-' + Date.now(), titulo: `Compra de Contratos (${opM})`, tipo: tipoOrden, monto: -totalReq, detalle: `Usuario ${usuarioActual.handle} compró ${cantidad} contratos en "${ordenActivaModal.tituloMercado}"` }); 
-    guardarTodoInStorage(); 
-    actualizarUIBalance(); 
-    actualizarPreciosVisuales(); 
-    renderizarPosiciones(); 
-    renderizarOrderBookVisible(); 
-    setTimeout(() => { 
-        cerrarTerminalTrading(); 
-    }, 1200); 
-    alert("¡Orden ejecutada y guardada permanentemente en el sistema con éxito!"); 
-} 
+// PARCHE 1 INTEGRADO CORRECTAMENTE
+async function confirmarCompraRapida() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    
+    const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase(); // 'market' o 'limit'
+    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+    const precioIngresado = tipoOrden === 'limit' ? parseFloat(document.getElementById('modal-limit-price').value) : (ordenActivaModal.precioAskBase || 0.50);
+    const idM = ordenActivaModal.idMercado;
+    const opM = ordenActivaModal.opcion;
+    // Mapear "SÍ" u "OPCIÓN" al ID numérico que maneja tu base de datos o backend
+    const opcionId = opM === 'SÍ' ? 1 : 2; 
+
+    try {
+        const response = await fetch('/api/clob/orden', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: usuarioActual.handle,
+                evento_id: parseInt(idM),
+                opcion_id: opcionId,
+                tipo_orden: tipoOrden, // 'market' o 'limit'
+                accion: 'comprar',
+                precio: precioIngresado,
+                cantidad: cantidad
+            })
+        });
+
+        const resultado = await response.json();
+
+        if (!resultado.success) {
+            alert("⚠️ Error en la orden: " + (resultado.error || "No se pudo procesar"));
+            isSubmitting = false;
+            return;
+        }
+
+        // Actualizar saldo con el valor real devuelto por el backend
+        usuarioActual.balance = resultado.nuevo_saldo;
+        guardarTodoInStorage();
+        actualizarUIBalance();
+        cerrarTerminalTrading();
+        alert("✅ " + resultado.mensaje);
+        
+        // Refrescar vistas
+        location.reload(); 
+
+    } catch (error) {
+        console.error("Error de red:", error);
+        alert("Error de conexión con el servidor backend.");
+        isSubmitting = false;
+    }
+}
 
 function abrirModalVenta(idx) { 
     const pos = posicionesActivas[idx]; 
@@ -1615,36 +1579,51 @@ function calcularTotalVentaModal() {
     ventaActivaModal.precioUnitarioVenta = precioUnitarioVenta; 
 } 
 
-function ejecutarVentaPosicion() { 
-    if (!ventaActivaModal) return; 
-    const pos = ventaActivaModal.posicion; 
-    const idx = ventaActivaModal.index; 
-    const contratosVender = ventaActivaModal.contratosVender; 
-    const retornoTotal = ventaActivaModal.retornoTotal; 
-    const tipoVenta = document.getElementById('sell-modal-type').value; 
-    usuarioActual.balance += retornoTotal; 
-    if (contratosVender >= pos.contratos) { 
-        eliminarDeSupabaseTabla('posiciones_activas', pos.id); 
-        posicionesActivas.splice(idx, 1); 
-    } else { 
-        pos.contratos -= contratosVender; 
-        pos.invertido -= (pos.invertido * (contratosVender / (pos.contratos + contratosVender))); 
-        pos.payout -= contratosVender * 1.00; 
-        guardarEnSupabaseTabla('posiciones_activas', { id: pos.id, market_id: String(pos.marketId), handle: usuarioActual.handle, titulo: pos.titulo, opcion: pos.opcion, contratos: pos.contratos, invertido: pos.invertido, payout: pos.payout, estado_orden: pos.estadoOrden }); 
-    } 
-    const etiquetaOrden = tipoVenta === 'LIMIT' ? 'VENTA LIMIT (Ask)' : 'VENTA A MERCADO (Ask)'; 
-    const nuevaOrdenGlobal = { marketId: pos.marketId, tipo: etiquetaOrden, opcion: pos.opcion, contratos: contratosVender, precio: ventaActivaModal.precioUnitarioVenta, trader: usuarioActual.handle }; 
-    ordenesGlobales.push(nuevaOrdenGlobal); 
-    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ id: 'VEND-' + Date.now(), titulo: pos.titulo, tipo: 'Venta ' + tipoVenta, monto: retornoTotal, detalle: `${contratosVender} contratos (${pos.opcion}) vendidos por ${usuarioActual.handle}` }); 
-    guardarTodoInStorage(); 
-    actualizarUIBalance(); 
-    renderizarPosiciones(); 
-    renderizarOrderBookVisible(); 
-    renderizarHistorial(); 
-    cerrarModalVenta(); 
-    alert(`¡Venta realizada con éxito! Se acreditaron ${retornoTotal.toFixed(2)} Pi a tu balance.`); 
-} 
+// PARCHE 2 INTEGRADO CORRECTAMENTE
+async function ejecutarVentaPosicion() {
+    if (!ventaActivaModal) return;
+    const pos = ventaActivaModal.posicion;
+    const contratosVender = ventaActivaModal.contratosVender;
+    const tipoVenta = document.getElementById('sell-modal-type').value.toLowerCase(); // 'market' o 'limit'
+    const precioVenta = tipoVenta === 'limit' ? parseFloat(document.getElementById('sell-limit-price').value) : ventaActivaModal.precioBase;
+    const opcionId = pos.opcion === 'SÍ' ? 1 : 2;
+
+    try {
+        const response = await fetch('/api/clob/orden', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: usuarioActual.handle,
+                evento_id: parseInt(pos.marketId),
+                opcion_id: opcionId,
+                tipo_orden: tipoVenta,
+                accion: 'vender',
+                precio: precioVenta,
+                cantidad: contratosVender
+            })
+        });
+
+        const resultado = await response.json();
+
+        if (!resultado.success) {
+            alert("⚠️ Venta rechazada: " + (resultado.error || "No hay liquidez suficiente"));
+            return;
+        }
+
+        usuarioActual.balance = resultado.nuevo_saldo;
+        guardarTodoInStorage();
+        actualizarUIBalance();
+        cerrarModalVenta();
+        alert("✅ " + resultado.mensaje);
+        
+        // Refrescar vistas
+        location.reload();
+
+    } catch (error) {
+        console.error("Error de red en venta:", error);
+        alert("Error de conexión con el servidor backend.");
+    }
+}
 
 function renderizarOrderBookVisible() { 
     sincronizarPersistencia(); 
