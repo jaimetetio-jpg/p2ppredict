@@ -376,13 +376,17 @@ def inicializar_bd():
             "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
         )
 
-    conn.commit()
-    
-    # Parche aplicado para la lectura segura de filas en SQLite o bases de datos relacionales
+    # Verificación segura del conteo inicial con manejo de filas por diccionario o tupla
+    c.execute("SELECT COUNT(*) as total FROM eventos")
     row = c.fetchone()
     if row:
-        row_dict = dict(row)
-        total_evs = row_dict.get("total", 0)
+        if isinstance(row, dict):
+            total_evs = row.get("total", 0)
+        else:
+            try:
+                total_evs = row["total"]
+            except Exception:
+                total_evs = row[0]
     else:
         total_evs = 0
 
