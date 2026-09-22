@@ -4,7 +4,7 @@ psycopg2-binary
 requests
 werkzeug
 python-dotenv
-guicorn 
+gunicorn 
 
 
 
