@@ -945,7 +945,7 @@ def crear_orden_clob():
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
-        # Integración del Parche 1: Validación rigurosa para Compra o Venta
+        # Integración del Parche 1 y Parche 2: Validación rigurosa para Compra o Venta
         if accion == "comprar":
             costo_inicial = precio * cantidad
             if not row_user or row_user["saldo_disponible"] < costo_inicial:
@@ -955,6 +955,27 @@ def crear_orden_clob():
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
+            # Validar si hay órdenes de compra disponibles para una venta instantánea a mercado
+            if DATABASE_URL:
+                c.execute(
+                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa'",
+                    (evento_id, opcion_id),
+                )
+            else:
+                c.execute(
+                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa'",
+                    (evento_id, opcion_id),
+                )
+            liq_res = c.fetchone()
+            liquidez_disponible = liq_res["total_liquidez"] if liq_res and liq_res["total_liquidez"] else 0.0
+
+            if tipo_orden == "market" and liquidez_disponible < cantidad:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": "No hay suficiente liquidez de compradores en el mercado para ejecutar esta venta instantánea.",
+                }), 400
+
             costo_inicial = cantidad # En ventas el respaldo requerido se valida por contratos
             # Validar que el usuario posea suficientes contratos en su historial de apuestas activas o posiciones
             if DATABASE_URL:
@@ -1984,7 +2005,7 @@ def admin_cerrar_evento():
                 (ganador_id, evento_id),
             )
 
-        # Integración del Parche 2: Procesamiento robusto de órdenes residuales al cerrar
+        # Procesamiento robusto de órdenes residuales al cerrar
         if DATABASE_URL:
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'",
@@ -2061,7 +2082,6 @@ def admin_cerrar_evento():
                             ),
                         )
             elif accion_orden == "vender":
-                # Devolución de contratos bloqueados o cancelación segura sin alterar el pozo
                 if DATABASE_URL:
                     c.execute(
                         "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Cancelada')",
