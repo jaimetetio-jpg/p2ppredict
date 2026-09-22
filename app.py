@@ -1,4 +1,3 @@
-Aquí tienes el código completo e integrado de tu aplicación Flask en un solo bloque, incluyendo los nuevos endpoints del parche para el manejo de pagos en la Testnet de Pi Network (/api/pi/approve y /api/pi/complete), listo para funcionar sin errores:
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -377,7 +376,6 @@ def inicializar_bd():
             "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
         )
 
-    # Verificación segura del conteo inicial con manejo de filas por diccionario o tupla
     c.execute("SELECT COUNT(*) as total FROM eventos")
     row = c.fetchone()
     if row:
@@ -1716,7 +1714,7 @@ def obtener_balance_plataforma():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ================= PARCHE INTEGRADO: ENDPOINTS TESTNET PI =================
+# ================= ENDPOINTS DE PARCHE TESTNET PI (NUEVOS) =================
 @app.route("/api/pi/approve", methods=["POST"])
 def approve_pi_payment():
     data = request.json or {}
@@ -2660,4 +2658,3 @@ def delete_support_ticket(ticket_id):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
-
