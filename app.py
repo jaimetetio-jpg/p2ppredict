@@ -945,25 +945,55 @@ def crear_orden_clob():
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
-        costo_inicial = precio * cantidad if accion == "comprar" else cantidad
-        if not row_user or row_user["saldo_disponible"] < costo_inicial:
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Saldo insuficiente para colocar la orden",
-            }), 400
-
-        nuevo_saldo_creador = row_user["saldo_disponible"] - costo_inicial
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (nuevo_saldo_creador, username),
-            )
+        # Integración del Parche 1: Validación rigurosa para Compra o Venta
+        if accion == "comprar":
+            costo_inicial = precio * cantidad
+            if not row_user or row_user["saldo_disponible"] < costo_inicial:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": "Saldo insuficiente para colocar la orden de compra",
+                }), 400
+        elif accion == "vender":
+            costo_inicial = cantidad # En ventas el respaldo requerido se valida por contratos
+            # Validar que el usuario posea suficientes contratos en su historial de apuestas activas o posiciones
+            if DATABASE_URL:
+                c.execute(
+                    "SELECT SUM(monto) FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
+                    (username,),
+                )
+            else:
+                c.execute(
+                    "SELECT SUM(monto) FROM historial_apuestas WHERE username = ? AND estado = 'Activo'",
+                    (username,),
+                )
+            pos_res = c.fetchone()
+            saldo_contratos = pos_res[0] if pos_res and pos_res[0] else 0.0
+            if saldo_contratos < cantidad:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": "No posees suficientes contratos o saldo en juego para realizar esta venta.",
+                }), 400
         else:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                (nuevo_saldo_creador, username),
-            )
+            costo_inicial = 0.0
+
+        if not row_user:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Usuario no encontrado"}), 400
+
+        nuevo_saldo_creador = row_user["saldo_disponible"] - (precio * cantidad if accion == "comprar" else 0)
+        if accion == "comprar":
+            if DATABASE_URL:
+                c.execute(
+                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                    (nuevo_saldo_creador, username),
+                )
+            else:
+                c.execute(
+                    "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
+                    (nuevo_saldo_creador, username),
+                )
 
         cantidad_restante = cantidad
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -984,7 +1014,6 @@ def crear_orden_clob():
 
         # ================= MOTOR DE EMPAREJAMIENTO (MATCHING ENGINE) =================
         if accion == "comprar":
-            # Parche 1: Buscar órdenes de VENTA en el Order Book aplicando FIFO estricto (precio ASC, id ASC)
             if DATABASE_URL:
                 c.execute(
                     """
@@ -1100,7 +1129,6 @@ def crear_orden_clob():
                     )
                 cantidad_restante -= match_cant
         else:
-            # Lógica CLOB para VENTA: Emparejar contra órdenes de COMPRA existentes (Bids) respetando orden de llegada
             if DATABASE_URL:
                 c.execute(
                     "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
@@ -1223,7 +1251,7 @@ def crear_orden_clob():
                     username,
                     titulo_ev,
                     f"CLOB {accion.capitalize()} ({cantidad} a {precio})",
-                    costo_inicial,
+                    (precio * cantidad if accion == "comprar" else cantidad),
                     (
                         "Completada/Emparejada"
                         if cantidad_restante == 0
@@ -1237,7 +1265,7 @@ def crear_orden_clob():
                 (
                     username,
                     f"CLOB Orden ({accion})",
-                    -costo_inicial
+                    -(precio * cantidad if accion == "comprar" else 0)
                     + (precio * (cantidad - cantidad_restante)),
                     f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                     fecha_str,
@@ -1251,7 +1279,7 @@ def crear_orden_clob():
                     username,
                     titulo_ev,
                     f"CLOB {accion.capitalize()} ({cantidad} a {precio})",
-                    costo_inicial,
+                    (precio * cantidad if accion == "comprar" else cantidad),
                     (
                         "Completada/Emparejada"
                         if cantidad_restante == 0
@@ -1265,7 +1293,7 @@ def crear_orden_clob():
                 (
                     username,
                     f"CLOB Orden ({accion})",
-                    -costo_inicial
+                    -(precio * cantidad if accion == "comprar" else 0)
                     + (precio * (cantidad - cantidad_restante)),
                     f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                     fecha_str,
@@ -1956,7 +1984,7 @@ def admin_cerrar_evento():
                 (ganador_id, evento_id),
             )
 
-        # Parche 2: Obtener y procesar todas las órdenes que se quedaron 'activas' en el Order Book al cerrar
+        # Integración del Parche 2: Procesamiento robusto de órdenes residuales al cerrar
         if DATABASE_URL:
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'",
@@ -2033,34 +2061,26 @@ def admin_cerrar_evento():
                             ),
                         )
             elif accion_orden == "vender":
-                monto_posicion_asumida = precio_orden * cant_residual
+                # Devolución de contratos bloqueados o cancelación segura sin alterar el pozo
                 if DATABASE_URL:
                     c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
+                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Cancelada')",
                         (
                             usr,
                             titulo_evento,
                             nombre_op_residual,
-                            monto_posicion_asumida,
+                            cant_residual,
                         ),
-                    )
-                    c.execute(
-                        "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
-                        (monto_posicion_asumida, op_id),
                     )
                 else:
                     c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
+                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Cancelada')",
                         (
                             usr,
                             titulo_evento,
                             nombre_op_residual,
-                            monto_posicion_asumida,
+                            cant_residual,
                         ),
-                    )
-                    c.execute(
-                        "UPDATE opciones_evento SET pozo = pozo + ? WHERE id = ?",
-                        (monto_posicion_asumida, op_id),
                     )
 
             if DATABASE_URL:
