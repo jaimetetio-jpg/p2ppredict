@@ -1,3 +1,4 @@
+Aquí tienes el código completo de tu backend con los parches integrados correctamente. Se ha asegurado el FIFO estricto (orden de llegada mediante id ASC) en el motor de emparejamiento (Parche 1) y se añadió la lógica de cancelación/devolución de saldos para órdenes de compra y la asignación de posiciones residuales al pozo para los vendedores al momento de cerrar el evento (Parche 2).
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -989,14 +990,14 @@ def crear_orden_clob():
 
     # ================= MOTOR DE EMPAREJAMIENTO (MATCHING ENGINE) =================
     if accion == "comprar":
-      # Buscar órdenes de VENTA en el Order Book cuyo precio sea menor o igual al de compra
+      # Parche 1: Buscar órdenes de VENTA en el Order Book aplicando FIFO estricto (precio ASC, id ASC)
       if DATABASE_URL:
-        c.execute(
-            "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
-            " AND accion = 'vender' AND estado = 'activa' AND precio <= %s"
-            " ORDER BY precio ASC, id ASC FOR UPDATE",
-            (evento_id, opcion_id, precio),
-        )
+        c.execute("""
+            SELECT * FROM orders 
+            WHERE evento_id = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND precio <= %s 
+            ORDER BY precio ASC, id ASC 
+            FOR UPDATE
+        """, (evento_id, opcion_id, precio))
       else:
         c.execute(
             "SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ?"
@@ -1098,8 +1099,7 @@ def crear_orden_clob():
         cantidad_restante -= match_cant
 
     else:
-      # Lógica CLOB para VENTA: Emparejar contra órdenes de COMPRA existentes (Bids)
-      # Buscamos órdenes de compra con un precio mayor o igual al precio de venta ofrecido
+      # Lógica CLOB para VENTA: Emparejar contra órdenes de COMPRA existentes (Bids) respetando orden de llegada
       if DATABASE_URL:
         c.execute(
             "SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s"
@@ -1996,16 +1996,67 @@ def admin_cerrar_evento():
           "UPDATE eventos SET estado = 'cerrado', ganador_id = %s WHERE id = %s",
           (ganador_id, evento_id),
       )
+    else:
+      c.execute(
+          "UPDATE eventos SET estado = 'cerrado', ganador_id = ? WHERE id = ?",
+          (ganador_id, evento_id),
+      )
+
+    # Parche 2: Obtener y procesar todas las órdenes que se quedaron 'activas' en el Order Book al cerrar
+    if DATABASE_URL:
+      c.execute("SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'", (evento_id,))
+    else:
+      c.execute("SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'", (evento_id,))
+    ordenes_activas_residuales = c.fetchall()
+
+    for orden in ordenes_activas_residuales:
+      usr = orden["username"]
+      cant_residual = orden["cantidad"]
+      accion_orden = orden["accion"]
+      precio_orden = orden["precio"]
+      op_id = orden["opcion_id"]
+
+      # Obtener el nombre de la opción para el historial
+      c.execute("SELECT nombre FROM opciones_evento WHERE id = %s" if DATABASE_URL else "SELECT nombre FROM opciones_evento WHERE id = ?", (op_id,))
+      op_data = c.fetchone()
+      nombre_op_residual = op_data["nombre"] if op_data else "Opción"
+
+      if accion_orden == "comprar":
+        # Si era una orden de compra que se quedó sin gastar saldo en el libro, 
+        # el saldo retenido inicial debe devolverse al usuario.
+        monto_a_devolver = precio_orden * cant_residual
+        
+        c.execute("SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE" if DATABASE_URL else "SELECT saldo_disponible FROM usuarios WHERE username = ?", (usr,))
+        u_s = c.fetchone()
+        if u_s:
+            nuevo_s_compra = u_s["saldo_disponible"] + monto_a_devolver
+            c.execute("UPDATE usuarios SET saldo_disponible = %s WHERE username = %s" if DATABASE_URL else "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?", (nuevo_s_compra, usr))
+            
+            # Registrar transacción de devolución
+            c.execute("INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)" if DATABASE_URL else "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
+                      (usr, "Devolución Orden No Ejecutada", monto_a_devolver, f"DEV_{orden['id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}", datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+      elif accion_orden == "vender":
+        # Lo que no se logró vender: el vendedor asume esa posición y entra en el pozo.
+        monto_posicion_asumida = precio_orden * cant_residual
+        
+        c.execute("INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')" if DATABASE_URL else "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
+                  (usr, titulo_evento, nombre_op_residual, monto_posicion_asumida))
+        
+        # Aportar formalmente al pozo de la opción del evento
+        c.execute("UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s" if DATABASE_URL else "UPDATE opciones_evento SET pozo = pozo + ? WHERE id = ?",
+                  (monto_posicion_asumida, op_id))
+
+      # Marcar la orden del libro como cancelada/cerrada por el cierre del evento
+      c.execute("UPDATE orders SET estado = 'cancelada_cierre' WHERE id = %s" if DATABASE_URL else "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = ?", (orden["id"],))
+
+    if DATABASE_URL:
       c.execute(
           "SELECT * FROM historial_apuestas WHERE titulo_evento = %s AND"
           " opcion_elegida = %s AND estado = 'Activo'",
           (titulo_evento, nombre_ganador),
       )
     else:
-      c.execute(
-          "UPDATE eventos SET estado = 'cerrado', ganador_id = ? WHERE id = ?",
-          (ganador_id, evento_id),
-      )
       c.execute(
           "SELECT * FROM historial_apuestas WHERE titulo_evento = ? AND"
           " opcion_elegida = ? AND estado = 'Activo'",
@@ -2096,7 +2147,7 @@ def admin_cerrar_evento():
     registrar_log_admin(
         "CERRAR_EVENTO",
         f"Cerrado evento ID {evento_id}. Ganador: {nombre_ganador}. Pagos"
-        " acreditados automáticamente.",
+        " acreditados automáticamente y órdenes residuales gestionadas.",
     )
     registrar_audit_log(
         "Admin", "CERRAR_EVENTO", str(evento_id), {"ganador": nombre_ganador}
@@ -2104,7 +2155,7 @@ def admin_cerrar_evento():
     return jsonify({
         "success": True,
         "mensaje": (
-            f"Evento cerrado y premios acreditados automáticamente. Ganador:"
+            f"Evento cerrado, órdenes residuales procesadas y premios acreditados automáticamente. Ganador:"
             f" {nombre_ganador}"
         ),
     })
@@ -2577,3 +2628,4 @@ if __name__ == "__main__":
   app.run(
       host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True
   )
+
