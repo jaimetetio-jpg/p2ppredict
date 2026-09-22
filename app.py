@@ -943,35 +943,21 @@ def crear_orden_clob():
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
+        if not row_user:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Usuario no encontrado"}), 400
+
+        # Validaciones previas según la acción
         if accion == "comprar":
             costo_inicial = precio * cantidad
-            if not row_user or row_user["saldo_disponible"] < costo_inicial:
+            if row_user["saldo_disponible"] < costo_inicial:
                 conn.rollback()
                 return jsonify({
                     "success": False,
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
-            if DATABASE_URL:
-                c.execute(
-                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa'",
-                    (evento_id, opcion_id),
-                )
-            else:
-                c.execute(
-                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa'",
-                    (evento_id, opcion_id),
-                )
-            liq_res = c.fetchone()
-            liquidez_disponible = liq_res["total_liquidez"] if liq_res and liq_res["total_liquidez"] else 0.0
-
-            if tipo_orden == "market" and liquidez_disponible < cantidad:
-                conn.rollback()
-                return jsonify({
-                    "success": False,
-                    "error": "No hay suficiente liquidez de compradores en el mercado para ejecutar esta venta instantánea.",
-                }), 400
-
+            # 1. Validar que el usuario posea suficientes contratos en su historial de apuestas activas
             if DATABASE_URL:
                 c.execute(
                     "SELECT SUM(monto) FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
@@ -988,14 +974,39 @@ def crear_orden_clob():
                 conn.rollback()
                 return jsonify({
                     "success": False,
-                    "error": "No posees suficientes contratos o saldo en juego para realizar esta venta.",
+                    "error": "No posees suficientes contratos activos para realizar esta venta.",
                 }), 400
-        else:
-            costo_inicial = 0.0
 
-        if not row_user:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Usuario no encontrado"}), 400
+            # 2. VALIDACIÓN ESTRICTA DE LIQUIDEZ P2P: 
+            # Verificamos cuánta liquidez real de COMPRA existe en el libro para este evento y opción.
+            if DATABASE_URL:
+                c.execute(
+                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa'",
+                    (evento_id, opcion_id),
+                )
+            else:
+                c.execute(
+                    "SELECT SUM(cantidad) as total_liquidez FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa'",
+                    (evento_id, opcion_id),
+                )
+            liq_res = c.fetchone()
+            liquidez_disponible = liq_res["total_liquidez"] if liq_res and liq_res["total_liquidez"] else 0.0
+
+            # ¡BLOQUEO CRÍTICO DE SEGURIDAD P2P! 
+            # Si no hay órdenes de compra en el libro, SE RECHAZA la venta de inmediato. La app NUNCA asume la compra.
+            if liquidez_disponible <= 0:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": "No hay órdenes de compra de otros usuarios en el mercado para este activo. No se puede vender sin contraparte.",
+                }), 400
+
+            if tipo_orden == "market" and liquidez_disponible < cantidad:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": f"Liquidez insuficiente en el libro. Solo hay {liquidez_disponible} contratos disponibles para venta inmediata.",
+                }), 400
 
         nuevo_saldo_creador = row_user["saldo_disponible"] - (precio * cantidad if accion == "comprar" else 0)
         if accion == "comprar":
@@ -1029,7 +1040,6 @@ def crear_orden_clob():
 
         # ================= MOTOR DE EMPAREJAMIENTO FIFO (MATCHING ENGINE) =================
         if accion == "comprar":
-            # FIFO estricto: Mejor precio de venta primero ( ASC ), y ante empate de precio, la orden más antigua ( id ASC )
             if DATABASE_URL:
                 c.execute(
                     """
@@ -1121,7 +1131,7 @@ def crear_orden_clob():
                     )
                 cantidad_restante -= match_cant
         else:
-            # FIFO estricto para ventas: Mejor precio de compra primero ( DESC ), y ante empate, la orden más antigua ( id ASC )
+            # VENTA: Emparejar estrictamente contra órdenes de compra existentes en el libro
             if DATABASE_URL:
                 c.execute(
                     """
@@ -1183,6 +1193,15 @@ def crear_orden_clob():
                         (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
                     )
                 cantidad_restante -= match_cant
+
+            # Si es una orden LIMIT de venta y sobraron contratos que nadie compró, 
+            # se quedan en el libro esperando un comprador real (P2P), NUNCA se regalan fondos.
+            if tipo_orden == "market" and cantidad_restante > 0:
+                conn.rollback()
+                return jsonify({
+                    "success": False,
+                    "error": "No hay suficientes compradores en firme para absorber toda la cantidad de la venta a mercado.",
+                }), 400
 
         estado_final_orden = "activa" if cantidad_restante > 0 else "completada"
         if cantidad_restante > 0:
@@ -2547,3 +2566,4 @@ def delete_support_ticket(ticket_id):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
