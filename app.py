@@ -992,14 +992,24 @@ def crear_orden_clob():
                     (username,),
                 )
             pos_res = c.fetchone()
-            # Extracción segura compatible con sqlite3.Row y RealDictCursor
-            saldo_contratos = 0.0
-            if pos_res:
-                if isinstance(pos_res, dict):
-                    saldo_contratos = pos_res.get("total") or 0.0
-                else:
-                    saldo_contratos = pos_res["total"] if "total" in pos_res.keys() and pos_res["total"] is not None else 0.0
             
+            # Extracción segura compatible con cualquier tipo de cursor (Postgres o SQLite)
+            saldo_contratos = 0.0
+            if pos_res is not None:
+                try:
+                    # Intento directo por nombre de clave
+                    val = pos_res["total"]
+                    if val is not None:
+                        saldo_contratos = float(val)
+                except Exception:
+                    try:
+                        # Respaldo por índice numérico si fuera una tupla pura
+                        val = pos_res[0]
+                        if val is not None:
+                            saldo_contratos = float(val)
+                    except Exception:
+                        saldo_contratos = 0.0
+
             if saldo_contratos < cantidad:
                 conn.rollback()
                 return jsonify({
