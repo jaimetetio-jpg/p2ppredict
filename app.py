@@ -2396,19 +2396,15 @@ def admin_ajustar_balance():
                 fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 c.execute(
                     "INSERT INTO admin_pending_actions (admin_creator, action_type,"
-                    " target_id, payload, status, created_at) VALUES (?, ?, ?, ?,"
-                    " 'PENDING', ?)",
+                    " target_id, payload, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', ?)",
                     ("Admin", "AJUSTE_BALANCE", username, payload_str, fecha_str),
                 )
             conn.commit()
             conn.close()
             return jsonify({
                 "success": True,
-                "pending": True,
-                "mensaje": (
-                    "Ajuste crítico detectado. Solicitud retenida en estado PENDING"
-                    " para aprobación dual de un segundo administrador."
-                ),
+                "requires_approval": True,
+                "mensaje": "El ajuste supera el límite de $100 y ha quedado pendiente de doble autorización.",
             })
 
         if DATABASE_URL:
@@ -2416,67 +2412,70 @@ def admin_ajustar_balance():
                 "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
                 (monto_nuevo, username),
             )
-            fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
             c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (%s, %s, %s, %s, %s)",
+                "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+                (
+                    "Admin",
+                    username,
+                    monto_anterior,
+                    monto_nuevo,
+                    razon,
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
+                ),
+            )
+            c.execute(
+                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
                 (
                     username,
                     "Ajuste Admin",
                     monto_cambio,
-                    f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    fecha_str,
+                    f"ADJ_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
                 ),
-            )
-            c.execute(
-                "INSERT INTO admin_balance_audit (admin_user, target_user,"
-                " monto_anterior, monto_nuevo, razon, fecha) VALUES (%s, %s, %s, %s,"
-                " %s, %s)",
-                ("Admin", username, monto_anterior, monto_nuevo, razon, fecha_str),
             )
         else:
             c.execute(
                 "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
                 (monto_nuevo, username),
             )
-            fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
             c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    "Admin",
+                    username,
+                    monto_anterior,
+                    monto_nuevo,
+                    razon,
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
+                ),
+            )
+            c.execute(
+                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
                 (
                     username,
                     "Ajuste Admin",
                     monto_cambio,
-                    f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    fecha_str,
+                    f"ADJ_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
                 ),
-            )
-            c.execute(
-                "INSERT INTO admin_balance_audit (admin_user, target_user,"
-                " monto_anterior, monto_nuevo, razon, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-                ("Admin", username, monto_anterior, monto_nuevo, razon, fecha_str),
             )
 
         conn.commit()
         registrar_log_admin(
             "AJUSTE_BALANCE",
-            f"Ajuste a {username}: Cambio de {monto_cambio}. Razón: {razon}",
+            f"Balance de {username} ajustado en {monto_cambio}. Razón: {razon}",
         )
         registrar_audit_log(
             "Admin",
             "AJUSTE_BALANCE",
             username,
-            {
-                "monto_anterior": monto_anterior,
-                "monto_nuevo": monto_nuevo,
-                "razon": razon,
-            },
+            {"monto_cambio": monto_cambio, "razon": razon, "nuevo_saldo": monto_nuevo},
         )
         conn.close()
         return jsonify({
             "success": True,
-            "saldo_disponible": monto_nuevo,
-            "mensaje": f"Balance ajustado correctamente. Nuevo saldo: {monto_nuevo}",
+            "nuevo_saldo": monto_nuevo,
+            "mensaje": f"Balance de {username} ajustado correctamente.",
         })
     except Exception as e:
         if conn:
@@ -2485,209 +2484,5 @@ def admin_ajustar_balance():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/admin/usuario/<username>/detalle", methods=["GET"])
-def admin_obtener_usuario_detalle(username):
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT username, saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = %s",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT username, saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = ?",
-                (username,),
-            )
-        user_row = c.fetchone()
-        user_row_dict = dict(user_row) if user_row else {}
-        if not user_row:
-            conn.close()
-            return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
-
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = %s ORDER BY id DESC",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = ? ORDER BY id DESC",
-                (username,),
-            )
-        transacciones = [dict(r) for r in c.fetchall()]
-
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE username = %s ORDER BY id"
-                " DESC",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE username = ? ORDER BY id"
-                " DESC",
-                (username,),
-            )
-        historial_apuestas = [dict(r) for r in c.fetchall()]
-        conn.close()
-
-        return jsonify({
-            "success": True,
-            "usuario": {
-                "username": user_row_dict.get("username"),
-                "saldo_disponible": user_row_dict.get("saldo_disponible", 0.0),
-                "is_frozen": bool(user_row_dict.get("is_frozen", 0)),
-            },
-            "transacciones": transacciones,
-            "historial_apuestas": historial_apuestas,
-        })
-    except Exception as e:
-        if conn:
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/admin/anuncios", methods=["GET", "POST"])
-def admin_anuncios():
-    conn = obtener_conexion()
-    c = conn.cursor()
-    if request.method == "POST":
-        if not session.get("is_admin"):
-            conn.close()
-            return jsonify({"success": False, "error": "No autorizado"}), 401
-        data = request.json or {}
-        titulo = data.get("titulo")
-        contenido = data.get("contenido")
-        tipo = data.get("tipo", "info")
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        if not titulo or not contenido:
-            conn.close()
-            return jsonify({
-                "success": False,
-                "error": "Título y contenido son obligatorios",
-            }), 400
-        try:
-            if DATABASE_URL:
-                c.execute(
-                    "INSERT INTO anuncios_globales (titulo, contenido, tipo, activo,"
-                    " fecha) VALUES (%s, %s, %s, TRUE, %s)",
-                    (titulo, contenido, tipo, fecha),
-                )
-            else:
-                c.execute(
-                    "INSERT INTO anuncios_globales (titulo, contenido, tipo, activo,"
-                    " fecha) VALUES (?, ?, ?, 1, ?)",
-                    (titulo, contenido, tipo, fecha),
-                )
-            conn.commit()
-            registrar_log_admin("CREAR_ANUNCIO", f"Publicado anuncio global: {titulo}")
-            conn.close()
-            return jsonify({"success": True, "mensaje": "Anuncio publicado con éxito"})
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            conn.close()
-            return jsonify({"success": False, "error": str(e)}), 500
-
-    try:
-        c.execute("SELECT * FROM anuncios_globales ORDER BY id DESC LIMIT 10")
-        anuncios = [dict(r) for r in c.fetchall()]
-        conn.close()
-        return jsonify({"success": True, "anuncios": anuncios})
-    except Exception as e:
-        if conn:
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/admin/metricas-temporales", methods=["GET"])
-def admin_metricas_temporales():
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT COUNT(*) as total FROM usuarios")
-        res_usuarios = c.fetchone()
-        res_usuarios_dict = dict(res_usuarios) if res_usuarios else {}
-        total_usuarios = res_usuarios_dict.get("total", 0)
-
-        c.execute("SELECT SUM(saldo_disponible) as circulante_total FROM usuarios")
-        res_circulante = c.fetchone()
-        res_circulante_dict = dict(res_circulante) if res_circulante else {}
-        circulante_total = res_circulante_dict.get("circulante_total") or 0.0
-
-        c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
-        res_vol = c.fetchone()
-        res_vol_dict = dict(res_vol) if res_vol else {}
-        volumen_clob = res_vol_dict.get("volumen_clob") or 0.0
-
-        conn.close()
-        return jsonify({
-            "success": True,
-            "metricas": {
-                "total_usuarios": total_usuarios,
-                "circulante_total": circulante_total,
-                "volumen_clob": volumen_clob,
-            },
-        })
-    except Exception as e:
-        if conn:
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/posiciones-activas/<username>", methods=["GET"])
-def obtener_posiciones_activas(username):
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE username = %s AND estado ="
-                " 'Activo' ORDER BY id DESC",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE username = ? AND estado ="
-                " 'Activo' ORDER BY id DESC",
-                (username,),
-            )
-        posiciones = [dict(row) for row in c.fetchall()]
-        conn.close()
-        return jsonify({"success": True, "posiciones_activas": posiciones})
-    except Exception as e:
-        if conn:
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/support/tickets/<int:ticket_id>", methods=["DELETE"])
-def delete_support_ticket(ticket_id):
-    try:
-        conn = obtener_conexion()
-        cursor = conn.cursor()
-        if DATABASE_URL:
-            cursor.execute("DELETE FROM support_tickets WHERE id = %s", (ticket_id,))
-        else:
-            cursor.execute("DELETE FROM support_tickets WHERE id = ?", (ticket_id,))
-        conn.commit()
-        rowcount = getattr(cursor, "rowcount", 1)
-        cursor.close()
-        conn.close()
-        if rowcount == 0:
-            return jsonify({"error": "Ticket no encontrado"}), 404
-        return jsonify({"message": "Notificación de cierre eliminada correctamente"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
