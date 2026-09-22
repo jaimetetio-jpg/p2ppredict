@@ -983,16 +983,23 @@ def crear_orden_clob():
         elif accion == "vender":
             if DATABASE_URL:
                 c.execute(
-                    "SELECT SUM(monto) FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
+                    "SELECT SUM(monto) as total FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
                     (username,),
                 )
             else:
                 c.execute(
-                    "SELECT SUM(monto) FROM historial_apuestas WHERE username = ? AND estado = 'Activo'",
+                    "SELECT SUM(monto) as total FROM historial_apuestas WHERE username = ? AND estado = 'Activo'",
                     (username,),
                 )
             pos_res = c.fetchone()
-            saldo_contratos = pos_res[0] if pos_res and pos_res[0] else 0.0
+            # Extracción segura compatible con sqlite3.Row y RealDictCursor
+            saldo_contratos = 0.0
+            if pos_res:
+                if isinstance(pos_res, dict):
+                    saldo_contratos = pos_res.get("total") or 0.0
+                else:
+                    saldo_contratos = pos_res["total"] if "total" in pos_res.keys() and pos_res["total"] is not None else 0.0
+            
             if saldo_contratos < cantidad:
                 conn.rollback()
                 return jsonify({
