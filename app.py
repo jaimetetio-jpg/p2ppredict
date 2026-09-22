@@ -377,9 +377,15 @@ def inicializar_bd():
         )
 
     conn.commit()
-    c.execute("SELECT COUNT(*) as total FROM eventos")
+    
+    # Parche aplicado para la lectura segura de filas en SQLite o bases de datos relacionales
     row = c.fetchone()
-    total_evs = row["total"] if row else 0
+    if row:
+        row_dict = dict(row)
+        total_evs = row_dict.get("total", 0)
+    else:
+        total_evs = 0
+
     if total_evs == 0:
         eventos_iniciales = [
             {
@@ -600,8 +606,9 @@ def obtener_saldo(username):
         saldo = saldo_inicial
         is_frozen = False
     else:
-        saldo = row["saldo_disponible"]
-        is_frozen = bool(row["is_frozen"])
+        row_dict = dict(row)
+        saldo = row_dict.get("saldo_disponible", 0.0)
+        is_frozen = bool(row_dict.get("is_frozen", 0))
 
     if DATABASE_URL:
         c.execute(
@@ -719,14 +726,15 @@ def participar():
                 (username,),
             )
         row = c.fetchone()
-        if row and row.get("is_frozen"):
+        row_dict = dict(row) if row else {}
+        if row_dict and row_dict.get("is_frozen"):
             conn.rollback()
             return jsonify({
                 "success": False,
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
-        saldo_actual = row["saldo_disponible"] if row else 0
+        saldo_actual = row_dict.get("saldo_disponible", 0) if row else 0
         if not row or saldo_actual < monto:
             conn.rollback()
             return jsonify({"success": False, "error": "Saldo insuficiente"}), 400
@@ -736,7 +744,8 @@ def participar():
         else:
             c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
         evento = c.fetchone()
-        if not evento or evento["estado"] != "activo":
+        evento_dict = dict(evento) if evento else {}
+        if not evento or evento_dict.get("estado") != "activo":
             conn.rollback()
             return jsonify({"success": False, "error": "Mercado no disponible"}), 400
 
@@ -751,6 +760,7 @@ def participar():
                 (opcion_id, evento_id),
             )
         opcion = c.fetchone()
+        opcion_dict = dict(opcion) if opcion else {}
         if not opcion:
             conn.rollback()
             return jsonify({"success": False, "error": "Opción inválida"}), 400
@@ -768,7 +778,7 @@ def participar():
             c.execute(
                 "INSERT INTO historial_apuestas (username, titulo_evento,"
                 " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-                (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
+                (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
             )
             c.execute(
                 "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
@@ -793,7 +803,7 @@ def participar():
             c.execute(
                 "INSERT INTO historial_apuestas (username, titulo_evento,"
                 " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-                (username, evento["titulo"], opcion["nombre"], monto, "Activo"),
+                (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
             )
             c.execute(
                 "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
@@ -810,7 +820,7 @@ def participar():
         registrar_global_audit(
             username,
             "PARTICIPAR_APUESTA",
-            f"Apuesta de {monto} en '{evento['titulo']}' por '{opcion['nombre']}'",
+            f"Apuesta de {monto} en '{evento_dict.get('titulo')}' por '{opcion_dict.get('nombre')}'",
         )
         return jsonify({
             "success": True,
@@ -870,18 +880,19 @@ def actualizar_ordenes_dinamico():
                 " LIMIT 1"
             )
         orden_azar = c.fetchone()
+        orden_azar_dict = dict(orden_azar) if orden_azar else {}
         if orden_azar:
             variacion = round(random.uniform(-0.01, 0.01), 3)
-            nuevo_precio = max(0.01, round(orden_azar["precio"] + variacion, 3))
+            nuevo_precio = max(0.01, round(orden_azar_dict.get("precio", 0.0) + variacion, 3))
             if DATABASE_URL:
                 c.execute(
                     "UPDATE orders SET precio = %s WHERE id = %s",
-                    (nuevo_precio, orden_azar["id"]),
+                    (nuevo_precio, orden_azar_dict.get("id")),
                 )
             else:
                 c.execute(
                     "UPDATE orders SET precio = ? WHERE id = ?",
-                    (nuevo_precio, orden_azar["id"]),
+                    (nuevo_precio, orden_azar_dict.get("id")),
                 )
             conn.commit()
 
@@ -936,7 +947,8 @@ def crear_orden_clob():
                 (username,),
             )
         row_user = c.fetchone()
-        if row_user and row_user.get("is_frozen"):
+        row_user_dict = dict(row_user) if row_user else {}
+        if row_user_dict and row_user_dict.get("is_frozen"):
             conn.rollback()
             return jsonify({
                 "success": False,
@@ -944,7 +956,6 @@ def crear_orden_clob():
             }), 403
 
         if not row_user:
-            # Auto-crear el usuario en el backend si no existía para evitar bloqueos
             saldo_inicial = 150.00 if username.lower() in ["@jaimetetio", "jaimetetio"] else 0.0
             if DATABASE_URL:
                 c.execute(
@@ -957,7 +968,6 @@ def crear_orden_clob():
                     (username, saldo_inicial),
                 )
             conn.commit()
-            # Volver a consultar el usuario recién creado
             if DATABASE_URL:
                 c.execute(
                     "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
@@ -969,12 +979,12 @@ def crear_orden_clob():
                     (username,),
                 )
             row_user = c.fetchone()
+            row_user_dict = dict(row_user) if row_user else {}
 
-        # ================= VALIDACIONES PREVIAS =================
         if accion == "comprar":
             precio_eval = precio_ingresado if tipo_orden == "limit" or precio_ingresado > 0 else 1.0
             costo_inicial = precio_eval * cantidad
-            if row_user["saldo_disponible"] < costo_inicial:
+            if row_user_dict.get("saldo_disponible", 0.0) < costo_inicial:
                 conn.rollback()
                 return jsonify({
                     "success": False,
@@ -993,17 +1003,15 @@ def crear_orden_clob():
                 )
             pos_res = c.fetchone()
             
-            # Extracción segura compatible con cualquier tipo de cursor (Postgres o SQLite)
             saldo_contratos = 0.0
             if pos_res is not None:
                 try:
-                    # Intento directo por nombre de clave
-                    val = pos_res["total"]
+                    pos_res_dict = dict(pos_res)
+                    val = pos_res_dict.get("total")
                     if val is not None:
                         saldo_contratos = float(val)
                 except Exception:
                     try:
-                        # Respaldo por índice numérico si fuera una tupla pura
                         val = pos_res[0]
                         if val is not None:
                             saldo_contratos = float(val)
@@ -1017,7 +1025,7 @@ def crear_orden_clob():
                     "error": "No posees suficientes contratos activos para realizar esta venta.",
                 }), 400
 
-        nuevo_saldo_creador = row_user["saldo_disponible"]
+        nuevo_saldo_creador = row_user_dict.get("saldo_disponible", 0.0)
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         if DATABASE_URL:
@@ -1031,13 +1039,14 @@ def crear_orden_clob():
             c.execute("SELECT nombre FROM opciones_evento WHERE id = ?", (opcion_id,))
             op_row = c.fetchone()
 
-        titulo_ev = ev_row["titulo"] if ev_row else "Mercado P2P"
-        nombre_op = op_row["nombre"] if op_row else "Opción"
+        ev_row_dict = dict(ev_row) if ev_row else {}
+        op_row_dict = dict(op_row) if op_row else {}
+        titulo_ev = ev_row_dict.get("titulo", "Mercado P2P")
+        nombre_op = op_row_dict.get("nombre", "Opción")
 
         cantidad_restante = cantidad
         precio_objetivo = precio_ingresado
 
-        # ================= MOTOR DE EMPAREJAMIENTO FIFO CON CONVERSIÓN A LÍMITE =================
         if accion == "comprar":
             if DATABASE_URL:
                 if tipo_orden == "limit":
@@ -1065,10 +1074,11 @@ def crear_orden_clob():
             contra_ordenes = c.fetchall()
 
             for contra in contra_ordenes:
+                contra_dict = dict(contra)
                 if cantidad_restante <= 0:
                     break
-                match_cant = min(cantidad_restante, contra["cantidad"])
-                match_precio = contra["precio"]
+                match_cant = min(cantidad_restante, contra_dict.get("cantidad", 0.0))
+                match_precio = contra_dict.get("precio", 0.0)
                 precio_objetivo = match_precio
 
                 costo_match = match_precio * match_cant
@@ -1093,25 +1103,26 @@ def crear_orden_clob():
                 if DATABASE_URL:
                     c.execute(
                         "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                        (contra["username"],),
+                        (contra_dict.get("username"),),
                     )
                 else:
                     c.execute(
                         "SELECT saldo_disponible FROM usuarios WHERE username = ?",
-                        (contra["username"],),
+                        (contra_dict.get("username"),),
                     )
                 v_row = c.fetchone()
+                v_row_dict = dict(v_row) if v_row else {}
                 if v_row:
-                    nuevo_vendedor_saldo = v_row["saldo_disponible"] + costo_match
+                    nuevo_vendedor_saldo = v_row_dict.get("saldo_disponible", 0.0) + costo_match
                     if DATABASE_URL:
                         c.execute(
                             "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                            (nuevo_vendedor_saldo, contra["username"]),
+                            (nuevo_vendedor_saldo, contra_dict.get("username")),
                         )
                     else:
                         c.execute(
                             "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                            (nuevo_vendedor_saldo, contra["username"]),
+                            (nuevo_vendedor_saldo, contra_dict.get("username")),
                         )
 
                 if DATABASE_URL:
@@ -1125,17 +1136,17 @@ def crear_orden_clob():
                         (username, titulo_ev, nombre_op, match_cant),
                     )
 
-                nueva_contra_cant = contra["cantidad"] - match_cant
+                nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
                 if DATABASE_URL:
                     c.execute(
                         "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                        (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
                     )
                 else:
                     c.execute(
                         "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-                        (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
                     )
                 cantidad_restante -= match_cant
 
@@ -1166,10 +1177,11 @@ def crear_orden_clob():
             contra_ordenes = c.fetchall()
 
             for contra in contra_ordenes:
+                contra_dict = dict(contra)
                 if cantidad_restante <= 0:
                     break
-                match_cant = min(cantidad_restante, contra["cantidad"])
-                match_precio = contra["precio"]
+                match_cant = min(cantidad_restante, contra_dict.get("cantidad", 0.0))
+                match_precio = contra_dict.get("precio", 0.0)
                 precio_objetivo = match_precio
 
                 monto_transaccion = match_precio * match_cant
@@ -1181,7 +1193,7 @@ def crear_orden_clob():
                     )
                     c.execute(
                         "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-                        (contra["username"], titulo_ev, nombre_op, match_cant),
+                        (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
                     )
                 else:
                     c.execute(
@@ -1190,24 +1202,23 @@ def crear_orden_clob():
                     )
                     c.execute(
                         "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
-                        (contra["username"], titulo_ev, nombre_op, match_cant),
+                        (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
                     )
 
-                nueva_contra_cant = contra["cantidad"] - match_cant
+                nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
                 if DATABASE_URL:
                     c.execute(
                         "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                        (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
                     )
                 else:
                     c.execute(
                         "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-                        (nueva_contra_cant, nuevo_estado_contra, contra["id"]),
+                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
                     )
                 cantidad_restante -= match_cant
 
-        # ================= CONVERSIÓN AUTOMÁTICA DE REMANENTE A ORDEN LÍMITE =================
         if cantidad_restante > 0:
             precio_para_libro = precio_objetivo if precio_objetivo > 0 else 0.50
             if accion == "comprar":
@@ -1384,7 +1395,8 @@ def completar_pago():
                 (username,),
             )
         row = c.fetchone()
-        if row and row.get("is_frozen"):
+        row_dict = dict(row) if row else {}
+        if row_dict and row_dict.get("is_frozen"):
             conn.rollback()
             return jsonify({
                 "success": False,
@@ -1406,7 +1418,7 @@ def completar_pago():
                     (username, nuevo_saldo),
                 )
         else:
-            nuevo_saldo = row["saldo_disponible"] + monto
+            nuevo_saldo = row_dict.get("saldo_disponible", 0.0) + monto
             if DATABASE_URL:
                 c.execute(
                     "UPDATE usuarios SET saldo_disponible = %s WHERE username ="
@@ -1429,8 +1441,9 @@ def completar_pago():
             )
             c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
             res_tot = c.fetchone()
+            res_tot_dict = dict(res_tot) if res_tot else {}
             balance_total_plataforma = (
-                res_tot["total"] if res_tot and res_tot["total"] else 0.0
+                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
             )
             c.execute(
                 "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
@@ -1453,8 +1466,9 @@ def completar_pago():
             )
             c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
             res_tot = c.fetchone()
+            res_tot_dict = dict(res_tot) if res_tot else {}
             balance_total_plataforma = (
-                res_tot["total"] if res_tot and res_tot["total"] else 0.0
+                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
             )
             c.execute(
                 "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
@@ -1536,21 +1550,22 @@ def solicitar_retiro():
                 (username,),
             )
         row = c.fetchone()
-        if row and row.get("is_frozen"):
+        row_dict = dict(row) if row else {}
+        if row_dict and row_dict.get("is_frozen"):
             conn.rollback()
             return jsonify({
                 "success": False,
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
-        if not row or row["saldo_disponible"] < monto:
+        saldo_actual = row_dict.get("saldo_disponible", 0.0)
+        if not row or saldo_actual < monto:
             conn.rollback()
             return jsonify({
                 "success": False,
                 "error": "Saldo insuficiente para procesar el retiro",
             }), 400
 
-        saldo_actual = row["saldo_disponible"]
         nuevo_saldo = saldo_actual - monto
         if DATABASE_URL:
             c.execute(
@@ -1600,8 +1615,9 @@ def solicitar_retiro():
             )
             c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
             res_tot = c.fetchone()
+            res_tot_dict = dict(res_tot) if res_tot else {}
             balance_total_plataforma = (
-                res_tot["total"] if res_tot and res_tot["total"] else 0.0
+                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
             )
             c.execute(
                 "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
@@ -1624,8 +1640,9 @@ def solicitar_retiro():
             )
             c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
             res_tot = c.fetchone()
+            res_tot_dict = dict(res_tot) if res_tot else {}
             balance_total_plataforma = (
-                res_tot["total"] if res_tot and res_tot["total"] else 0.0
+                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
             )
             c.execute(
                 "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
@@ -1673,8 +1690,9 @@ def obtener_balance_plataforma():
         else:
             c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
         row = c.fetchone()
+        row_dict = dict(row) if row else {}
         total_circulante = (
-            row["total_circulante"] if row and row["total_circulante"] else 0.0
+            row_dict.get("total_circulante") if row_dict and row_dict.get("total_circulante") else 0.0
         )
         if DATABASE_URL:
             c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
@@ -1759,7 +1777,8 @@ def cobrar_prediccion(apuesta_id):
         else:
             c.execute("SELECT is_frozen FROM usuarios WHERE username = ?", (username,))
         u_check = c.fetchone()
-        if u_check and u_check.get("is_frozen"):
+        u_check_dict = dict(u_check) if u_check else {}
+        if u_check_dict and u_check_dict.get("is_frozen"):
             conn.rollback()
             return jsonify({
                 "success": False,
@@ -1777,18 +1796,19 @@ def cobrar_prediccion(apuesta_id):
                 (apuesta_id, username),
             )
         apuesta = c.fetchone()
+        apuesta_dict = dict(apuesta) if apuesta else {}
         if not apuesta:
             conn.rollback()
             return jsonify({"success": False, "error": "Apuesta no encontrada"}), 404
 
-        if apuesta["estado"] != "Ganada":
+        if apuesta_dict.get("estado") != "Ganada":
             conn.rollback()
             return jsonify({
                 "success": False,
                 "error": "Esta apuesta no está marcada como ganadora o ya fue cobrada",
             }), 400
 
-        premio = apuesta["monto"] * 2.0
+        premio = apuesta_dict.get("monto", 0.0) * 2.0
         if DATABASE_URL:
             c.execute(
                 "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
@@ -1800,11 +1820,12 @@ def cobrar_prediccion(apuesta_id):
                 (username,),
             )
         u_row = c.fetchone()
+        u_row_dict = dict(u_row) if u_row else {}
         if not u_row:
             conn.rollback()
             return jsonify({"success": False, "error": "Usuario no existe"}), 400
 
-        nuevo_saldo = u_row["saldo_disponible"] + premio
+        nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
         if DATABASE_URL:
             c.execute(
                 "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -1889,7 +1910,9 @@ def admin_crear_evento():
                 " (%s, %s, 'activo', %s) RETURNING id",
                 (titulo, categoria, fecha_cierre),
             )
-            ev_id = c.fetchone()["id"]
+            ev_row = c.fetchone()
+            ev_row_dict = dict(ev_row) if ev_row else {}
+            ev_id = ev_row_dict.get("id")
             for opt in opciones:
                 c.execute(
                     "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (%s,"
@@ -1945,7 +1968,8 @@ def admin_cerrar_evento():
         else:
             c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
         evento = c.fetchone()
-        if not evento or evento["estado"] == "cerrado":
+        evento_dict = dict(evento) if evento else {}
+        if not evento or evento_dict.get("estado") == "cerrado":
             conn.rollback()
             return jsonify({
                 "success": False,
@@ -1957,12 +1981,13 @@ def admin_cerrar_evento():
         else:
             c.execute("SELECT * FROM opciones_evento WHERE id = ?", (ganador_id,))
         opcion_ganadora = c.fetchone()
+        opcion_ganadora_dict = dict(opcion_ganadora) if opcion_ganadora else {}
         if not opcion_ganadora:
             conn.rollback()
             return jsonify({"success": False, "error": "Opción ganadora inválida"}), 400
 
-        nombre_ganador = opcion_ganadora["nombre"]
-        titulo_evento = evento["titulo"]
+        nombre_ganador = opcion_ganadora_dict.get("nombre")
+        titulo_evento = evento_dict.get("titulo")
 
         if DATABASE_URL:
             c.execute(
@@ -1975,7 +2000,6 @@ def admin_cerrar_evento():
                 (ganador_id, evento_id),
             )
 
-        # Procesamiento robusto de órdenes residuales al cerrar
         if DATABASE_URL:
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'",
@@ -1989,11 +2013,12 @@ def admin_cerrar_evento():
         ordenes_activas_residuales = c.fetchall()
 
         for orden in ordenes_activas_residuales:
-            usr = orden["username"]
-            cant_residual = orden["cantidad"]
-            accion_orden = orden["accion"]
-            precio_orden = orden["precio"]
-            op_id = orden["opcion_id"]
+            orden_dict = dict(orden)
+            usr = orden_dict.get("username")
+            cant_residual = orden_dict.get("cantidad", 0.0)
+            accion_orden = orden_dict.get("accion")
+            precio_orden = orden_dict.get("precio", 0.0)
+            op_id = orden_dict.get("opcion_id")
 
             if DATABASE_URL:
                 c.execute(
@@ -2004,7 +2029,8 @@ def admin_cerrar_evento():
                     "SELECT nombre FROM opciones_evento WHERE id = ?", (op_id,)
                 )
             op_data = c.fetchone()
-            nombre_op_residual = op_data["nombre"] if op_data else "Opción"
+            op_data_dict = dict(op_data) if op_data else {}
+            nombre_op_residual = op_data_dict.get("nombre", "Opción")
 
             if accion_orden == "comprar":
                 monto_a_devolver = precio_orden * cant_residual
@@ -2019,8 +2045,9 @@ def admin_cerrar_evento():
                         (usr,),
                     )
                 u_s = c.fetchone()
+                u_s_dict = dict(u_s) if u_s else {}
                 if u_s:
-                    nuevo_s_compra = u_s["saldo_disponible"] + monto_a_devolver
+                    nuevo_s_compra = u_s_dict.get("saldo_disponible", 0.0) + monto_a_devolver
                     if DATABASE_URL:
                         c.execute(
                             "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -2032,7 +2059,7 @@ def admin_cerrar_evento():
                                 usr,
                                 "Devolución Orden No Ejecutada",
                                 monto_a_devolver,
-                                f"DEV_{orden['id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                                f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                                 datetime.now().strftime("%Y-%m-%d %H:%M"),
                             ),
                         )
@@ -2047,7 +2074,7 @@ def admin_cerrar_evento():
                                 usr,
                                 "Devolución Orden No Ejecutada",
                                 monto_a_devolver,
-                                f"DEV_{orden['id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                                f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                                 datetime.now().strftime("%Y-%m-%d %H:%M"),
                             ),
                         )
@@ -2076,12 +2103,12 @@ def admin_cerrar_evento():
             if DATABASE_URL:
                 c.execute(
                     "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = %s",
-                    (orden["id"],),
+                    (orden_dict.get("id"),),
                 )
             else:
                 c.execute(
                     "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = ?",
-                    (orden["id"],),
+                    (orden_dict.get("id"),),
                 )
 
         if DATABASE_URL:
@@ -2099,8 +2126,9 @@ def admin_cerrar_evento():
         apuestas_ganadoras = c.fetchall()
 
         for ap in apuestas_ganadoras:
-            usr = ap["username"]
-            premio = ap["monto"] * 2.0
+            ap_dict = dict(ap)
+            usr = ap_dict.get("username")
+            premio = ap_dict.get("monto", 0.0) * 2.0
             if DATABASE_URL:
                 c.execute(
                     "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR"
@@ -2112,8 +2140,9 @@ def admin_cerrar_evento():
                     "SELECT saldo_disponible FROM usuarios WHERE username = ?", (usr,)
                 )
             u_row = c.fetchone()
+            u_row_dict = dict(u_row) if u_row else {}
             if u_row:
-                nuevo_saldo = u_row["saldo_disponible"] + premio
+                nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
                 if DATABASE_URL:
                     c.execute(
                         "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -2127,7 +2156,7 @@ def admin_cerrar_evento():
                             "Premio Automático",
                             premio,
                             (
-                                f"AUTO_WIN_{ap['id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
                             ),
                             datetime.now().strftime("%Y-%m-%d %H:%M"),
                         ),
@@ -2145,7 +2174,7 @@ def admin_cerrar_evento():
                             "Premio Automático",
                             premio,
                             (
-                                f"AUTO_WIN_{ap['id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                                f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
                             ),
                             datetime.now().strftime("%Y-%m-%d %H:%M"),
                         ),
@@ -2214,11 +2243,12 @@ def admin_toggle_freeze():
         else:
             c.execute("SELECT is_frozen FROM usuarios WHERE username = ?", (username,))
         row = c.fetchone()
+        row_dict = dict(row) if row else {}
         if not row:
             conn.close()
             return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
 
-        nuevo_estado = not bool(row["is_frozen"])
+        nuevo_estado = not bool(row_dict.get("is_frozen", 0))
         if DATABASE_URL:
             c.execute(
                 "UPDATE usuarios SET is_frozen = %s WHERE username = %s",
@@ -2280,11 +2310,12 @@ def admin_ajustar_balance():
                 (username,),
             )
         row = c.fetchone()
+        row_dict = dict(row) if row else {}
         if not row:
             conn.close()
             return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
 
-        monto_anterior = row["saldo_disponible"]
+        monto_anterior = row_dict.get("saldo_disponible", 0.0)
         monto_nuevo = monto_anterior + monto_cambio
         if monto_nuevo < 0:
             conn.close()
@@ -2419,6 +2450,7 @@ def admin_obtener_usuario_detalle(username):
                 (username,),
             )
         user_row = c.fetchone()
+        user_row_dict = dict(user_row) if user_row else {}
         if not user_row:
             conn.close()
             return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
@@ -2453,9 +2485,9 @@ def admin_obtener_usuario_detalle(username):
         return jsonify({
             "success": True,
             "usuario": {
-                "username": user_row["username"],
-                "saldo_disponible": user_row["saldo_disponible"],
-                "is_frozen": bool(user_row["is_frozen"]),
+                "username": user_row_dict.get("username"),
+                "saldo_disponible": user_row_dict.get("saldo_disponible", 0.0),
+                "is_frozen": bool(user_row_dict.get("is_frozen", 0)),
             },
             "transacciones": transacciones,
             "historial_apuestas": historial_apuestas,
@@ -2527,13 +2559,20 @@ def admin_metricas_temporales():
     c = conn.cursor()
     try:
         c.execute("SELECT COUNT(*) as total FROM usuarios")
-        total_usuarios = c.fetchone()["total"]
+        res_usuarios = c.fetchone()
+        res_usuarios_dict = dict(res_usuarios) if res_usuarios else {}
+        total_usuarios = res_usuarios_dict.get("total", 0)
+
         c.execute("SELECT SUM(saldo_disponible) as circulante_total FROM usuarios")
         res_circulante = c.fetchone()
-        circulante_total = res_circulante["circulante_total"] or 0.0
+        res_circulante_dict = dict(res_circulante) if res_circulante else {}
+        circulante_total = res_circulante_dict.get("circulante_total") or 0.0
+
         c.execute("SELECT SUM(precio * cantidad) as volumen_clob FROM orders")
         res_vol = c.fetchone()
-        volumen_clob = res_vol["volumen_clob"] or 0.0
+        res_vol_dict = dict(res_vol) if res_vol else {}
+        volumen_clob = res_vol_dict.get("volumen_clob") or 0.0
+
         conn.close()
         return jsonify({
             "success": True,
