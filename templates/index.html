@@ -1532,13 +1532,48 @@ async function ejecutarVentaPosicion() {
             return;
         }
 
+        // 1. Actualizar balance devuelto por el servidor
         usuarioActual.balance = resultado.nuevo_saldo;
+
+        // 2. Registrar la orden en el Order Book global visual (Ask / Venta)
+        const nuevaOrdenAsk = {
+            marketId: pos.marketId,
+            tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)',
+            opcion: pos.opcion,
+            contratos: contratosVender,
+            precio: precioVenta,
+            trader: usuarioActual.handle
+        };
+        ordenesGlobales.push(nuevaOrdenAsk);
+        await guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenAsk);
+
+        // 3. Actualizar la posición activa local (restando o eliminando contratos vendidos)
+        if (contratosVender >= pos.contratos) {
+            eliminarDeSupabaseTabla('posiciones_activas', pos.id);
+            posicionesActivas = posicionesActivas.filter(p => p.id !== pos.id);
+        } else {
+            pos.contratos -= contratosVender;
+            pos.invertido = pos.invertido * (pos.contratos / (pos.contratos + contratosVender));
+            guardarEnSupabaseTabla('posiciones_activas', {
+                id: pos.id,
+                market_id: String(pos.marketId),
+                handle: usuarioActual.handle,
+                titulo: pos.titulo,
+                opcion: pos.opcion,
+                contratos: pos.contratos,
+                invertido: pos.invertido,
+                payout: pos.payout,
+                estado_orden: pos.estadoOrden
+            });
+        }
+
         guardarTodoInStorage();
         actualizarUIBalance();
         cerrarModalVenta();
-        alert("✅ " + (resultado.message || resultado.mensaje || "Operación realizada con éxito"));
+        renderizarPosiciones();
+        renderizarOrderBookVisible();
         
-        location.reload();
+        alert("✅ " + (resultado.message || resultado.mensaje || "Orden de venta publicada en el Order Book con éxito."));
 
     } catch (error) {
         console.error("Error de red en venta:", error);
@@ -2054,4 +2089,3 @@ function cancelarYReembolsarMercadoAdmin() {
 </script> 
 </body> 
 </html>
-
