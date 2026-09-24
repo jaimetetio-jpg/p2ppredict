@@ -1027,16 +1027,16 @@ def crear_orden_clob():
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
-            # ================= PARCHE: VALIDACIÓN DE CONTRATOS SUFICIENTES =================
+            # ================= PARCHE CORREGIDO: VALIDAR EN POSICIONES ACTIVAS =================
             if DATABASE_URL:
                 c.execute(
-                    "SELECT SUM(monto) as total FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
-                    (username,),
+                    "SELECT SUM(contratos) as total FROM posiciones_activas WHERE handle = %s AND market_id = %s",
+                    (username, str(evento_id)),
                 )
             else:
                 c.execute(
-                    "SELECT SUM(monto) as total FROM historial_apuestas WHERE username = ? AND estado = 'Activo'",
-                    (username,),
+                    "SELECT SUM(contratos) as total FROM posiciones_activas WHERE handle = ? AND market_id = ?",
+                    (username, str(evento_id)),
                 )
             pos_res = c.fetchone()
             
