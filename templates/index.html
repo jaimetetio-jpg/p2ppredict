@@ -1204,7 +1204,7 @@ function renderizarMercadosDinamicos() {
                 <span>🏷️ Crypto</span> <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span> 
             </div> 
             <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div> 
-            <div class="countdown-timer" id="countdown-1" data-target="2026-06-30T23:59:59"> 
+            <div class="countdown-timer" id="countdown-1" data-target="2026-12-31T23:59:59"> 
                 <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
             </div> 
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p> 
@@ -1218,7 +1218,7 @@ function renderizarMercadosDinamicos() {
                 <span>🏷️ Pi Ecosystem</span> <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span> 
             </div> 
             <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div> 
-            <div class="countdown-timer" id="countdown-2" data-target="2026-06-30T23:59:59"> 
+            <div class="countdown-timer" id="countdown-2" data-target="2026-12-31T23:59:59"> 
                 <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
             </div> 
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p> 
@@ -1399,79 +1399,6 @@ function calcularModalTotal() {
     ordenActivaModal.totalConComision = totalConComision; 
 } 
 
-function procesarRespuestaBackendOrden(respuestaBackend, idMercado, tituloMercado, opcion, contratos, totalReq) { 
-    const successBanner = document.getElementById('modal-success-banner'); 
-    const btnConfirmar = document.getElementById('btn-confirmar-compra'); 
-
-    if (respuestaBackend.estado === 'EJECUCION_TOTAL') { 
-        if (successBanner) { 
-            successBanner.innerText = "¡Vendido al instante! (Match inmediato)"; 
-            successBanner.style.color = "#16a34a"; 
-        } 
-        
-        usuarioActual.balance += respuestaBackend.montoAcreditado; 
-        registrarTransaccionEnDB({ 
-            id: 'TX-MATCH-' + Date.now(), 
-            titulo: `Venta Exitosa (${opcion})`, 
-            tipo: 'Match Inmediato', 
-            monto: respuestaBackend.montoAcreditado, 
-            detalle: `Usuario ${usuarioActual.handle} vendió ${contratos} contratos al instante por match en "${tituloMercado}"` 
-        }); 
-        
-        alert("¡Venta exitosa! Se hizo match inmediato con una orden de compra y se acreditó el saldo de inmediato."); 
-
-    } else if (respuestaBackend.estado === 'EJECUCION_PARCIAL') { 
-        if (successBanner) { 
-            successBanner.innerText = "Ejecución Parcial. Resto en el libro"; 
-            successBanner.style.color = "#eab308"; 
-        } 
-
-        usuarioActual.balance += respuestaBackend.montoParcialAcreditado; 
-        
-        const nuevaPosicionRestante = { 
-            id: 'POS-REST-' + Date.now(), 
-            marketId: idMercado, 
-            titulo: tituloMercado, 
-            opcion: opcion, 
-            contratos: respuestaBackend.contratosRestantesEnLibro, 
-            invertido: 0, 
-            payout: respuestaBackend.contratosRestantesEnLibro * 1.00, 
-            estadoOrden: 'ESPERANDO_COMPRADOR' 
-        }; 
-        posicionesActivas.push(nuevaPosicionRestante); 
-        guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicionRestante.id, market_id: String(nuevaPosicionRestante.marketId), handle: usuarioActual.handle, titulo: nuevaPosicionRestante.titulo, opcion: nuevaPosicionRestante.opcion, contratos: nuevaPosicionRestante.contratos, invertido: nuevaPosicionRestante.invertido, payout: nuevaPosicionRestante.payout, estado_orden: nuevaPosicionRestante.estadoOrden }); 
-
-        alert(`Ejecución parcial: Se vendieron ${respuestaBackend.contratosVendidos} contratos al instante. Los ${respuestaBackend.contratosRestantesEnLibro} contratos restantes fueron publicados en el libro. Esperando comprador.`); 
-
-    } else { 
-        if (successBanner) { 
-            successBanner.innerText = "Orden en Espera"; 
-            successBanner.style.color = "#2563eb"; 
-        } 
-
-        const nuevaPosicionEnEspera = { 
-            id: 'POS-WAIT-' + Date.now(), 
-            marketId: idMercado, 
-            titulo: tituloMercado, 
-            opcion: opcion, 
-            contratos: contratos, 
-            invertido: 0, 
-            payout: contratos * 1.00, 
-            estadoOrden: 'ESPERANDO_COMPRADOR' 
-        }; 
-        posicionesActivas.push(nuevaPosicionEnEspera); 
-        guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicionEnEspera.id, market_id: String(nuevaPosicionEnEspera.marketId), handle: usuarioActual.handle, titulo: nuevaPosicionEnEspera.titulo, opcion: nuevaPosicionEnEspera.opcion, contratos: nuevaPosicionEnEspera.contratos, invertido: nuevaPosicionEnEspera.invertido, payout: nuevaPosicionEnEspera.payout, estado_orden: nuevaPosicionEnEspera.estadoOrden }); 
-
-        alert("Orden publicada en el libro. Esperando comprador."); 
-    } 
-
-    guardarTodoInStorage(); 
-    actualizarUIBalance(); 
-    renderizarPosiciones(); 
-    renderizarOrderBookVisible(); 
-    cerrarTerminalTrading(); 
-} 
-
 async function confirmarCompraRapida() {
     if (isSubmitting) return;
     isSubmitting = true;
@@ -1510,7 +1437,7 @@ async function confirmarCompraRapida() {
         guardarTodoInStorage();
         actualizarUIBalance();
         cerrarTerminalTrading();
-        alert("✅ " + resultado.mensaje);
+        alert("✅ " + (resultado.message || resultado.mensaje || "Operación realizada con éxito"));
         
         location.reload(); 
 
@@ -1609,7 +1536,7 @@ async function ejecutarVentaPosicion() {
         guardarTodoInStorage();
         actualizarUIBalance();
         cerrarModalVenta();
-        alert("✅ " + resultado.mensaje);
+        alert("✅ " + (resultado.message || resultado.mensaje || "Operación realizada con éxito"));
         
         location.reload();
 
@@ -2127,3 +2054,4 @@ function cancelarYReembolsarMercadoAdmin() {
 </script> 
 </body> 
 </html>
+
