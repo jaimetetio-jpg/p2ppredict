@@ -1027,6 +1027,7 @@ def crear_orden_clob():
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
+            # ================= PARCHE: VALIDACIÓN DE CONTRATOS SUFICIENTES =================
             if DATABASE_URL:
                 c.execute(
                     "SELECT SUM(monto) as total FROM historial_apuestas WHERE username = %s AND estado = 'Activo'",
@@ -1060,6 +1061,7 @@ def crear_orden_clob():
                     "success": False,
                     "error": "No posees suficientes contratos activos para realizar esta venta.",
                 }), 400
+            # =============================================================================
 
         nuevo_saldo_creador = row_user_dict.get("saldo_disponible", 0.0)
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -2404,7 +2406,7 @@ def admin_ajustar_balance():
             return jsonify({
                 "success": True,
                 "requires_approval": True,
-                "mensaje": "El ajuste supera el límite de $100 y ha quedado pendiente de doble autorización.",
+                "mensaje": "Ajuste grande detectado. Acción enviada a aprobación de segundo administrador.",
             })
 
         if DATABASE_URL:
@@ -2414,24 +2416,11 @@ def admin_ajustar_balance():
             )
             c.execute(
                 "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-                (
-                    "Admin",
-                    username,
-                    monto_anterior,
-                    monto_nuevo,
-                    razon,
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
+                ("Admin", username, monto_anterior, monto_nuevo, razon, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             )
             c.execute(
                 "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    username,
-                    "Ajuste Admin",
-                    monto_cambio,
-                    f"ADJ_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
+                (username, "Ajuste Admin", monto_cambio, f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}", datetime.now().strftime("%Y-%m-%d %H:%M")),
             )
         else:
             c.execute(
@@ -2440,42 +2429,21 @@ def admin_ajustar_balance():
             )
             c.execute(
                 "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    "Admin",
-                    username,
-                    monto_anterior,
-                    monto_nuevo,
-                    razon,
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
+                ("Admin", username, monto_anterior, monto_nuevo, razon, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             )
             c.execute(
                 "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
-                (
-                    username,
-                    "Ajuste Admin",
-                    monto_cambio,
-                    f"ADJ_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
+                (username, "Ajuste Admin", monto_cambio, f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}", datetime.now().strftime("%Y-%m-%d %H:%M")),
             )
 
         conn.commit()
-        registrar_log_admin(
-            "AJUSTE_BALANCE",
-            f"Balance de {username} ajustado en {monto_cambio}. Razón: {razon}",
-        )
-        registrar_audit_log(
-            "Admin",
-            "AJUSTE_BALANCE",
-            username,
-            {"monto_cambio": monto_cambio, "razon": razon, "nuevo_saldo": monto_nuevo},
-        )
+        registrar_log_admin("AJUSTE_BALANCE", f"Ajuste a {username}: {monto_cambio}. Razón: {razon}")
+        registrar_audit_log("Admin", "AJUSTE_BALANCE", username, {"monto_anterior": monto_anterior, "monto_nuevo": monto_nuevo, "razon": razon})
         conn.close()
         return jsonify({
             "success": True,
             "nuevo_saldo": monto_nuevo,
-            "mensaje": f"Balance de {username} ajustado correctamente.",
+            "mensaje": f"Balance de {username} ajustado con éxito.",
         })
     except Exception as e:
         if conn:
@@ -2485,4 +2453,5 @@ def admin_ajustar_balance():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
