@@ -114,7 +114,6 @@ def actualizar_esquema_db():
             ALTER TABLE usuarios 
             ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;
         """)
-        # Asegurar también que orders admita evento_id como texto si fuera necesario
         cur.execute("""
             ALTER TABLE orders 
             ALTER COLUMN evento_id TYPE TEXT USING evento_id::TEXT;
@@ -886,7 +885,6 @@ def obtener_ordenes_clob():
     c = conn.cursor()
     if evento_id:
         if DATABASE_URL:
-            # Uso seguro de casteo a text en Postgres para evitar error de tipos
             c.execute(
                 "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'"
                 " ORDER BY precio DESC",
@@ -1350,6 +1348,74 @@ def crear_orden_clob():
     finally:
         if conn:
             conn.close()
+
+
+@app.route("/api/crear-orden", methods=["POST"])
+def crear_orden():
+    data = request.get_json(silent=True) or request.form
+
+    username = data.get("username")
+    evento_id = data.get("evento_id")
+    opcion_id = data.get("opcion_id")
+    tipo_orden = data.get("tipo_orden")
+    accion = data.get("accion")
+    precio = data.get("precio")
+    
+    cantidad_contratos = data.get("contracts") or data.get("cantidad")
+
+    if not username or not evento_id or not cantidad_contratos:
+        return jsonify({
+            "success": False, 
+            "error": "Faltan datos obligatorios, asegúrate de indicar la cantidad de contratos y el evento."
+        }), 400
+
+    try:
+        cantidad = float(cantidad_contratos)
+        precio_num = float(precio) if precio else 0.0
+        
+        if cantidad <= 0:
+            return jsonify({
+                "success": False, 
+                "error": "La cantidad de contratos debe ser mayor a cero."
+            }), 400
+            
+    except (ValueError, TypeError):
+        return jsonify({
+            "success": False, 
+            "error": "El formato de la cantidad o el precio no es válido."
+        }), 400
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        if DATABASE_URL:
+            c.execute(
+                """
+                INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'activa', %s)
+                """,
+                (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
+            )
+        else:
+            c.execute(
+                """
+                INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'activa', ?)
+                """,
+                (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
+            )
+        
+        conn.commit()
+        return jsonify({"success": True, "message": "Orden creada exitosamente."}), 200
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": f"Error interno en la base de datos: {str(e)}"}), 500
+    finally:
+        c.close()
+        conn.close()
 
 
 @app.route("/api/pi/aprobar-pago", methods=["POST"])
