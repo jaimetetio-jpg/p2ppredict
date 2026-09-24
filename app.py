@@ -1336,11 +1336,29 @@ def crear_orden_clob():
             f"Acción: {accion} | Total: {cantidad} | Remanente en libro: {cantidad_restante}",
         )
 
+        # Aplicación del parche solicitado
+        cantidad_inicial = float(cantidad)
+        cantidad_ejecutada = cantidad_inicial - cantidad_restante
+
+        if cantidad_ejecutada == 0:
+            mensaje_respuesta = "Orden límite publicada en el Order Book. Esperando contraparte."
+            estado_orden = "abierta"
+        elif cantidad_restante == 0:
+            mensaje_respuesta = "¡Orden ejecutada con éxito en el mercado!"
+            estado_orden = "completada"
+        else:
+            mensaje_respuesta = "Orden ejecutada parcialmente. El remanente se colocó en el Order Book."
+            estado_orden = "parcial"
+
         return jsonify({
             "success": True,
-            "nuevo_saldo": nuevo_saldo_creador,
-            "mensaje": f"Orden procesada. Ejecutado al instante, remanente colocado en el libro de órdenes.",
-        })
+            "message": mensaje_respuesta,
+            "status": estado_orden,
+            "executed": cantidad_ejecutada,
+            "remaining": cantidad_restante,
+            "nuevo_saldo": nuevo_saldo_creador
+        }), 200
+
     except Exception as e:
         if conn:
             conn.rollback()
