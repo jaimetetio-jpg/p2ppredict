@@ -1336,7 +1336,6 @@ def crear_orden_clob():
             f"Acción: {accion} | Total: {cantidad} | Remanente en libro: {cantidad_restante}",
         )
 
-        # Aplicación del parche solicitado
         cantidad_inicial = float(cantidad)
         cantidad_ejecutada = cantidad_inicial - cantidad_restante
 
