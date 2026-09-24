@@ -114,6 +114,11 @@ def actualizar_esquema_db():
             ALTER TABLE usuarios 
             ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;
         """)
+        # Asegurar también que orders admita evento_id como texto si fuera necesario
+        cur.execute("""
+            ALTER TABLE orders 
+            ALTER COLUMN evento_id TYPE TEXT USING evento_id::TEXT;
+        """)
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -768,7 +773,6 @@ def participar():
             conn.rollback()
             return jsonify({"success": False, "error": "Saldo insuficiente"}), 400
 
-        # Corrección de seguridad para ID de evento alfanumérico vs numérico
         try:
             ev_id_int = int(evento_id)
         except (ValueError, TypeError):
@@ -779,10 +783,10 @@ def participar():
                 c.execute("SELECT * FROM eventos WHERE id = %s", (ev_id_int,))
             else:
                 c.execute("SELECT * FROM eventos WHERE id = ?", (ev_id_int,))
+            evento = c.fetchone()
         else:
             evento = None
 
-        evento = c.fetchone() if ev_id_int is not None else None
         evento_dict = dict(evento) if evento else {}
         if not evento or evento_dict.get("estado") != "activo":
             conn.rollback()
@@ -882,8 +886,9 @@ def obtener_ordenes_clob():
     c = conn.cursor()
     if evento_id:
         if DATABASE_URL:
+            # Uso seguro de casteo a text en Postgres para evitar error de tipos
             c.execute(
-                "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'"
+                "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'"
                 " ORDER BY precio DESC",
                 (str(evento_id),),
             )
@@ -949,9 +954,10 @@ def actualizar_ordenes_dinamico():
         conn.close()
         return jsonify({"success": True, "ordenes": ordenes, "timestamp": time.time()})
     except Exception as e:
-        if conn:
+        if DATABASE_URL and conn:
             conn.rollback()
-        conn.close()
+        if conn:
+            conn.close()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -959,7 +965,7 @@ def actualizar_ordenes_dinamico():
 def crear_orden_clob():
     data = request.json or {}
     username = data.get("username")
-    evento_id = str(data.get("evento_id", ""))  # Forzado a string seguro
+    evento_id = str(data.get("evento_id", ""))
     opcion_id = data.get("opcion_id")
     tipo_orden = data.get("tipo_orden", "limit")
     accion = data.get("accion")
@@ -1030,14 +1036,11 @@ def crear_orden_clob():
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
-            # ================= PARCHE FLEXIBLE SEGURO =================
             pass
-            # ==========================================================
 
         nuevo_saldo_creador = row_user_dict.get("saldo_disponible", 0.0)
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Búsqueda segura de título de evento sin romper si es ID dinámico ('m-...')
         titulo_ev = "Mercado P2P Dinámico"
         try:
             ev_id_int = int(evento_id)
@@ -1073,12 +1076,12 @@ def crear_orden_clob():
             if DATABASE_URL:
                 if tipo_orden == "limit":
                     c.execute(
-                        """SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s AND precio <= %s ORDER BY precio ASC, id ASC FOR UPDATE""",
+                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s AND precio <= %s ORDER BY precio ASC, id ASC FOR UPDATE""",
                         (evento_id, opcion_id, username, precio_ingresado),
                     )
                 else:
                     c.execute(
-                        """SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s ORDER BY precio ASC, id ASC FOR UPDATE""",
+                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s ORDER BY precio ASC, id ASC FOR UPDATE""",
                         (evento_id, opcion_id, username),
                     )
             else:
@@ -1176,7 +1179,7 @@ def crear_orden_clob():
             if tipo_orden == "limit":
                 if DATABASE_URL:
                     c.execute(
-                        """SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE""",
+                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE""",
                         (evento_id, opcion_id, username, precio_ingresado),
                     )
                 else:
@@ -1187,7 +1190,7 @@ def crear_orden_clob():
             else:
                 if DATABASE_URL:
                     c.execute(
-                        """SELECT * FROM orders WHERE evento_id = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s ORDER BY precio DESC, id ASC FOR UPDATE""",
+                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s ORDER BY precio DESC, id ASC FOR UPDATE""",
                         (evento_id, opcion_id, username),
                     )
                 else:
@@ -1353,6 +1356,8 @@ def crear_orden_clob():
 def aprobar_pago():
     data = request.json or {}
     payment_id = data.get("paymentId")
+    if DATABASE_URL and not PI_API_KEY:
+        pass
     if not PI_API_KEY:
         return jsonify({"success": False, "error": "PI_API_KEY no configurada"}), 500
     headers = {"Authorization": f"Key {PI_API_KEY}"}
