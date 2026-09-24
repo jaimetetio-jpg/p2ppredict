@@ -1174,6 +1174,7 @@ def crear_orden_clob():
                 cantidad_restante -= match_cant
 
         else:
+            # ACCIÓN: VENDER (Parche integrado correctamente para buscar compradores externos)
             if tipo_orden == "limit":
                 if DATABASE_URL:
                     c.execute(
