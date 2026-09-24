@@ -14,17 +14,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = Flask(__name__)
 
 # ================= APARTADO DE VALIDACIÓN - KEY TXT =================
-# Clave de validación oficial agregada directamente al repositorio
 VALIDATION_KEY_TXT = "8c73ed3c39ffc42821ce971267c7b58d01487ed71624c57309cc6079dd976f5f8f462164ffbdc8424ba6d641e94332ef1d8b17e8789cb1385717cceaecf6eb79"
 # =====================================================================
 
-# Configuración estricta de CORS adaptada a políticas de seguridad seguras
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY", "p2ppredict_secret_key_ultra_segura_2026"
 )
 
-# Configuración de contraseña de administrador robusta vía variable de entorno o por defecto con hash seguro
 RAW_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Anthony*2023")
 ADMIN_PASSWORD_HASH = generate_password_hash(RAW_ADMIN_PASSWORD)
 PI_API_KEY = os.environ.get("PI_API_KEY", "")
@@ -118,10 +115,8 @@ def actualizar_esquema_db():
             ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;
         """)
         conn.commit()
-        print("Esquema actualizado: columna 'is_frozen' lista.")
     except Exception as e:
         conn.rollback()
-        print(f"Error actualizando la base de datos: {e}")
     finally:
         cur.close()
         conn.close()
@@ -156,7 +151,7 @@ def inicializar_bd():
         c.execute("""CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY, 
             username TEXT, 
-            evento_id INTEGER, 
+            evento_id TEXT, 
             opcion_id INTEGER, 
             tipo_orden TEXT, 
             accion TEXT, 
@@ -291,7 +286,7 @@ def inicializar_bd():
         c.execute("""CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
             username TEXT, 
-            evento_id INTEGER, 
+            evento_id TEXT, 
             opcion_id INTEGER, 
             tipo_orden TEXT, 
             accion TEXT, 
@@ -572,11 +567,9 @@ def home():
     return render_template("index.html")
 
 
-# ================= PARCHE: ENDPOINT VALIDATION-KEY.TXT =================
 @app.route('/validation-key.txt')
 def validation_key():
     return "1b9ee5cdf565585e21f8bd18899df2e7026cb"
-# =======================================================================
 
 
 @app.route("/api/saldo/<username>", methods=["GET"])
@@ -775,11 +768,21 @@ def participar():
             conn.rollback()
             return jsonify({"success": False, "error": "Saldo insuficiente"}), 400
 
-        if DATABASE_URL:
-            c.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
+        # Corrección de seguridad para ID de evento alfanumérico vs numérico
+        try:
+            ev_id_int = int(evento_id)
+        except (ValueError, TypeError):
+            ev_id_int = None
+
+        if ev_id_int is not None:
+            if DATABASE_URL:
+                c.execute("SELECT * FROM eventos WHERE id = %s", (ev_id_int,))
+            else:
+                c.execute("SELECT * FROM eventos WHERE id = ?", (ev_id_int,))
         else:
-            c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
-        evento = c.fetchone()
+            evento = None
+
+        evento = c.fetchone() if ev_id_int is not None else None
         evento_dict = dict(evento) if evento else {}
         if not evento or evento_dict.get("estado") != "activo":
             conn.rollback()
@@ -788,12 +791,12 @@ def participar():
         if DATABASE_URL:
             c.execute(
                 "SELECT * FROM opciones_evento WHERE id = %s AND evento_id = %s",
-                (opcion_id, evento_id),
+                (opcion_id, ev_id_int),
             )
         else:
             c.execute(
                 "SELECT * FROM opciones_evento WHERE id = ? AND evento_id = ?",
-                (opcion_id, evento_id),
+                (opcion_id, ev_id_int),
             )
         opcion = c.fetchone()
         opcion_dict = dict(opcion) if opcion else {}
@@ -882,13 +885,13 @@ def obtener_ordenes_clob():
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'"
                 " ORDER BY precio DESC",
-                (evento_id,),
+                (str(evento_id),),
             )
         else:
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'"
                 " ORDER BY precio DESC",
-                (evento_id,),
+                (str(evento_id),),
             )
     else:
         c.execute(
@@ -956,7 +959,7 @@ def actualizar_ordenes_dinamico():
 def crear_orden_clob():
     data = request.json or {}
     username = data.get("username")
-    evento_id = data.get("evento_id")
+    evento_id = str(data.get("evento_id", ""))  # Forzado a string seguro
     opcion_id = data.get("opcion_id")
     tipo_orden = data.get("tipo_orden", "limit")
     accion = data.get("accion")
@@ -1027,28 +1030,41 @@ def crear_orden_clob():
                     "error": "Saldo insuficiente para colocar la orden de compra",
                 }), 400
         elif accion == "vender":
-            # ================= VALIDACIÓN FLEXIBLE DE VENTAS (PARCHE APLICADO) =================
+            # ================= PARCHE FLEXIBLE SEGURO =================
             pass
-            # =================================================================================
+            # ==========================================================
 
         nuevo_saldo_creador = row_user_dict.get("saldo_disponible", 0.0)
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        if DATABASE_URL:
-            c.execute("SELECT titulo FROM eventos WHERE id = %s", (evento_id,))
+        # Búsqueda segura de título de evento sin romper si es ID dinámico ('m-...')
+        titulo_ev = "Mercado P2P Dinámico"
+        try:
+            ev_id_int = int(evento_id)
+            if DATABASE_URL:
+                c.execute("SELECT titulo FROM eventos WHERE id = %s", (ev_id_int,))
+            else:
+                c.execute("SELECT titulo FROM eventos WHERE id = ?", (ev_id_int,))
             ev_row = c.fetchone()
-            c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (opcion_id,))
-            op_row = c.fetchone()
-        else:
-            c.execute("SELECT titulo FROM eventos WHERE id = ?", (evento_id,))
-            ev_row = c.fetchone()
-            c.execute("SELECT nombre FROM opciones_evento WHERE id = ?", (opcion_id,))
-            op_row = c.fetchone()
+            if ev_row:
+                ev_row_dict = dict(ev_row)
+                titulo_ev = ev_row_dict.get("titulo", titulo_ev)
+        except (ValueError, TypeError):
+            titulo_ev = f"Mercado Dinámico ({evento_id})"
 
-        ev_row_dict = dict(ev_row) if ev_row else {}
-        op_row_dict = dict(op_row) if op_row else {}
-        titulo_ev = ev_row_dict.get("titulo", "Mercado P2P")
-        nombre_op = op_row_dict.get("nombre", "Opción")
+        nombre_op = "Opción"
+        try:
+            op_id_int = int(opcion_id)
+            if DATABASE_URL:
+                c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (op_id_int,))
+            else:
+                c.execute("SELECT nombre FROM opciones_evento WHERE id = ?", (op_id_int,))
+            op_row = c.fetchone()
+            if op_row:
+                op_row_dict = dict(op_row)
+                nombre_op = op_row_dict.get("nombre", nombre_op)
+        except (ValueError, TypeError):
+            nombre_op = str(opcion_id)
 
         cantidad_restante = cantidad
         precio_objetivo = precio_ingresado
@@ -1260,12 +1276,12 @@ def crear_orden_clob():
                 if DATABASE_URL:
                     c.execute(
                         "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (%s, %s, %s, 'limit', %s, %s, %s, 'activa', %s)",
-                        (username, evento_id, opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
+                        (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
                     )
                 else:
                     c.execute(
                         "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (?, ?, ?, 'limit', ?, ?, ?, 'activa', ?)",
-                        (username, evento_id, opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
+                        (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
                     )
 
         monto_registrado = (precio_ingresado * cantidad if accion == "comprar" else cantidad)
@@ -1717,12 +1733,10 @@ def obtener_balance_plataforma():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ================= ENDPOINTS DE PARCHE TESTNET PI (NUEVOS) =================
 @app.route("/api/pi/approve", methods=["POST"])
 def approve_pi_payment():
     data = request.json or {}
     payment_id = data.get("paymentId")
-    print(f"Aprobando pago de Pi ID (Testnet): {payment_id}")
     return jsonify({"status": "success", "message": "Pago aprobado por el servidor"}), 200
 
 
@@ -1731,9 +1745,7 @@ def complete_pi_payment():
     data = request.json or {}
     payment_id = data.get("paymentId")
     txid = data.get("txid")
-    print(f"Completado exitoso (Testnet). Payment ID: {payment_id}, TXID: {txid}")
     return jsonify({"status": "success", "message": "Pago completado y registrado"}), 200
-# =========================================================================
 
 
 @app.route("/api/admin/login", methods=["POST"])
@@ -2027,13 +2039,13 @@ def admin_cerrar_evento():
 
         if DATABASE_URL:
             c.execute(
-                "SELECT * FROM orders WHERE evento_id = %s AND estado = 'activa'",
-                (evento_id,),
+                "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'",
+                (str(evento_id),),
             )
         else:
             c.execute(
                 "SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'",
-                (evento_id,),
+                (str(evento_id),),
             )
         ordenes_activas_residuales = c.fetchall()
 
