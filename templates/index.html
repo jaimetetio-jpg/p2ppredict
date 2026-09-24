@@ -1532,10 +1532,8 @@ async function ejecutarVentaPosicion() {
             return;
         }
 
-        // 1. Actualizar balance devuelto por el servidor
         usuarioActual.balance = resultado.nuevo_saldo;
 
-        // 2. Registrar la orden en el Order Book global visual (Ask / Venta)
         const nuevaOrdenAsk = {
             marketId: pos.marketId,
             tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)',
@@ -1547,7 +1545,6 @@ async function ejecutarVentaPosicion() {
         ordenesGlobales.push(nuevaOrdenAsk);
         await guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenAsk);
 
-        // 3. Actualizar la posición activa local (restando o eliminando contratos vendidos)
         if (contratosVender >= pos.contratos) {
             eliminarDeSupabaseTabla('posiciones_activas', pos.id);
             posicionesActivas = posicionesActivas.filter(p => p.id !== pos.id);
