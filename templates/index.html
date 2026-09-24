@@ -13,7 +13,7 @@ const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || '';
 const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || ''; 
 const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; 
 if (!supabaseClient) { 
-    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente. El app funcionará con almacenamiento local."); 
+    console.warn("Aviso: Supabase não está configurado ou o arquivo env.js não foi carregado corretamente. O app funcionará com armazenamento local."); 
 } 
 </script> 
 <style> 
@@ -1489,7 +1489,7 @@ async function confirmarCompraRapida() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 username: usuarioActual.handle,
-                evento_id: parseInt(idM),
+                evento_id: idM, // Se envía sin parseInt() para soportar IDs de texto/dinámicos
                 opcion_id: opcionId,
                 tipo_orden: tipoOrden,
                 accion: 'comprar',
@@ -1589,7 +1589,7 @@ async function ejecutarVentaPosicion() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 username: usuarioActual.handle,
-                evento_id: parseInt(pos.marketId),
+                evento_id: pos.marketId, // <--- INTEGRADO: Enviado sin parseInt() para soportar IDs de texto/dinámicos ('m-...')
                 opcion_id: opcionId,
                 tipo_orden: tipoVenta,
                 accion: 'vender',
