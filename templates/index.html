@@ -1,3 +1,4 @@
+versión 1.0
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -455,8 +456,21 @@ header {
         </div> 
     </div> 
 
+    <!-- POSICIONES ACTIVAS EN ACORDEÓN --> 
+    <div class="accordion-card open" id="acc-apuestas" style="margin-top: 16px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
+            <span>📦 Tus Posiciones Activas (Vender / Reclamar)</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px; display: block;"> 
+            <div id="my-positions-content" style="margin-bottom: 4px;"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p> 
+            </div> 
+        </div> 
+    </div> 
+
     <!-- GESTIÓN DE BILLETERA PI NETWORK --> 
-    <div class="accordion-card" id="acc-wallet" style="margin-top: 16px;"> 
+    <div class="accordion-card" id="acc-wallet" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
             <span>💳 Gestión de Billetera y Blockchain Pi</span> 
             <span>▾</span> 
@@ -474,22 +488,8 @@ header {
         </div> 
     </div> 
 
-    <!-- HISTORIAL DE APUESTAS Y POSICIONES --> 
-    <div class="accordion-card open" id="acc-apuestas"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
-            <span>📦 Posiciones Activas & Historial (Order Book)</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px; display: block;"> 
-            <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-color); margin-bottom: 6px;">🟢 Tus Compras Activas (Vender a Mercado o Límite)</div> 
-            <div id="my-positions-content" style="margin-bottom: 14px;"> 
-                <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p> 
-            </div> 
-        </div> 
-    </div> 
-
     <!-- HISTORIAL DE TRANSACCIONES --> 
-    <div class="accordion-card" id="acc-transacciones"> 
+    <div class="accordion-card" id="acc-transacciones" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')"> 
             <span>📜 Historial de Transacciones (Permanente)</span> 
             <span>▾</span> 
@@ -1225,7 +1225,7 @@ function renderizarMercadosDinamicos() {
     ];
 
     mercadosBase.forEach(m => {
-        if (estadosMercados[m.id] !== null) return; // Solo activos
+        if (estadosMercados[m.id] !== null) return; 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": m.id === 1 ? 0.64 : 0.81, "NO": m.id === 1 ? 0.36 : 0.19 }; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
@@ -1251,7 +1251,7 @@ function renderizarMercadosDinamicos() {
     });
 
     mercadosDinamicos.forEach(m => { 
-        if (estadosMercados[m.id] !== null) return; // Solo activos
+        if (estadosMercados[m.id] !== null) return; 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
