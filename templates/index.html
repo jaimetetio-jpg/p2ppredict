@@ -1,4 +1,4 @@
-CHIKILLA TE AMO MUCHO, EL PELON!
+DIOS TE BENDIGA CHIKILLA!
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -423,6 +423,8 @@ header {
         <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
         <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button> 
         <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button> 
+        <button class="pill" onclick="setCategory('Tecnología', this)">Tecnología</button> 
+        <button class="pill" onclick="setCategory('Comunidad', this)">Comunidad</button> 
     </div> 
     
     <!-- BANDEJA 1: MERCADOS ACTIVOS --> 
@@ -833,18 +835,15 @@ let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio'
     { handle: "@crypto_king", balance: 1420.50, bloqueado: false }, 
     { handle: "@pioneerglobal", balance: 98.20, bloqueado: false } 
 ]; 
-let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || { 
-    1: { "SÍ": 0.64, "NO": 0.36 }, 
-    2: { "SÍ": 0.81, "NO": 0.19 } 
-}; 
-let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || { 1: null, 2: null }; 
+let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
+let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
 let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
 let ticketAdminActivoId = null; 
 let usuarioAdminSeleccionadoHandle = null; 
 let isSubmitting = false; 
-let nombresMercados = { 1: "¿Bitcoin superará los $100,000?", 2: "¿Se habilitará Open Mainnet este trimestre?" }; 
+let nombresMercados = {}; 
 let ordenActivaModal = null; 
 let ventaActivaModal = null; 
 let categoriaActualFiltro = 'Todos'; 
@@ -987,8 +986,8 @@ function sincronizarPersistencia() {
     posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
     historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
     ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
-    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || preciosMercados; 
-    estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || estadosMercados; 
+    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
+    estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
     ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
     mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
 } 
@@ -1113,14 +1112,13 @@ function actualizarPreciosVisuales() {
     for (let id in preciosMercados) { 
         const elSi = document.getElementById(`ask-precio-${id}-SI`); 
         const elNo = document.getElementById(`ask-precio-${id}-NO`); 
-        if (elSi) elSi.innerText = preciosMercados[id]["SÍ"].toFixed(2) + ' Pi'; 
-        if (elNo) elNo.innerText = preciosMercados[id]["NO"].toFixed(2) + ' Pi'; 
+        if (elSi && preciosMercados[id]["SÍ"]) elSi.innerText = preciosMercados[id]["SÍ"].toFixed(2) + ' Pi'; 
+        if (elNo && preciosMercados[id]["NO"]) elNo.innerText = preciosMercados[id]["NO"].toFixed(2) + ' Pi'; 
     } 
 } 
 
 function restaurarEstadosMercadosVisuales() { 
     for (let id in estadosMercados) { 
-        const estadoBadge = document.getElementById('estado-mercado-' + id); 
         if (estadosMercados[id] !== null) { 
             const btnSi = document.getElementById(`btn-comprar-${id}-SI`); 
             const btnNo = document.getElementById(`btn-comprar-${id}-NO`); 
@@ -1137,11 +1135,11 @@ function actualizarSelectsMercadosActivos() {
     if (selectClob) { 
         const valorAnterior = selectClob.value; 
         let htmlClob = ''; 
-        for (let id in estadosMercados) { 
-            if (estadosMercados[id] === null) { 
-                htmlClob += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)}</option>`; 
+        mercadosDinamicos.forEach(m => { 
+            if (estadosMercados[m.id] === null || estadosMercados[m.id] === undefined) { 
+                htmlClob += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)}</option>`; 
             } 
-        } 
+        }); 
         if (htmlClob === '') { 
             htmlClob = '<option value="">No hay mercados activos</option>'; 
         } 
@@ -1154,11 +1152,12 @@ function actualizarSelectsMercadosActivos() {
     if (selectAdmin) { 
         const valorAdminAnterior = selectAdmin.value; 
         let htmlAdmin = ''; 
-        for (let id in estadosMercados) { 
-            if (estadosMercados[id] === null || estadosMercados[id] === 'ESPERANDO_RESOLUCION') { 
-                htmlAdmin += `<option value="${id}">${nombresMercados[id] || ('Mercado #' + id)} (${estadosMercados[id] === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`; 
+        mercadosDinamicos.forEach(m => { 
+            let st = estadosMercados[m.id]; 
+            if (st === null || st === undefined || st === 'ESPERANDO_RESOLUCION') { 
+                htmlAdmin += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)} (${st === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`; 
             } 
-        } 
+        }); 
         if (htmlAdmin === '') { 
             htmlAdmin = '<option value="">No hay mercados pendientes por resolver</option>'; 
         } 
@@ -1233,39 +1232,8 @@ function renderizarMercadosDinamicos() {
     const container = document.getElementById('markets-container'); 
     let htmlDinamicoHTML = ''; 
 
-    const mercadosBase = [
-        { id: 1, titulo: "¿Bitcoin superará los $100,000 antes de finalizar este mes?", categoria: "Crypto", fechaCierre: "2026-12-31T23:59:59" },
-        { id: 2, titulo: "¿Se habilitará Open Mainnet este trimestre?", categoria: "Pi Ecosystem", fechaCierre: "2026-12-31T23:59:59" }
-    ];
-
-    mercadosBase.forEach(m => {
-        if (estadosMercados[m.id] !== null) return; 
-        if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": m.id === 1 ? 0.64 : 0.81, "NO": m.id === 1 ? 0.36 : 0.19 }; 
-        const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
-        const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
-
-        htmlDinamicoHTML += ` 
-        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}"> 
-          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-            <span>🏷️ ${m.categoria}</span> 
-            <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
-          </div> 
-          <div class="market-title">${m.titulo}</div> 
-          <div class="countdown-timer" id="countdown-${m.id}" data-target="${m.fechaCierre}"> 
-            <span>⏳ Cierre en:</span> 
-            <b class="time-display">Calculando...</b> 
-          </div> 
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
-          <div style="display: flex; gap: 8px;"> 
-            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(${m.id}, '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
-            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(${m.id}, '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
-          </div> 
-        </div> 
-        `;
-    });
-
     mercadosDinamicos.forEach(m => { 
-        if (estadosMercados[m.id] !== null) return; 
+        if (estadosMercados[m.id] !== null && estadosMercados[m.id] !== undefined) return; 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
@@ -1292,7 +1260,7 @@ function renderizarMercadosDinamicos() {
     }); 
 
     if (htmlDinamicoHTML === '') { 
-        htmlDinamicoHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">No hay mercados activos actualmente.</p>'; 
+        htmlDinamicoHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">No hay mercados activos actualmente. ¡Crea uno nuevo desde la pestaña superior!</p>'; 
     } 
 
     container.innerHTML = htmlDinamicoHTML; 
@@ -1303,13 +1271,12 @@ function renderizarMercadosEsperaYHistorial() {
     const contenedorEspera = document.getElementById('espera-resolucion-container'); 
     const contenedorHistorial = document.getElementById('historial-cerrados-container'); 
     
-    let todosLosIds = [1, 2, ...mercadosDinamicos.map(m => m.id)]; 
     let htmlEspera = ''; 
     let htmlCerrados = ''; 
 
-    todosLosIds.forEach(id => { 
-        let titulo = nombresMercados[id] || (id == 1 ? "¿Bitcoin superará los $100,000 antes de finalizar este mes?" : (id == 2 ? "¿Se habilitará Open Mainnet este trimestre?" : "Mercado #" + id)); 
-        let estado = estadosMercados[id]; 
+    mercadosDinamicos.forEach(m => { 
+        let titulo = nombresMercados[m.id] || m.titulo; 
+        let estado = estadosMercados[m.id]; 
 
         if (estado === 'ESPERANDO_RESOLUCION') { 
             htmlEspera += ` 
@@ -1375,7 +1342,7 @@ function actualizarRelojesRegresivos() {
         const diferencia = targetTime - ahora; 
         const marketId = el.id.replace('countdown-', ''); 
         if (diferencia <= 0) { 
-            if (estadosMercados[marketId] === null) { 
+            if (estadosMercados[marketId] === null || estadosMercados[marketId] === undefined) { 
                 estadosMercados[marketId] = 'ESPERANDO_RESOLUCION'; 
                 guardarTodoInStorage(); 
                 renderizarMercadosDinamicos(); 
@@ -1401,11 +1368,11 @@ function abrirTerminalTrading(idMercado, tituloMercado, opcion) {
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
         return; 
     } 
-    if (estadosMercados[idMercado] !== null) { 
+    if (estadosMercados[idMercado] !== null && estadosMercados[idMercado] !== undefined) { 
         alert("Este mercado ya se encuentra cerrado o en proceso de resolución."); 
         return; 
     } 
-    let precioAskActual = preciosMercados[idMercado][opcion]; 
+    let precioAskActual = preciosMercados[idMercado] ? preciosMercados[idMercado][opcion] : 0.50; 
     ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual }; 
     document.getElementById('modal-market-text').innerText = tituloMercado; 
     const orderTypeSelect = document.getElementById('modal-order-type'); 
@@ -1601,15 +1568,18 @@ function renderizarOrderBookVisible() {
     const marketIdFiltro = document.getElementById('orderbook-market-filter').value; 
     const tbody = document.getElementById('orderbook-table-body'); 
     const bannerStatus = document.getElementById('orderbook-market-status-banner'); 
-    if (!marketIdFiltro || (estadosMercados[marketIdFiltro] !== null && estadosMercados[marketIdFiltro] !== 'ESPERANDO_RESOLUCION')) { 
+    if (!marketIdFiltro || (estadosMercados[marketIdFiltro] !== null && estadosMercados[marketIdFiltro] !== undefined && estadosMercados[marketIdFiltro] !== 'ESPERANDO_RESOLUCION')) { 
         if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay mercado activo seleccionado o está cerrado.</span>`; 
         if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Seleccione un mercado válido.</td></tr>'; 
         return; 
     } 
     let estadoTextoBanner = estadosMercados[marketIdFiltro] === 'ESPERANDO_RESOLUCION' ? '🟠 Esperando Resolución del Administrador' : 'Activo / Abierto'; 
+    let pSiVal = preciosMercados[marketIdFiltro] && preciosMercados[marketIdFiltro]["SÍ"] ? preciosMercados[marketIdFiltro]["SÍ"].toFixed(2) : '0.50'; 
+    let pNoVal = preciosMercados[marketIdFiltro] && preciosMercados[marketIdFiltro]["NO"] ? preciosMercados[marketIdFiltro]["NO"].toFixed(2) : '0.50'; 
+
     bannerStatus.innerHTML = ` 
     <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div> 
-    <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div> 
+    <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${pSiVal} Pi | Ask NO: ${pNoVal} Pi</div> 
     `; 
     const filtradas = ordenesGlobales.filter(o => o.marketId == marketIdFiltro); 
     if (filtradas.length === 0) { 
@@ -1641,10 +1611,10 @@ function renderizarPosiciones() {
     let html = ''; 
     posicionesActivas.forEach((pos, idx) => { 
         const ganadorOficial = estadosMercados[pos.marketId]; 
-        if (ganadorOficial !== null && ganadorOficial !== 'ESPERANDO_RESOLUCION' && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return; 
+        if (ganadorOficial !== null && ganadorOficial !== undefined && ganadorOficial !== 'ESPERANDO_RESOLUCION' && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return; 
         let estadoBadgeVisual = pos.estadoOrden === 'ESPERANDO_COMPRADOR' ? '<span style="color: #f97316; font-weight: bold;">⏳ Orden en el libro: Esperando comprador</span>' : '<span style="color: #4ade80; font-weight: bold;">🟢 Contrato en posesión (Activo)</span>'; 
         let botonesHtml = ''; 
-        if (ganadorOficial === null) { 
+        if (ganadorOficial === null || ganadorOficial === undefined) { 
             botonesHtml = ` 
             <div style="display: flex; gap: 6px; margin-top: 6px;"> 
               <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${idx})">💱 Vender (Mercado / Límite)</button> 
@@ -2110,4 +2080,3 @@ function enviarMensajeSoporteAdmin() {
 </script> 
 </body> 
 </html>
-
