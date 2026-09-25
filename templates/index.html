@@ -841,11 +841,12 @@ window.onload = async function() {
 
     if (supabaseClient) {
         supabaseClient
-            .channel('public:realtime_p2ppredict')
+            .channel('public:realtime_p2ppredict_sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
                 await sincronizarConSupabase();
                 reconstruirDiccionarioNombresMercados();
                 renderizarMercadosDinamicos();
+                restaurarEstadosMercadosVisuales();
                 actualizarSelectsMercadosActivos();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => {
@@ -863,21 +864,43 @@ window.onload = async function() {
 async function sincronizarConSupabase() { 
     if (!supabaseClient) return; 
     try { 
-        let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (ordenes) { ordenesGlobales = ordenes; } 
-        let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
-        if (txs) { historialTransacciones = txs; } 
-        let { data: pos } = await supabaseClient.from('posiciones_activas').select('*'); 
-        if (pos) { 
-            posicionesActivas = pos.map(p => ({ id: p.id, marketId: p.market_id, handle: p.handle, titulo: p.titulo, opcion: p.opcion, contratos: p.contratos, invertido: Number(p.invertido), payout: Number(p.payout), estadoOrden: p.estado_orden || 'ACTIVO' })); 
+        let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
+        if (!errMerc && mercs) { 
+            mercadosDinamicos = mercs; 
+            mercadosDinamicos.forEach(m => { 
+                nombresMercados[m.id] = m.titulo; 
+                if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
+                if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
+            }); 
         } 
-        let { data: tcks } = await supabaseClient.from('tickets_soporte').select('*'); 
-        if (tcks) { ticketsSoporte = tcks; } 
-        let { data: mercs } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (mercs) { mercadosDinamicos = mercs; } 
+
+        let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
+        if (!errOrd && ordenes) { ordenesGlobales = ordenes; } 
+
+        let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
+        if (!errTx && txs) { historialTransacciones = txs; } 
+
+        let { data: pos, error: errPos } = await supabaseClient.from('posiciones_activas').select('*'); 
+        if (!errPos && pos) { 
+            posicionesActivas = pos.map(p => ({ 
+                id: p.id, 
+                marketId: p.market_id, 
+                handle: p.handle, 
+                titulo: p.titulo, 
+                opcion: p.opcion, 
+                contratos: p.contratos, 
+                invertido: Number(p.invertido), 
+                payout: Number(p.payout), 
+                estadoOrden: p.estado_orden || 'ACTIVO' 
+            })); 
+        } 
+
+        let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*'); 
+        if (!errTck && tcks) { ticketsSoporte = tcks; } 
+
         guardarTodoInStorage();
     } catch (e) { 
-        console.warn("Error de sincronización con Supabase.", e); 
+        console.warn("Aviso: Error menor al sincronizar con Supabase.", e); 
     } 
 } 
 
