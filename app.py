@@ -564,7 +564,6 @@ def agregar_cabeceras_seguridad(response):
     response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
     response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
     
-    # Parche: Deshabilitar caché en todas las rutas de la API para móviles
     if request.path.startswith('/api/'):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
@@ -583,11 +582,9 @@ def validation_key():
     return "1b9ee5cdf565585e21f8bd18899df2e7026cb"
 
 
-# ================= PARCHE: HEALTH CHECK =================
 @app.route('/healthz')
 def healthz():
     return "OK", 200
-# ========================================================
 
 
 @app.route("/api/saldo/<username>", methods=["GET"])
@@ -2400,138 +2397,20 @@ def admin_toggle_freeze():
             )
         conn.commit()
         accion_desc = "Congelado" if nuevo_estado else "Descongelado"
-        registrar_log_admin("TOGGLE_FREEZE", f"Usuario {username} ha sido {accion_desc}.")
+        registrar_log_admin("TOGGLE_FREEZE", f"Usuario {username} ha sido {accion_desc}")
         registrar_audit_log("Admin", "TOGGLE_FREEZE", username, {"is_frozen": nuevo_estado})
-        conn.close()
         return jsonify({
             "success": True,
+            "mensaje": f"Usuario {username} ha sido {accion_desc.lower()} exitosamente.",
             "is_frozen": nuevo_estado,
-            "mensaje": f"Cuenta de {username} {accion_desc} exitosamente.",
         })
     except Exception as e:
         if conn:
             conn.rollback()
-        conn.close()
         return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/admin/ajustar-balance", methods=["POST"])
-def admin_ajustar_balance():
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    data = request.json or {}
-    username = data.get("username")
-    razon = str(data.get("razon", "")).strip()
-    try:
-        monto_cambio = float(data.get("monto", 0))
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Monto inválido"}), 400
-
-    if not username:
-        return jsonify({"success": False, "error": "Usuario no especificado"}), 400
-    if not razon:
-        return jsonify({
-            "success": False,
-            "error": "Es obligatorio dejar una nota o razón para el ajuste de balance",
-        }), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible FROM usuarios WHERE username = ?",
-                (username,),
-            )
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        if not row:
-            conn.close()
-            return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
-
-        monto_anterior = row_dict.get("saldo_disponible", 0.0)
-        monto_nuevo = monto_anterior + monto_cambio
-        if monto_nuevo < 0:
-            conn.close()
-            return jsonify({
-                "success": False,
-                "error": "El ajuste dejaría al usuario con saldo negativo",
-            }), 400
-
-        if abs(monto_cambio) >= 100.0:
-            payload_str = str({
-                "username": username,
-                "monto_cambio": monto_cambio,
-                "razon": razon,
-                "monto_anterior": monto_anterior,
-            })
-            if DATABASE_URL:
-                c.execute(
-                    "INSERT INTO admin_pending_actions (admin_creator, action_type,"
-                    " target_id, payload, status) VALUES (%s, %s, %s, %s, 'PENDING')",
-                    ("Admin", "AJUSTE_BALANCE", username, payload_str),
-                )
-            else:
-                fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c.execute(
-                    "INSERT INTO admin_pending_actions (admin_creator, action_type,"
-                    " target_id, payload, status, created_at) VALUES (?, ?, ?, ?, 'PENDING', ?)",
-                    ("Admin", "AJUSTE_BALANCE", username, payload_str, fecha_str),
-                )
-            conn.commit()
-            conn.close()
-            return jsonify({
-                "success": True,
-                "requires_approval": True,
-                "mensaje": "Ajuste grande detectado. Acción enviada a aprobación de segundo administrador.",
-            })
-
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (monto_nuevo, username),
-            )
-            c.execute(
-                "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-                ("Admin", username, monto_anterior, monto_nuevo, razon, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                (username, "Ajuste Admin", monto_cambio, f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}", datetime.now().strftime("%Y-%m-%d %H:%M")),
-            )
-        else:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                (monto_nuevo, username),
-            )
-            c.execute(
-                "INSERT INTO admin_balance_audit (admin_user, target_user, monto_anterior, monto_nuevo, razon, fecha) VALUES (?, ?, ?, ?, ?, ?)",
-                ("Admin", username, monto_anterior, monto_nuevo, razon, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
-                (username, "Ajuste Admin", monto_cambio, f"ADMIN_ADJUST_{datetime.now().strftime('%Y%m%d%H%M%S')}", datetime.now().strftime("%Y-%m-%d %H:%M")),
-            )
-
-        conn.commit()
-        registrar_log_admin("AJUSTE_BALANCE", f"Ajuste a {username}: {monto_cambio}. Razón: {razon}")
-        registrar_audit_log("Admin", "AJUSTE_BALANCE", username, {"monto_anterior": monto_anterior, "monto_nuevo": monto_nuevo, "razon": razon})
-        conn.close()
-        return jsonify({
-            "success": True,
-            "nuevo_saldo": monto_nuevo,
-            "mensaje": f"Balance de {username} ajustado con éxito.",
-        })
-    except Exception as e:
+    finally:
         if conn:
-            conn.rollback()
-        conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
+            conn.close()
 
 
 if __name__ == "__main__":
