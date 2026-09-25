@@ -401,63 +401,8 @@ def inicializar_bd():
             "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
         )
 
-    c.execute("SELECT COUNT(*) as total FROM eventos")
-    row = c.fetchone()
-    if row:
-        if isinstance(row, dict):
-            total_evs = row.get("total", 0)
-        else:
-            try:
-                total_evs = row["total"]
-            except Exception:
-                total_evs = row[0]
-    else:
-        total_evs = 0
-
-    if total_evs == 0:
-        eventos_iniciales = [
-            {
-                "titulo": "¿BTC alcanzará los $120,000 antes de finalizar el mes?",
-                "categoria": "Crypto",
-                "fecha_cierre": "2026-12-31",
-                "opciones": [("Sí", 15.0), ("No", 10.0)],
-            },
-            {
-                "titulo": "¿Pi Network lanzará su Mainnet abierta global este año?",
-                "categoria": "Pi Ecosystem",
-                "fecha_cierre": "2026-11-30",
-                "opciones": [("Sí", 35.0), ("No", 5.0)],
-            },
-        ]
-        for ev in eventos_iniciales:
-            if DATABASE_URL:
-                c.execute(
-                    "INSERT INTO eventos (titulo, categoria, estado,"
-                    " fecha_cierre) VALUES (%s, %s, 'activo', %s) RETURNING id",
-                    (ev["titulo"], ev["categoria"], ev["fecha_cierre"]),
-                )
-                res_ev = c.fetchone()
-                ev_id = res_ev["id"]
-                for opt_nombre, opt_pozo in ev["opciones"]:
-                    c.execute(
-                        "INSERT INTO opciones_evento (evento_id, nombre, pozo)"
-                        " VALUES (%s, %s, %s)",
-                        (ev_id, opt_nombre, opt_pozo),
-                    )
-            else:
-                c.execute(
-                    "INSERT INTO eventos (titulo, categoria, estado,"
-                    " fecha_cierre) VALUES (?, ?, 'activo', ?)",
-                    (ev["titulo"], ev["categoria"], ev["fecha_cierre"]),
-                )
-                ev_id = c.lastrowid
-                for opt_nombre, opt_pozo in ev["opciones"]:
-                    c.execute(
-                        "INSERT INTO opciones_evento (evento_id, nombre, pozo)"
-                        " VALUES (?, ?, ?)",
-                        (ev_id, opt_nombre, opt_pozo),
-                    )
-        conn.commit()
+    # Se eliminaron los mercados estáticos de BTC y Pi Network de la inicialización para trabajar puramente con datos dinámicos.
+    conn.commit()
     conn.close()
 
 
