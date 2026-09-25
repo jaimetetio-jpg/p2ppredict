@@ -13,7 +13,7 @@ const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || '';
 const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || ''; 
 const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; 
 if (!supabaseClient) { 
-    console.warn("Aviso: Supabase não está configurado ou o arquivo env.js não foi carregado corretamente. O app funcionará com armazenamento local."); 
+    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente. El app funcionará con almacenamiento local."); 
 } 
 </script> 
 <style> 
@@ -428,7 +428,7 @@ header {
         <button class="pill" onclick="setStatusFilter('Abiertos', this)">Abiertos</button> 
         <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Esperando Resolución</button> 
     </div> 
-    <div id="markets-container"> <!-- Renderizado dinámico de mercados --> </div> 
+    <div id="markets-container"></div> 
 
     <!-- GESTIÓN DE BILLETERA PI NETWORK --> 
     <div class="accordion-card" id="acc-wallet"> 
@@ -445,7 +445,7 @@ header {
                     <button class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button> 
                 </div> 
             </div> 
-            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado com SDK oficial de Pi Network y Supabase.</div> 
+            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div> 
         </div> 
     </div> 
 
@@ -839,37 +839,45 @@ window.onload = async function() {
     renderizarOrderBookVisible(); 
     setInterval(actualizarRelojesRegresivos, 1000); 
 
-    // Escuchar cambios en tiempo real en la tabla 'markets'
     if (supabaseClient) {
         supabaseClient
-            .channel('public:markets')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'markets' }, payload => {
-                console.log('¡Cambio detectado en la base de datos!', payload);
-                fetchMarkets(); // <--- Esta línea es la que recarga la vista al instante
+            .channel('public:realtime_p2ppredict')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
+                await sincronizarConSupabase();
+                reconstruirDiccionarioNombresMercados();
+                renderizarMercadosDinamicos();
+                actualizarSelectsMercadosActivos();
             })
-            .subscribe((status) => {
-                console.log('Estado de la conexión Realtime:', status);
-            });
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => {
+                await sincronizarConSupabase();
+                renderizarOrderBookVisible();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => {
+                await sincronizarConSupabase();
+                renderizarPosiciones();
+            })
+            .subscribe();
     }
 }; 
 
 async function sincronizarConSupabase() { 
     if (!supabaseClient) return; 
     try { 
-        let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (!errOrd && ordenes && ordenes.length > 0) { ordenesGlobales = ordenes; } 
-        let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
-        if (!errTx && txs && txs.length > 0) { historialTransacciones = txs; } 
-        let { data: pos, error: errPos } = await supabaseClient.from('posiciones_activas').select('*'); 
-        if (!errPos && pos && pos.length > 0) { 
+        let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
+        if (ordenes) { ordenesGlobales = ordenes; } 
+        let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
+        if (txs) { historialTransacciones = txs; } 
+        let { data: pos } = await supabaseClient.from('posiciones_activas').select('*'); 
+        if (pos) { 
             posicionesActivas = pos.map(p => ({ id: p.id, marketId: p.market_id, handle: p.handle, titulo: p.titulo, opcion: p.opcion, contratos: p.contratos, invertido: Number(p.invertido), payout: Number(p.payout), estadoOrden: p.estado_orden || 'ACTIVO' })); 
         } 
-        let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*'); 
-        if (!errTck && tcks && tcks.length > 0) { ticketsSoporte = tcks; } 
-        let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (!errMerc && mercs && mercs.length > 0) { mercadosDinamicos = mercs; } 
+        let { data: tcks } = await supabaseClient.from('tickets_soporte').select('*'); 
+        if (tcks) { ticketsSoporte = tcks; } 
+        let { data: mercs } = await supabaseClient.from('mercados_dinamicos').select('*'); 
+        if (mercs) { mercadosDinamicos = mercs; } 
+        guardarTodoInStorage();
     } catch (e) { 
-        console.warn("Aviso: No fue posible conectar al Supabase en tiempo de ejecución.", e); 
+        console.warn("Error de sincronización con Supabase.", e); 
     } 
 } 
 
@@ -1177,10 +1185,7 @@ function crearNuevoMercadoPionero() {
     usuarioActual.balance -= liquidezAportada; 
     actualizarUIBalance(); 
     const nuevoId = 'm-' + Date.now(); 
-    preciosMercados[nuevoId] = { 
-        "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, 
-        "NO": opcionInicial === 'NO' ? 0.55 : 0.45 
-    }; 
+    preciosMercados[nuevoId] = { "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, "NO": opcionInicial === 'NO' ? 0.55 : 0.45 }; 
     estadosMercados[nuevoId] = null; 
     nombresMercados[nuevoId] = titulo; 
     const nuevoMercado = { id: nuevoId, titulo: titulo, categoria: categoria, fechaCierre: fechaCierreInputVal, estado: 'abierto', creador: usuarioActual.handle, liquidez_total: liquidezAportada }; 
@@ -1212,34 +1217,38 @@ function crearNuevoMercadoPionero() {
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
     let htmlDinamicoHTML = ` 
-        <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto"> 
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-                <span>🏷️ Crypto</span> <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span> 
-            </div> 
-            <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div> 
-            <div class="countdown-timer" id="countdown-1" data-target="2026-12-31T23:59:59"> 
-                <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
-            </div> 
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p> 
-            <div style="display: flex; gap: 8px;"> 
-                <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button> 
-                <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button> 
-            </div> 
-        </div> 
-        <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto"> 
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-                <span>🏷️ Pi Ecosystem</span> <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span> 
-            </div> 
-            <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div> 
-            <div class="countdown-timer" id="countdown-2" data-target="2026-12-31T23:59:59"> 
-                <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
-            </div> 
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p> 
-            <div style="display: flex; gap: 8px;"> 
-                <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button> 
-                <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button> 
-            </div> 
-        </div> 
+    <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto"> 
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
+        <span>🏷️ Crypto</span> 
+        <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+      </div> 
+      <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div> 
+      <div class="countdown-timer" id="countdown-1" data-target="2026-12-31T23:59:59"> 
+        <span>⏳ Cierre en:</span> 
+        <b class="time-display">Calculando...</b> 
+      </div> 
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p> 
+      <div style="display: flex; gap: 8px;"> 
+        <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button> 
+        <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button> 
+      </div> 
+    </div> 
+    <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto"> 
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
+        <span>🏷️ Pi Ecosystem</span> 
+        <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+      </div> 
+      <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div> 
+      <div class="countdown-timer" id="countdown-2" data-target="2026-12-31T23:59:59"> 
+        <span>⏳ Cierre en:</span> 
+        <b class="time-display">Calculando...</b> 
+      </div> 
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p> 
+      <div style="display: flex; gap: 8px;"> 
+        <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button> 
+        <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button> 
+      </div> 
+    </div> 
     `; 
     mercadosDinamicos.forEach(m => { 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
@@ -1248,23 +1257,26 @@ function renderizarMercadosDinamicos() {
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
         const targetDate = m.fechaCierre || '2026-12-31T23:59:59'; 
         htmlDinamicoHTML += ` 
-            <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto"> 
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-                    <span>🏷️ ${m.categoria} (Creador: ${m.creador})</span> <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
-                </div> 
-                <div class="market-title">${m.titulo}</div> 
-                <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
-                    <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
-                </div> 
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
-                <div style="display: flex; gap: 8px;"> 
-                    <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
-                    <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
-                </div> 
-            </div> 
+        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto"> 
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
+            <span>🏷️ ${m.categoria} (Creador: ${m.creador})</span> 
+            <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+          </div> 
+          <div class="market-title">${m.titulo}</div> 
+          <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
+            <span>⏳ Cierre en:</span> 
+            <b class="time-display">Calculando...</b> 
+          </div> 
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
+          <div style="display: flex; gap: 8px;"> 
+            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
+            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
+          </div> 
+        </div> 
         `; 
     }); 
     container.innerHTML = htmlDinamicoHTML; 
+    restaurarEstadosMercadosVisuales();
 } 
 
 function actualizarRelojesRegresivos() { 
@@ -1412,76 +1424,36 @@ function calcularModalTotal() {
     ordenActivaModal.totalConComision = totalConComision; 
 } 
 
-async function confirmarCompraRapida() {
-    if (isSubmitting) return;
-    isSubmitting = true;
-    
-    const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase();
-    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
-    const precioIngresado = tipoOrden === 'limit' ? parseFloat(document.getElementById('modal-limit-price').value) : (ordenActivaModal.precioAskBase || 0.50);
-    const idM = ordenActivaModal.idMercado;
-    const opM = ordenActivaModal.opcion;
-    const opcionId = opM === 'SÍ' ? 1 : 2; 
-
-    if (usuarioActual.balance < ordenActivaModal.totalConComision) {
-        alert("Balance insuficiente para cubrir la inversión total con comisiones.");
-        isSubmitting = false;
-        return;
-    }
-
-    usuarioActual.balance -= ordenActivaModal.totalConComision;
-    actualizarUIBalance();
-
-    const nuevaPosicion = {
-        id: 'POS-' + Date.now(),
-        marketId: idM,
-        titulo: ordenActivaModal.tituloMercado,
-        opcion: opM,
-        contratos: cantidad,
-        invertido: ordenActivaModal.totalConComision,
-        payout: cantidad * 1.00,
-        estadoOrden: 'ACTIVO'
-    };
-    posicionesActivas.push(nuevaPosicion);
-    guardarEnSupabaseTabla('posiciones_activas', {
-        id: nuevaPosicion.id,
-        market_id: String(nuevaPosicion.marketId),
-        handle: usuarioActual.handle,
-        titulo: nuevaPosicion.titulo,
-        opcion: nuevaPosicion.opcion,
-        contratos: nuevaPosicion.contratos,
-        invertido: nuevaPosicion.invertido,
-        payout: nuevaPosicion.payout,
-        estado_orden: nuevaPosicion.estadoOrden
-    });
-
-    const nuevaOrdenGlobal = {
-        marketId: idM,
-        tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)',
-        opcion: opM,
-        contratos: cantidad,
-        precio: precioIngresado,
-        trader: usuarioActual.handle
-    };
-    ordenesGlobales.push(nuevaOrdenGlobal);
-    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal);
-
-    registrarTransaccionEnDB({
-        id: 'TX-' + Date.now(),
-        titulo: 'Compra de Contratos',
-        tipo: 'Compra',
-        monto: -ordenActivaModal.totalConComision,
-        detalle: `Adquisición de ${cantidad} contratos de [${opM}] en "${ordenActivaModal.tituloMercado}"`
-    });
-
-    guardarTodoInStorage();
-    cerrarTerminalTrading();
-    renderizarPosiciones();
-    renderizarHistorial();
-    renderizarOrderBookVisible();
-    alert("✅ ¡Compra realizada con éxito y registrada en el Order Book!");
-    isSubmitting = false;
-}
+async function confirmarCompraRapida() { 
+    if (isSubmitting) return; 
+    isSubmitting = true; 
+    const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase(); 
+    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1; 
+    const precioIngresado = tipoOrden === 'limit' ? parseFloat(document.getElementById('modal-limit-price').value) : (ordenActivaModal.precioAskBase || 0.50); 
+    const idM = ordenActivaModal.idMercado; 
+    const opM = ordenActivaModal.opcion; 
+    if (usuarioActual.balance < ordenActivaModal.totalConComision) { 
+        alert("Balance insuficiente para cubrir la inversión total con comisiones."); 
+        isSubmitting = false; 
+        return; 
+    } 
+    usuarioActual.balance -= ordenActivaModal.totalConComision; 
+    actualizarUIBalance(); 
+    const nuevaPosicion = { id: 'POS-' + Date.now(), marketId: idM, titulo: ordenActivaModal.tituloMercado, opcion: opM, contratos: cantidad, invertido: ordenActivaModal.totalConComision, payout: cantidad * 1.00, estadoOrden: 'ACTIVO' }; 
+    posicionesActivas.push(nuevaPosicion); 
+    guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle, titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos, invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout, estado_orden: nuevaPosicion.estadoOrden }); 
+    const nuevaOrdenGlobal = { marketId: idM, tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)', opcion: opM, contratos: cantidad, precio: precioIngresado, trader: usuarioActual.handle }; 
+    ordenesGlobales.push(nuevaOrdenGlobal); 
+    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
+    registrarTransaccionEnDB({ id: 'TX-' + Date.now(), titulo: 'Compra de Contratos', tipo: 'Compra', monto: -ordenActivaModal.totalConComision, detalle: `Adquisición de ${cantidad} contratos de [${opM}] en "${ordenActivaModal.tituloMercado}"` }); 
+    guardarTodoInStorage(); 
+    cerrarTerminalTrading(); 
+    renderizarPosiciones(); 
+    renderizarHistorial(); 
+    renderizarOrderBookVisible(); 
+    alert("✅ ¡Compra realizada con éxito y registrada en el Order Book!"); 
+    isSubmitting = false; 
+} 
 
 function abrirModalVenta(idx) { 
     const pos = posicionesActivas[idx]; 
@@ -1537,60 +1509,32 @@ function calcularTotalVentaModal() {
     ventaActivaModal.precioUnitarioVenta = precioUnitarioVenta; 
 } 
 
-async function ejecutarVentaPosicion() {
-    if (!ventaActivaModal) return;
-    const pos = ventaActivaModal.posicion;
-    const contratosVender = ventaActivaModal.contratosVender;
-    const tipoVenta = document.getElementById('sell-modal-type').value.toLowerCase();
-    const precioVenta = tipoVenta === 'limit' ? parseFloat(document.getElementById('sell-limit-price').value) : ventaActivaModal.precioBase;
-
-    usuarioActual.balance += ventaActivaModal.retornoTotal;
-
-    const nuevaOrdenAsk = {
-        marketId: pos.marketId,
-        tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)',
-        opcion: pos.opcion,
-        contratos: contratosVender,
-        precio: precioVenta,
-        trader: usuarioActual.handle
-    };
-    ordenesGlobales.push(nuevaOrdenAsk);
-    await guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenAsk);
-
-    if (contratosVender >= pos.contratos) {
-        eliminarDeSupabaseTabla('posiciones_activas', pos.id);
-        posicionesActivas = posicionesActivas.filter(p => p.id !== pos.id);
-    } else {
-        pos.contratos -= contratosVender;
-        pos.invertido = pos.invertido * (pos.contratos / (pos.contratos + contratosVender));
-        guardarEnSupabaseTabla('posiciones_activas', {
-            id: pos.id,
-            market_id: String(pos.marketId),
-            handle: usuarioActual.handle,
-            titulo: pos.titulo,
-            opcion: pos.opcion,
-            contratos: pos.contratos,
-            invertido: pos.invertido,
-            payout: pos.payout,
-            estado_orden: pos.estadoOrden
-        });
-    }
-
-    registrarTransaccionEnDB({
-        id: 'TX-SELL-' + Date.now(),
-        titulo: 'Venta de Contratos',
-        tipo: 'Venta',
-        monto: ventaActivaModal.retornoTotal,
-        detalle: `Venta de ${contratosVender} contratos de [${pos.opcion}] en "${pos.titulo}"`
-    });
-
-    guardarTodoInStorage();
-    actualizarUIBalance();
-    cerrarModalVenta();
-    renderizarPosiciones();
-    renderizarOrderBookVisible();
-    alert("✅ ¡Venta ejecutada con éxito!");
-}
+async function ejecutarVentaPosicion() { 
+    if (!ventaActivaModal) return; 
+    const pos = ventaActivaModal.posicion; 
+    const contratosVender = ventaActivaModal.contratosVender; 
+    const tipoVenta = document.getElementById('sell-modal-type').value.toLowerCase(); 
+    const precioVenta = tipoVenta === 'limit' ? parseFloat(document.getElementById('sell-limit-price').value) : ventaActivaModal.precioBase; 
+    usuarioActual.balance += ventaActivaModal.retornoTotal; 
+    const nuevaOrdenAsk = { marketId: pos.marketId, tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)', opcion: pos.opcion, contratos: contratosVender, precio: precioVenta, trader: usuarioActual.handle }; 
+    ordenesGlobales.push(nuevaOrdenAsk); 
+    await guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenAsk); 
+    if (contratosVender >= pos.contratos) { 
+        eliminarDeSupabaseTabla('posiciones_activas', pos.id); 
+        posicionesActivas = posicionesActivas.filter(p => p.id !== pos.id); 
+    } else { 
+        pos.contratos -= contratosVender; 
+        pos.invertido = pos.invertido * (pos.contratos / (pos.contratos + contratosVender)); 
+        guardarEnSupabaseTabla('posiciones_activas', { id: pos.id, market_id: String(pos.marketId), handle: usuarioActual.handle, titulo: pos.titulo, opcion: pos.opcion, contratos: pos.contratos, invertido: pos.invertido, payout: pos.payout, estado_orden: pos.estadoOrden }); 
+    } 
+    registrarTransaccionEnDB({ id: 'TX-SELL-' + Date.now(), titulo: 'Venta de Contratos', tipo: 'Venta', monto: ventaActivaModal.retornoTotal, detalle: `Venta de ${contratosVender} contratos de [${pos.opcion}] en "${pos.titulo}"` }); 
+    guardarTodoInStorage(); 
+    actualizarUIBalance(); 
+    cerrarModalVenta(); 
+    renderizarPosiciones(); 
+    renderizarOrderBookVisible(); 
+    alert("✅ ¡Venta ejecutada con éxito!"); 
+} 
 
 function renderizarOrderBookVisible() { 
     sincronizarPersistencia(); 
@@ -1604,8 +1548,8 @@ function renderizarOrderBookVisible() {
     } 
     let estadoTextoBanner = estadosMercados[marketIdFiltro] === 'ESPERANDO_RESOLUCION' ? '🟠 Esperando Resolución del Administrador' : 'Activo / Abierto'; 
     bannerStatus.innerHTML = ` 
-        <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div> 
-        <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div> 
+    <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div> 
+    <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div> 
     `; 
     const filtradas = ordenesGlobales.filter(o => o.marketId == marketIdFiltro); 
     if (filtradas.length === 0) { 
@@ -1616,13 +1560,13 @@ function renderizarOrderBookVisible() {
     filtradas.forEach(o => { 
         const colorOp = o.opcion === 'SÍ' ? '#4ade80' : '#f87171'; 
         html += ` 
-            <tr> 
-                <td><span style="color: #38bdf8;">${o.tipo}</span></td> 
-                <td><b style="color: ${colorOp};">${o.opcion}</b></td> 
-                <td>${o.contratos}</td> 
-                <td>${o.precio.toFixed(3)} Pi</td> 
-                <td>${o.trader}</td> 
-            </tr> 
+        <tr> 
+          <td><span style="color: #38bdf8;">${o.tipo}</span></td> 
+          <td><b style="color: ${colorOp};">${o.opcion}</b></td> 
+          <td>${o.contratos}</td> 
+          <td>${o.precio.toFixed(3)} Pi</td> 
+          <td>${o.trader}</td> 
+        </tr> 
         `; 
     }); 
     tbody.innerHTML = html; 
@@ -1634,22 +1578,17 @@ function renderizarPosiciones() {
         contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>'; 
         return; 
     } 
-
     let html = ''; 
     posicionesActivas.forEach((pos, idx) => { 
         const ganadorOficial = estadosMercados[pos.marketId]; 
         if (ganadorOficial !== null && ganadorOficial !== 'ESPERANDO_RESOLUCION' && ganadorOficial !== pos.opcion && ganadorOficial !== 'CANCELADO') return; 
-
-        let estadoBadgeVisual = pos.estadoOrden === 'ESPERANDO_COMPRADOR'  
-            ? '<span style="color: #f97316; font-weight: bold;">⏳ Orden en el libro: Esperando comprador</span>'  
-            : '<span style="color: #4ade80; font-weight: bold;">🟢 Contrato en posesión (Activo)</span>'; 
-
+        let estadoBadgeVisual = pos.estadoOrden === 'ESPERANDO_COMPRADOR' ? '<span style="color: #f97316; font-weight: bold;">⏳ Orden en el libro: Esperando comprador</span>' : '<span style="color: #4ade80; font-weight: bold;">🟢 Contrato en posesión (Activo)</span>'; 
         let botonesHtml = ''; 
         if (ganadorOficial === null) { 
             botonesHtml = ` 
-                <div style="display: flex; gap: 6px; margin-top: 6px;"> 
-                    <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${idx})">💱 Vender (Mercado / Límite)</button> 
-                </div> 
+            <div style="display: flex; gap: 6px; margin-top: 6px;"> 
+              <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #d97706, #b45309); border-color: #f59e0b; font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${idx})">💱 Vender (Mercado / Límite)</button> 
+            </div> 
             `; 
         } else if (ganadorOficial === 'ESPERANDO_RESOLUCION') { 
             botonesHtml = `<div style="font-size: 0.75rem; color: #f97316; font-weight: bold; text-align: center; padding: 4px;">🟠 Esperando Resolución del Administrador</div>`; 
@@ -1657,23 +1596,20 @@ function renderizarPosiciones() {
             botonesHtml = `<div style="font-size: 0.75rem; color: #ea580c; font-weight: bold; text-align: center; padding: 4px;">⚠️ Mercado Cancelado / Reembolsado</div>`; 
         } else { 
             botonesHtml = ` 
-                <div style="display: flex; gap: 6px; margin-top: 6px;"> 
-                    <button class="action-btn" style="width: 100%; font-size: 0.75rem; background: linear-gradient(145deg, #166534, #14532d);" onclick="reclamarPremioGanador(${idx})">🎉 Reclamar Ganancia (${pos.payout.toFixed(2)} Pi)</button> 
-                </div> 
+            <div style="display: flex; gap: 6px; margin-top: 6px;"> 
+              <button class="action-btn" style="width: 100%; font-size: 0.75rem; background: linear-gradient(145deg, #166534, #14532d);" onclick="reclamarPremioGanador(${idx})">🎉 Reclamar Ganancia (${pos.payout.toFixed(2)} Pi)</button> 
+            </div> 
             `; 
         } 
-
         html += ` 
-            <div class="position-ticket" data-watermark="${pos.opcion}"> 
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;"> 
-                    <span>ID: ${pos.id}</span> ${estadoBadgeVisual} 
-                </div> 
-                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">${pos.titulo}</div> 
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">  
-                    Contratos: <b>${pos.contratos}</b> | Opción: <b>${pos.opcion}</b> | Invertido: <b>${pos.invertido ? pos.invertido.toFixed(2) : '0.00'} Pi</b> 
-                </div> 
-                ${botonesHtml} 
-            </div> 
+        <div class="position-ticket" data-watermark="${pos.opcion}"> 
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;"> 
+            <span>ID: ${pos.id}</span> ${estadoBadgeVisual} 
+          </div> 
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">${pos.titulo}</div> 
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;"> Contratos: <b>${pos.contratos}</b> | Opción: <b>${pos.opcion}</b> | Invertido: <b>${pos.invertido ? pos.invertido.toFixed(2) : '0.00'} Pi</b> </div> 
+          ${botonesHtml} 
+        </div> 
         `; 
     }); 
     contenedor.innerHTML = html; 
@@ -1711,12 +1647,13 @@ function renderizarHistorial() {
         const colorMonto = esPositivo ? '#4ade80' : '#f87171'; 
         const signoMonto = esPositivo ? '+' : ''; 
         html += ` 
-            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 0.75rem;"> 
-                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
-                    <span>${tx.titulo}</span> <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span> 
-                </div> 
-                <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div> 
-            </div> 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 0.75rem;"> 
+          <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
+            <span>${tx.titulo}</span> 
+            <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span> 
+          </div> 
+          <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div> 
+        </div> 
         `; 
     }); 
     contenedor.innerHTML = html; 
@@ -1742,14 +1679,8 @@ function depositarConPiNetwork() {
         alert(`¡Recarga exitosa! Se añadieron ${montoInput.toFixed(2)} Pi a tu balance.`); 
         return; 
     } 
-    Pi.createPayment({ 
-        amount: montoInput, 
-        memo: "Recarga P2Ppredict saldo interno", 
-        metadata: { handle: usuarioActual.handle } 
-    }, { 
-        onReadyForServerApproval: function(paymentId) { 
-            console.log("Pago listo para aprobación en servidor:", paymentId); 
-        }, 
+    Pi.createPayment({ amount: montoInput, memo: "Recarga P2Ppredict saldo interno", metadata: { handle: usuarioActual.handle } }, { 
+        onReadyForServerApproval: function(paymentId) {}, 
         onReadyForServerCompletion: function(paymentId, txid) { 
             usuarioActual.balance += montoInput; 
             registrarTransaccionEnDB({ id: 'DEP-' + Date.now(), titulo: 'Recarga Pi Network Oficial', tipo: 'Pi Network', monto: montoInput, detalle: `TXID Blockchain: ${txid}` }); 
@@ -1758,12 +1689,8 @@ function depositarConPiNetwork() {
             document.getElementById('wallet-amount').value = ''; 
             alert(`¡Pago completado con éxito en Pi Network! Se acreditaron ${montoInput.toFixed(2)} Pi.`); 
         }, 
-        onCancel: function(paymentId) { 
-            alert("El pago fue cancelado por el usuario."); 
-        }, 
-        onError: function(error, payment) { 
-            alert("Error procesando el pago con Pi Network: " + (error ? error.message : "Desconocido")); 
-        } 
+        onCancel: function(paymentId) { alert("El pago fue cancelado por el usuario."); }, 
+        onError: function(error, payment) { alert("Error procesando el pago con Pi Network."); } 
     }); 
 } 
 
@@ -1783,11 +1710,11 @@ function retirarBilletera() {
         return; 
     } 
     usuarioActual.balance -= montoInput; 
-    registrarTransaccionEnDB({ id: 'RET-' + Date.now(), titulo: 'Retiro a Wallet Pi Network', tipo: 'Pi Network', monto: -montoInput, detalle: `Retiro solicitado a la mainnet/sandbox de Pi Network por ${usuarioActual.handle}` }); 
+    registrarTransaccionEnDB({ id: 'RET-' + Date.now(), titulo: 'Retiro a Wallet Pi Network', tipo: 'Pi Network', monto: -montoInput, detalle: `Retiro solicitado por ${usuarioActual.handle}` }); 
     guardarTodoInStorage(); 
     actualizarUIBalance(); 
     document.getElementById('wallet-amount').value = ''; 
-    alert(`¡Solicitud de retiro procesada! Se han descontado ${montoInput.toFixed(2)} Pi de tu saldo interno.`); 
+    alert(`¡Solicitud de retiro procesada! Se han descontado ${montoInput.toFixed(2)} Pi.`); 
 } 
 
 function abrirSoporteChatUsuario() { 
@@ -1803,12 +1730,12 @@ function renderizarMensajesChatUsuario() {
     const container = document.getElementById('chat-messages-container'); 
     let ticket = ticketsSoporte.find(t => t.handle === usuarioActual.handle); 
     if (!ticket || !ticket.mensajes || ticket.mensajes.length === 0) { 
-        container.innerHTML = '<div class="chat-msg admin">Hola, soy el asistente de soporte de P2Ppredict. ¿En qué podemos ayudarte con tus transacciones u órdenes?</div>'; 
+        container.innerHTML = '<div class="chat-msg admin">Hola, soy el asistente de soporte de P2Ppredict. ¿En qué podemos ayudarte?</div>'; 
         return; 
     } 
     let html = ''; 
     ticket.mensajes.forEach(m => { 
-        let clase = m.emisor === 'usuario' ? 'user' : 'admin';
+        let clase = m.emisor === 'usuario' ? 'user' : 'admin'; 
         html += `<div class="chat-msg ${clase}">${m.texto}</div>`; 
     }); 
     container.innerHTML = html; 
@@ -1841,13 +1768,14 @@ function renderizarTicketsAdmin() {
     ticketsSoporte.forEach(t => { 
         let ultimoMsg = t.mensajes && t.mensajes.length > 0 ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes'; 
         html += ` 
-            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px;"> 
-                    <span style="color: #38bdf8;">${t.handle}</span> <span style="color: #eab308;">${t.estado}</span> 
-                </div> 
-                <div style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 6px;">Último mensaje: "${ultimoMsg}"</div> 
-                <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 6px;" onclick="abrirChatAdminModal('${t.handle}')">💬 Responder Ticket</button> 
-            </div> 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+          <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px;"> 
+            <span style="color: #38bdf8;">${t.handle}</span> 
+            <span style="color: #eab308;">${t.estado}</span> 
+          </div> 
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 6px;">Último mensaje: "${ultimoMsg}"</div> 
+          <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 6px;" onclick="abrirChatAdminModal('${t.handle}')">💬 Responder Ticket</button> 
+        </div> 
         `; 
     }); 
     container.innerHTML = html; 
@@ -1912,7 +1840,7 @@ function declararGanadorAdmin() {
     restaurarEstadosMercadosVisuales(); 
     renderizarPosiciones(); 
     actualizarSelectsMercadosActivos(); 
-    alert(`¡Mercado resuelto con éxito! Ganador oficial declarado: [${ganador}]. Los usuarios ya pueden reclamar sus premios.`); 
+    alert(`¡Mercado resuelto con éxito! Ganador oficial declarado: [${ganador}].`); 
 } 
 
 function cancelarYReembolsarMercadoAdmin() { 
@@ -1921,19 +1849,13 @@ function cancelarYReembolsarMercadoAdmin() {
         alert("Selecciona un mercado válido."); 
         return; 
     } 
-    if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los usuarios sin comisión?")) return; 
+    if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100%?")) return; 
     estadosMercados[idMercado] = 'CANCELADO'; 
     posicionesActivas.forEach(pos => { 
         if (String(pos.marketId) === String(idMercado)) { 
             let montoReembolso = pos.invertido || (pos.contratos * 0.50); 
             usuarioActual.balance += montoReembolso; 
-            registrarTransaccionEnDB({ 
-                id: 'REEMB-' + Date.now() + '-' + Math.floor(Math.random()*1000), 
-                titulo: 'Reembolso por Cancelación de Mercado', 
-                tipo: 'Reembolso', 
-                monto: montoReembolso, 
-                detalle: `Reembolso total de ${montoReembolso.toFixed(2)} Pi por cancelación de "${pos.titulo}"` 
-            }); 
+            registrarTransaccionEnDB({ id: 'REEMB-' + Date.now(), titulo: 'Reembolso por Cancelación', tipo: 'Reembolso', monto: montoReembolso, detalle: `Reembolso por "${pos.titulo}"` }); 
             eliminarDeSupabaseTabla('posiciones_activas', pos.id); 
         } 
     }); 
@@ -1944,7 +1866,7 @@ function cancelarYReembolsarMercadoAdmin() {
     renderizarPosiciones(); 
     renderizarHistorial(); 
     actualizarSelectsMercadosActivos(); 
-    alert("🚨 Mercado cancelado y fondos reembolsados exitosamente a las cuentas afectadas."); 
+    alert("🚨 Mercado cancelado y fondos reembolsados exitosamente."); 
 } 
 
 function poblarSelectUsuariosAdmin() { 
@@ -1978,26 +1900,23 @@ function cargarDatosUsuarioAdminSeleccionado() {
 } 
 
 function toggleBloqueoCuentaActual() { 
-    if (!usuarioAdminSeleccionadoHandle) { 
-        alert("Selecciona primero una cuenta de usuario."); 
-        return; 
-    } 
+    if (!usuarioAdminSeleccionadoHandle) return; 
     let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
     if (u) { 
         u.bloqueado = !u.bloqueado; 
         guardarTodoInStorage(); 
         cargarDatosUsuarioAdminSeleccionado(); 
         poblarSelectUsuariosAdmin(); 
-        alert(`Cuenta ${u.handle} ha sido ${u.bloqueado ? 'bloqueada' : 'desbloqueada'}.`); 
+        alert(`Cuenta ${u.handle} ${u.bloqueado ? 'bloqueada' : 'desbloqueada'}.`); 
     } 
 } 
 
 function abrirModalAjusteBalance() { 
     if (!usuarioAdminSeleccionadoHandle) { 
-        alert("Selecciona primero una cuenta de usuario en el panel admin."); 
+        alert("Selecciona primero una cuenta."); 
         return; 
     } 
-    document.getElementById('admin-balance-modal-subtitle').innerText = `Ajustar saldo para la cuenta: ${usuarioAdminSeleccionadoHandle}`; 
+    document.getElementById('admin-balance-modal-subtitle').innerText = `Ajustar saldo para: ${usuarioAdminSeleccionadoHandle}`; 
     document.getElementById('admin-adj-monto').value = ''; 
     document.getElementById('admin-adj-nota').value = ''; 
     document.getElementById('admin-balance-modal').style.display = 'flex'; 
@@ -2011,21 +1930,14 @@ function ejecutarAjusteBalanceAdmin() {
     const tipoOp = document.getElementById('admin-adj-tipo').value; 
     const monto = parseFloat(document.getElementById('admin-adj-monto').value); 
     const nota = document.getElementById('admin-adj-nota').value.trim(); 
-    if (!monto || monto <= 0) { 
-        alert("Introduce un monto válido para el ajuste."); 
-        return; 
-    } 
-    if (!nota) { 
-        alert("Escribe una nota de auditoría justificando el ajuste."); 
+    if (!monto || monto <= 0 || !nota) { 
+        alert("Introduce un monto válido y una nota de auditoría."); 
         return; 
     } 
     let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
-    if (!u) { 
-        alert("Usuario no encontrado."); 
-        return; 
-    } 
+    if (!u) return; 
     if (tipoOp === 'DEBITO' && u.balance < monto) { 
-        alert("El usuario no tiene suficiente balance para este débito."); 
+        alert("Balance insuficiente para este débito."); 
         return; 
     } 
     let variacion = tipoOp === 'CREDITO' ? monto : -monto; 
@@ -2034,18 +1946,12 @@ function ejecutarAjusteBalanceAdmin() {
         usuarioActual.balance = u.balance; 
         actualizarUIBalance(); 
     } 
-    registrarTransaccionEnDB({ 
-        id: 'ADJ-' + Date.now(), 
-        titulo: `Ajuste Admin (${tipoOp})`, 
-        tipo: 'Admin', 
-        monto: variacion, 
-        detalle: `Cuenta: ${u.handle} | Motivo: ${nota}` 
-    }); 
+    registrarTransaccionEnDB({ id: 'ADJ-' + Date.now(), titulo: `Ajuste Admin (${tipoOp})`, tipo: 'Admin', monto: variacion, detalle: `Cuenta: ${u.handle} | Motivo: ${nota}` }); 
     guardarTodoInStorage(); 
     cargarDatosUsuarioAdminSeleccionado(); 
     poblarSelectUsuariosAdmin(); 
     cerrarModalAjusteBalance(); 
-    alert("✅ ¡Ajuste de balance ejecutado y registrado en la auditoría!"); 
+    alert("✅ ¡Ajuste de balance ejecutado!"); 
 } 
 
 function calcularMetricasFinancierasAdmin() { 
@@ -2053,17 +1959,16 @@ function calcularMetricasFinancierasAdmin() {
     cuentasDirectorio.forEach(c => { totalSupply += c.balance; }); 
     const totalSupplyEl = document.getElementById('admin-total-supply'); 
     if (totalSupplyEl) totalSupplyEl.innerText = totalSupply.toFixed(2) + ' Pi'; 
-
     let sortedUsers = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance); 
     let topContainer = document.getElementById('admin-top-users-container'); 
     if (topContainer) { 
         let htmlTop = ''; 
         sortedUsers.slice(0, 5).forEach((u, index) => { 
             htmlTop += ` 
-                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-color);"> 
-                    <span>${index + 1}. ${u.handle} ${u.bloqueado ? '(🔒 Bloqueado)' : ''}</span> 
-                    <b style="color: #4ade80;">${u.balance.toFixed(2)} Pi</b> 
-                </div> 
+            <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-color);"> 
+              <span>${index + 1}. ${u.handle} ${u.bloqueado ? '(🔒 Bloqueado)' : ''}</span> 
+              <b style="color: #4ade80;">${u.balance.toFixed(2)} Pi</b> 
+            </div> 
             `; 
         }); 
         topContainer.innerHTML = htmlTop; 
@@ -2075,12 +1980,10 @@ function renderizarHistorialGlobalAdmin() {
     const userSearch = document.getElementById('admin-user-search') ? document.getElementById('admin-user-search').value.toLowerCase() : ''; 
     const txSearch = document.getElementById('admin-tx-search') ? document.getElementById('admin-tx-search').value.toLowerCase() : ''; 
     const filtroDetalle = document.getElementById('filtroDetalle') ? document.getElementById('filtroDetalle').value : ''; 
-
     if (!historialTransacciones || historialTransacciones.length === 0) { 
         container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>'; 
         return; 
     } 
-
     let filtradas = historialTransacciones.filter(tx => { 
         let detalleTexto = (tx.detalle || tx.tipo || '').toLowerCase(); 
         let tituloTexto = (tx.titulo || '').toLowerCase(); 
@@ -2089,24 +1992,23 @@ function renderizarHistorialGlobalAdmin() {
         let matchDetalle = filtroDetalle === '' || detalleTexto.includes(filtroDetalle.toLowerCase()) || tituloTexto.includes(filtroDetalle.toLowerCase()); 
         return matchUser && matchTx && matchDetalle; 
     }); 
-
     if (filtradas.length === 0) { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con los filtros.</p>'; 
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan.</p>'; 
         return; 
     } 
-
     let html = ''; 
     filtradas.forEach(tx => { 
         const esPositivo = tx.monto >= 0; 
         const colorMonto = esPositivo ? '#4ade80' : '#f87171'; 
         const signoMonto = esPositivo ? '+' : ''; 
         html += ` 
-            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;"> 
-                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
-                    <span>${tx.titulo}</span> <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span> 
-                </div> 
-                <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div> 
-            </div> 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;"> 
+          <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
+            <span>${tx.titulo}</span> 
+            <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span> 
+          </div> 
+          <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div> 
+        </div> 
         `; 
     }); 
     container.innerHTML = html; 
@@ -2114,4 +2016,3 @@ function renderizarHistorialGlobalAdmin() {
 </script> 
 </body> 
 </html>
-
