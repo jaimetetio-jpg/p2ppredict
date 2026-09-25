@@ -423,15 +423,40 @@ header {
         <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button> 
         <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button> 
     </div> 
-    <div class="filter-pills" id="estado-filter-pills" style="margin-bottom: 14px;"> 
-        <button class="pill active" onclick="setStatusFilter('Todos', this)">Todos</button> 
-        <button class="pill" onclick="setStatusFilter('Abiertos', this)">Abiertos</button> 
-        <button class="pill" onclick="setStatusFilter('Cerrados', this)">Cerrados / Esperando Resolución</button> 
-    </div> 
+    
+    <!-- BANDEJA 1: MERCADOS ACTIVOS --> 
+    <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; margin-top: 4px;">🟢 Mercados Activos</div> 
     <div id="markets-container"></div> 
 
+    <!-- BANDEJA 2: ESPERANDO RESOLUCIÓN --> 
+    <div class="accordion-card" id="acc-espera-resolucion" style="margin-top: 16px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-espera-resolucion')"> 
+            <span>🟠 Mercados Finalizados (Esperando Resolución)</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <div id="espera-resolucion-container"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p> 
+            </div> 
+        </div> 
+    </div> 
+
+    <!-- BANDEJA 3: HISTORIAL DE MERCADOS CERRADOS (CON BUSCADOR POR LISTA) --> 
+    <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
+            <span>📜 Historial de Mercados Cerrados & Ganadores</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <input type="text" class="search-box" id="search-closed-input" placeholder="🔍 Buscar en el historial de cerrados..." oninput="filtrarMercadosCerrados()" style="margin-bottom: 10px;"> 
+            <div id="historial-cerrados-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados registrados aún.</p> 
+            </div> 
+        </div> 
+    </div> 
+
     <!-- GESTIÓN DE BILLETERA PI NETWORK --> 
-    <div class="accordion-card" id="acc-wallet"> 
+    <div class="accordion-card" id="acc-wallet" style="margin-top: 16px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
             <span>💳 Gestión de Billetera y Blockchain Pi</span> 
             <span>▾</span> 
@@ -823,7 +848,6 @@ let nombresMercados = { 1: "¿Bitcoin superará los $100,000?", 2: "¿Se habilit
 let ordenActivaModal = null; 
 let ventaActivaModal = null; 
 let categoriaActualFiltro = 'Todos'; 
-let estadoActualFiltro = 'Todos'; 
 
 window.onload = async function() { 
     await sincronizarConSupabase(); 
@@ -831,6 +855,7 @@ window.onload = async function() {
     verificarBloqueoUsuarioActual(); 
     reconstruirDiccionarioNombresMercados(); 
     renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
     actualizarUIBalance(); 
     actualizarPreciosVisuales(); 
     restaurarEstadosMercadosVisuales(); 
@@ -846,6 +871,7 @@ window.onload = async function() {
                 await sincronizarConSupabase();
                 reconstruirDiccionarioNombresMercados();
                 renderizarMercadosDinamicos();
+                renderizarMercadosEsperaYHistorial();
                 restaurarEstadosMercadosVisuales();
                 actualizarSelectsMercadosActivos();
             })
@@ -1036,16 +1062,9 @@ function aplicarFiltrosCombinados() {
     cards.forEach(card => { 
         const title = card.querySelector('.market-title').innerText.toLowerCase(); 
         const cardCat = card.getAttribute('data-category'); 
-        const cardEstado = card.getAttribute('data-estado'); 
         let cumpleQuery = title.includes(query); 
         let cumpleCat = (categoriaActualFiltro === 'Todos' || cardCat === categoriaActualFiltro); 
-        let cumpleEstado = true; 
-        if (estadoActualFiltro === 'Abiertos') { 
-            cumpleEstado = (cardEstado === 'Abierto'); 
-        } else if (estadoActualFiltro === 'Cerrados') { 
-            cumpleEstado = (cardEstado === 'Cerrado' || cardEstado === 'Esperando Resolución' || cardEstado === 'Cancelado'); 
-        } 
-        if (cumpleQuery && cumpleCat && cumpleEstado) { 
+        if (cumpleQuery && cumpleCat) { 
             card.style.display = 'block'; 
         } else { 
             card.style.display = 'none'; 
@@ -1061,13 +1080,6 @@ function setCategory(cat, pillElement) {
     pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active')); 
     pillElement.classList.add('active'); 
     categoriaActualFiltro = cat; 
-    aplicarFiltrosCombinados(); 
-} 
-
-function setStatusFilter(estado, pillElement) { 
-    pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active')); 
-    pillElement.classList.add('active'); 
-    estadoActualFiltro = estado; 
     aplicarFiltrosCombinados(); 
 } 
 
@@ -1089,45 +1101,11 @@ function actualizarPreciosVisuales() {
 function restaurarEstadosMercadosVisuales() { 
     for (let id in estadosMercados) { 
         const estadoBadge = document.getElementById('estado-mercado-' + id); 
-        const marketCard = document.querySelector(`.market-card[data-id="${id}"]`); 
-        const btnSi = document.getElementById(`btn-comprar-${id}-SI`); 
-        const btnNo = document.getElementById(`btn-comprar-${id}-NO`); 
         if (estadosMercados[id] !== null) { 
-            let etiquetaEstado = ''; 
-            let colorTexto = ''; 
-            let estadoDataAttr = 'Cerrado'; 
-            if (estadosMercados[id] === 'CANCELADO') { 
-                etiquetaEstado = '🔴 Cancelado (Reembolsado)'; 
-                colorTexto = '#ea580c'; 
-                estadoDataAttr = 'Cancelado'; 
-            } else if (estadosMercados[id] === 'ESPERANDO_RESOLUCION') { 
-                etiquetaEstado = '🟠 Esperando Resolución'; 
-                colorTexto = '#f97316'; 
-                estadoDataAttr = 'Esperando Resolución'; 
-            } else { 
-                etiquetaEstado = `🔴 Cerrado (Ganador: ${estadosMercados[id]})`; 
-                colorTexto = '#ef4444'; 
-                estadoDataAttr = 'Cerrado'; 
-            } 
-            if (estadoBadge) { 
-                estadoBadge.innerHTML = etiquetaEstado; 
-                estadoBadge.style.color = colorTexto; 
-            } 
-            if (marketCard) { 
-                marketCard.setAttribute('data-estado', estadoDataAttr); 
-            } 
+            const btnSi = document.getElementById(`btn-comprar-${id}-SI`); 
+            const btnNo = document.getElementById(`btn-comprar-${id}-NO`); 
             if (btnSi) btnSi.disabled = true; 
             if (btnNo) btnNo.disabled = true; 
-        } else { 
-            if (estadoBadge) { 
-                estadoBadge.innerHTML = `● Abierto`; 
-                estadoBadge.style.color = '#eab308'; 
-            } 
-            if (marketCard) { 
-                marketCard.setAttribute('data-estado', 'Abierto'); 
-            } 
-            if (btnSi) btnSi.disabled = false; 
-            if (btnNo) btnNo.disabled = false; 
         } 
     } 
     aplicarFiltrosCombinados(); 
@@ -1224,6 +1202,7 @@ function crearNuevoMercadoPionero() {
     registrarTransaccionEnDB({ id: 'CREAR-' + Date.now(), titulo: 'Creación de Mercado', tipo: 'Inversión Inicial', monto: -liquidezAportada, detalle: `Creación del mercado: "${titulo}"` }); 
     guardarTodoInStorage(); 
     renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
     actualizarUIBalance(); 
     actualizarPreciosVisuales(); 
     restaurarEstadosMercadosVisuales(); 
@@ -1234,30 +1213,28 @@ function crearNuevoMercadoPionero() {
     document.getElementById('nuevo-liquidez').value = '5.0'; 
     alert("¡Mercado creado con éxito!"); 
     switchTab('mercados', document.querySelector('.nav-tab')); 
-    renderizarMercadosDinamicos(); 
 } 
 
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
     let htmlDinamicoHTML = ''; 
 
-    // 1. Renderizamos primero los mercados base por defecto
     const mercadosBase = [
         { id: 1, titulo: "¿Bitcoin superará los $100,000 antes de finalizar este mes?", categoria: "Crypto", fechaCierre: "2026-12-31T23:59:59" },
         { id: 2, titulo: "¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?", categoria: "Pi Ecosystem", fechaCierre: "2026-12-31T23:59:59" }
     ];
 
     mercadosBase.forEach(m => {
+        if (estadosMercados[m.id] !== null) return; // Solo activos
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": m.id === 1 ? 0.64 : 0.81, "NO": m.id === 1 ? 0.36 : 0.19 }; 
-        if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
 
         htmlDinamicoHTML += ` 
-        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto"> 
+        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}"> 
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
             <span>🏷️ ${m.categoria}</span> 
-            <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+            <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
           </div> 
           <div class="market-title">${m.titulo}</div> 
           <div class="countdown-timer" id="countdown-${m.id}" data-target="${m.fechaCierre}"> 
@@ -1273,19 +1250,18 @@ function renderizarMercadosDinamicos() {
         `;
     });
 
-    // 2. Renderizamos todos los mercados sincronizados desde Supabase (como Tigres de Aragua, etc.)
     mercadosDinamicos.forEach(m => { 
+        if (estadosMercados[m.id] !== null) return; // Solo activos
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
-        if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
         const targetDate = m.fechaCierre || '2026-12-31T23:59:59'; 
         
         htmlDinamicoHTML += ` 
-        <div class="market-card" data-id="${m.id}" data-category="${m.categoria || 'Comunidad'}" data-estado="Abierto"> 
+        <div class="market-card" data-id="${m.id}" data-category="${m.categoria || 'Comunidad'}"> 
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
             <span>🏷️ ${m.categoria || 'Comunidad'} (Creador: ${m.creador || 'Anónimo'})</span> 
-            <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+            <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
           </div> 
           <div class="market-title">${m.titulo}</div> 
           <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
@@ -1301,8 +1277,68 @@ function renderizarMercadosDinamicos() {
         `; 
     }); 
 
+    if (htmlDinamicoHTML === '') { 
+        htmlDinamicoHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">No hay mercados activos actualmente.</p>'; 
+    } 
+
     container.innerHTML = htmlDinamicoHTML; 
-    restaurarEstadosMercadosVisuales();
+    aplicarFiltrosCombinados();
+} 
+
+function renderizarMercadosEsperaYHistorial() { 
+    const contenedorEspera = document.getElementById('espera-resolucion-container'); 
+    const contenedorHistorial = document.getElementById('historial-cerrados-container'); 
+    
+    let todosLosIds = [1, 2, ...mercadosDinamicos.map(m => m.id)]; 
+    let htmlEspera = ''; 
+    let htmlCerrados = ''; 
+
+    todosLosIds.forEach(id => { 
+        let titulo = nombresMercados[id] || (id == 1 ? "¿Bitcoin superará los $100,000 antes de finalizar este mes?" : (id == 2 ? "¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?" : "Mercado #" + id)); 
+        let estado = estadosMercados[id]; 
+
+        if (estado === 'ESPERANDO_RESOLUCION') { 
+            htmlEspera += ` 
+            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+              <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+              <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
+            </div> 
+            `; 
+        } else if (estado !== null && estado !== undefined) { 
+            let badgeGanador = ''; 
+            let colorBadge = '#ef4444'; 
+            if (estado === 'SÍ') { badgeGanador = 'GANADOR: SÍ 🟢'; colorBadge = '#166534'; } 
+            else if (estado === 'NO') { badgeGanador = 'GANADOR: NO 🔴'; colorBadge = '#991b1b'; } 
+            else if (estado === 'CANCELADO') { badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; colorBadge = '#7c2d12'; } 
+            else { badgeGanador = `GANADOR: ${estado}`; } 
+
+            htmlCerrados += ` 
+            <div class="market-closed-item" data-title="${titulo.toLowerCase()}" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+              <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+              <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
+            </div> 
+            `; 
+        } 
+    }); 
+
+    if (htmlEspera === '') htmlEspera = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p>'; 
+    if (htmlCerrados === '') htmlCerrados = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados en el historial.</p>'; 
+
+    if (contenedorEspera) contenedorEspera.innerHTML = htmlEspera; 
+    if (contenedorHistorial) contenedorHistorial.innerHTML = htmlCerrados; 
+} 
+
+function filtrarMercadosCerrados() { 
+    const query = document.getElementById('search-closed-input').value.toLowerCase(); 
+    const items = document.querySelectorAll('#historial-cerrados-container .market-closed-item'); 
+    items.forEach(item => { 
+        const title = item.getAttribute('data-title'); 
+        if (title.includes(query)) { 
+            item.style.display = 'block'; 
+        } else { 
+            item.style.display = 'none'; 
+        } 
+    }); 
 } 
 
 function actualizarRelojesRegresivos() { 
@@ -1325,28 +1361,12 @@ function actualizarRelojesRegresivos() {
         const diferencia = targetTime - ahora; 
         const marketId = el.id.replace('countdown-', ''); 
         if (diferencia <= 0) { 
-            if (display.innerText !== "¡Evento Finalizado / Cerrado!") { 
-                display.innerText = "¡Evento Finalizado / Cerrado!"; 
-                el.style.borderColor = "#ef4444"; 
-                el.style.color = "#ef4444"; 
-                const btnSi = document.getElementById(`btn-comprar-${marketId}-SI`); 
-                const btnNo = document.getElementById(`btn-comprar-${marketId}-NO`); 
-                if (btnSi) btnSi.disabled = true; 
-                if (btnNo) btnNo.disabled = true; 
-                if (estadosMercados[marketId] === null) { 
-                    estadosMercados[marketId] = 'ESPERANDO_RESOLUCION'; 
-                    const estadoBadge = document.getElementById('estado-mercado-' + marketId); 
-                    const marketCard = document.querySelector(`.market-card[data-id="${marketId}"]`); 
-                    if (estadoBadge) { 
-                        estadoBadge.innerHTML = '🟠 Esperando Resolución'; 
-                        estadoBadge.style.color = '#f97316'; 
-                    } 
-                    if (marketCard) { 
-                        marketCard.setAttribute('data-estado', 'Esperando Resolución'); 
-                    } 
-                    guardarTodoInStorage(); 
-                    actualizarSelectsMercadosActivos(); 
-                } 
+            if (estadosMercados[marketId] === null) { 
+                estadosMercados[marketId] = 'ESPERANDO_RESOLUCION'; 
+                guardarTodoInStorage(); 
+                renderizarMercadosDinamicos(); 
+                renderizarMercadosEsperaYHistorial(); 
+                actualizarSelectsMercadosActivos(); 
             } 
         } else { 
             const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24)); 
@@ -1574,7 +1594,7 @@ function renderizarOrderBookVisible() {
     } 
     let estadoTextoBanner = estadosMercados[marketIdFiltro] === 'ESPERANDO_RESOLUCION' ? '🟠 Esperando Resolución del Administrador' : 'Activo / Abierto'; 
     bannerStatus.innerHTML = ` 
-    <div style="color: #eab308; font-weight: bold;">● Estado do Mercado: ${estadoTextoBanner}</div> 
+    <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div> 
     <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div> 
     `; 
     const filtradas = ordenesGlobales.filter(o => o.marketId == marketIdFiltro); 
@@ -1863,6 +1883,8 @@ function declararGanadorAdmin() {
     } 
     estadosMercados[idMercado] = ganador; 
     guardarTodoInStorage(); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
     restaurarEstadosMercadosVisuales(); 
     renderizarPosiciones(); 
     actualizarSelectsMercadosActivos(); 
@@ -1888,6 +1910,8 @@ function cancelarYReembolsarMercadoAdmin() {
     posicionesActivas = posicionesActivas.filter(p => String(p.marketId) !== String(idMercado)); 
     guardarTodoInStorage(); 
     actualizarUIBalance(); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
     restaurarEstadosMercadosVisuales(); 
     renderizarPosiciones(); 
     renderizarHistorial(); 
