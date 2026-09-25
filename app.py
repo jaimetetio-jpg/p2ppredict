@@ -583,6 +583,13 @@ def validation_key():
     return "1b9ee5cdf565585e21f8bd18899df2e7026cb"
 
 
+# ================= PARCHE: HEALTH CHECK =================
+@app.route('/healthz')
+def healthz():
+    return "OK", 200
+# ========================================================
+
+
 @app.route("/api/saldo/<username>", methods=["GET"])
 def obtener_saldo(username):
     limite = int(request.args.get("limit", 20))
