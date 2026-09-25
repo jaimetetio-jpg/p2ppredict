@@ -1239,50 +1239,52 @@ function crearNuevoMercadoPionero() {
 
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
-    let htmlDinamicoHTML = ` 
-    <div class="market-card" data-id="1" data-category="Crypto" data-estado="Abierto"> 
-      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-        <span>🏷️ Crypto</span> 
-        <span id="estado-mercado-1" style="color: #eab308; font-weight: bold;">● Abierto</span> 
-      </div> 
-      <div class="market-title">¿Bitcoin superará los $100,000 antes de finalizar este mes?</div> 
-      <div class="countdown-timer" id="countdown-1" data-target="2026-12-31T23:59:59"> 
-        <span>⏳ Cierre en:</span> 
-        <b class="time-display">Calculando...</b> 
-      </div> 
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-1-SI" style="color: #4ade80; font-weight: bold;">0.64 Pi</span> | Ask NO: <span id="ask-precio-1-NO" style="color: #f87171; font-weight: bold;">0.36 Pi</span></p> 
-      <div style="display: flex; gap: 8px;"> 
-        <button id="btn-comprar-1-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'SÍ')">Comprar SÍ</button> 
-        <button id="btn-comprar-1-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(1, '¿Bitcoin superará los $100,000 antes de finalizar este mes?', 'NO')">Comprar NO</button> 
-      </div> 
-    </div> 
-    <div class="market-card" data-id="2" data-category="Pi Ecosystem" data-estado="Abierto"> 
-      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-        <span>🏷️ Pi Ecosystem</span> 
-        <span id="estado-mercado-2" style="color: #eab308; font-weight: bold;">● Abierto</span> 
-      </div> 
-      <div class="market-title">¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?</div> 
-      <div class="countdown-timer" id="countdown-2" data-target="2026-12-31T23:59:59"> 
-        <span>⏳ Cierre en:</span> 
-        <b class="time-display">Calculando...</b> 
-      </div> 
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-2-SI" style="color: #4ade80; font-weight: bold;">0.81 Pi</span> | Ask NO: <span id="ask-precio-2-NO" style="color: #f87171; font-weight: bold;">0.19 Pi</span></p> 
-      <div style="display: flex; gap: 8px;"> 
-        <button id="btn-comprar-2-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'SÍ')">Comprar SÍ</button> 
-        <button id="btn-comprar-2-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(2, '¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?', 'NO')">Comprar NO</button> 
-      </div> 
-    </div> 
-    `; 
+    let htmlDinamicoHTML = ''; 
+
+    // 1. Renderizamos primero los mercados base por defecto
+    const mercadosBase = [
+        { id: 1, titulo: "¿Bitcoin superará los $100,000 antes de finalizar este mes?", categoria: "Crypto", fechaCierre: "2026-12-31T23:59:59" },
+        { id: 2, titulo: "¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?", categoria: "Pi Ecosystem", fechaCierre: "2026-12-31T23:59:59" }
+    ];
+
+    mercadosBase.forEach(m => {
+        if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": m.id === 1 ? 0.64 : 0.81, "NO": m.id === 1 ? 0.36 : 0.19 }; 
+        if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
+        const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
+        const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
+
+        htmlDinamicoHTML += ` 
+        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto"> 
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
+            <span>🏷️ ${m.categoria}</span> 
+            <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
+          </div> 
+          <div class="market-title">${m.titulo}</div> 
+          <div class="countdown-timer" id="countdown-${m.id}" data-target="${m.fechaCierre}"> 
+            <span>⏳ Cierre en:</span> 
+            <b class="time-display">Calculando...</b> 
+          </div> 
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
+          <div style="display: flex; gap: 8px;"> 
+            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading(${m.id}, '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
+            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading(${m.id}, '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
+          </div> 
+        </div> 
+        `;
+    });
+
+    // 2. Renderizamos todos los mercados sincronizados desde Supabase (como Tigres de Aragua, etc.)
     mercadosDinamicos.forEach(m => { 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
         if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
         const targetDate = m.fechaCierre || '2026-12-31T23:59:59'; 
+        
         htmlDinamicoHTML += ` 
-        <div class="market-card" data-id="${m.id}" data-category="${m.categoria}" data-estado="Abierto"> 
+        <div class="market-card" data-id="${m.id}" data-category="${m.categoria || 'Comunidad'}" data-estado="Abierto"> 
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-            <span>🏷️ ${m.categoria} (Creador: ${m.creador})</span> 
+            <span>🏷️ ${m.categoria || 'Comunidad'} (Creador: ${m.creador || 'Anónimo'})</span> 
             <span id="estado-mercado-${m.id}" style="color: #eab308; font-weight: bold;">● Abierto</span> 
           </div> 
           <div class="market-title">${m.titulo}</div> 
@@ -1298,6 +1300,7 @@ function renderizarMercadosDinamicos() {
         </div> 
         `; 
     }); 
+
     container.innerHTML = htmlDinamicoHTML; 
     restaurarEstadosMercadosVisuales();
 } 
@@ -1571,7 +1574,7 @@ function renderizarOrderBookVisible() {
     } 
     let estadoTextoBanner = estadosMercados[marketIdFiltro] === 'ESPERANDO_RESOLUCION' ? '🟠 Esperando Resolución del Administrador' : 'Activo / Abierto'; 
     bannerStatus.innerHTML = ` 
-    <div style="color: #eab308; font-weight: bold;">● Estado del Mercado: ${estadoTextoBanner}</div> 
+    <div style="color: #eab308; font-weight: bold;">● Estado do Mercado: ${estadoTextoBanner}</div> 
     <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Ask SÍ: ${preciosMercados[marketIdFiltro]["SÍ"].toFixed(2)} Pi | Ask NO: ${preciosMercados[marketIdFiltro]["NO"].toFixed(2)} Pi</div> 
     `; 
     const filtradas = ordenesGlobales.filter(o => o.marketId == marketIdFiltro); 
