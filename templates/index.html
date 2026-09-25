@@ -461,7 +461,7 @@ header {
             <span>📦 Tus Posiciones Activas (Vender / Reclamar)</span> 
             <span>▾</span> 
         </button> 
-        <div class="accordion-content" style="padding-top: 12px; display: block;"> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
             <div id="my-positions-content" style="margin-bottom: 4px;"> 
                 <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p> 
             </div> 
@@ -848,7 +848,9 @@ let ordenActivaModal = null;
 let ventaActivaModal = null; 
 let categoriaActualFiltro = 'Todos'; 
 
-// Función centralizada para recargar mercados y order book (requerida por el parche de polling)
+// ==========================================
+// FUNCIÓN CENTRALIZADA DE ACTUALIZACIÓN
+// ==========================================
 function cargarMercadosYOrderBook() {
     reconstruirDiccionarioNombresMercados(); 
     renderizarMercadosDinamicos(); 
@@ -861,16 +863,16 @@ function cargarMercadosYOrderBook() {
     renderizarOrderBookVisible();
 }
 
-// 1. Carga inicial y Parche de Refresco Automático (Polling cada 10 segundos)
+// 1. Carga inicial, Polling automático (10s) y canales de Supabase Realtime
 document.addEventListener('DOMContentLoaded', async () => {
     await sincronizarConSupabase(); 
     sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
 
-    // Carga inicial cuando el usuario entra
+    // Carga inicial inmediata al entrar a la app
     cargarMercadosYOrderBook();
 
-    // 2. -> PARCHE DE REFRESCO AUTOMÁTICO (Polling cada 10 segundos)
+    // Bucle automático de actualización cada 10 segundos (Polling)
     setInterval(() => {
         cargarMercadosYOrderBook();
     }, 10000); // 10000 ms = 10 segundos
@@ -894,7 +896,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             .subscribe();
 
-        // Parche de canal general custom-all-channel
+        // Canal de respaldo general para mercados dinámicos
         supabaseClient
           .channel('custom-all-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
@@ -1233,7 +1235,7 @@ function renderizarMercadosDinamicos() {
 
     const mercadosBase = [
         { id: 1, titulo: "¿Bitcoin superará los $100,000 antes de finalizar este mes?", categoria: "Crypto", fechaCierre: "2026-12-31T23:59:59" },
-        { id: 2, titulo: "¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?", categoria: "Pi Ecosystem", fechaCierre: "2026-12-31T23:59:59" }
+        { id: 2, titulo: "¿Se habilitará Open Mainnet este trimestre?", categoria: "Pi Ecosystem", fechaCierre: "2026-12-31T23:59:59" }
     ];
 
     mercadosBase.forEach(m => {
@@ -1306,7 +1308,7 @@ function renderizarMercadosEsperaYHistorial() {
     let htmlCerrados = ''; 
 
     todosLosIds.forEach(id => { 
-        let titulo = nombresMercados[id] || (id == 1 ? "¿Bitcoin superará los $100,000 antes de finalizar este mes?" : (id == 2 ? "¿Se habilitará Open Mainnet con soporte completo de Smart Contracts este trimestre?" : "Mercado #" + id)); 
+        let titulo = nombresMercados[id] || (id == 1 ? "¿Bitcoin superará los $100,000 antes de finalizar este mes?" : (id == 2 ? "¿Se habilitará Open Mainnet este trimestre?" : "Mercado #" + id)); 
         let estado = estadosMercados[id]; 
 
         if (estado === 'ESPERANDO_RESOLUCION') { 
