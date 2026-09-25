@@ -441,7 +441,7 @@ header {
         </div> 
     </div> 
 
-    <!-- BANDEJA 3: HISTORIAL DE MERCADOS CERRADOS (CON BUSCADOR POR LISTA) --> 
+    <!-- BANDEJA 3: HISTORIAL DE MERCADOS CERRADOS --> 
     <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
             <span>📜 Historial de Mercados Cerrados & Ganadores</span> 
@@ -898,7 +898,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         supabaseClient
           .channel('custom-all-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
-            // Aquí se ejecuta de nuevo la función que pinta la interfaz
             await sincronizarConSupabase();
             cargarMercadosYOrderBook();
           })
@@ -1833,9 +1832,9 @@ function renderizarTicketsAdmin() {
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <b style="color: #38bdf8;">${t.handle}</b> <span style="color: var(--text-muted);">(ID: ${t.id})</span>
-                <div style="color: var(--text-color); margin-top: 2px;">Último: ${ultimoMensaje}</div>
+                <div style="color: var(--text-color); margin-top: 2px;">Último msg: "${ultimoMensaje}"</div>
             </div>
-            <button class="action-btn" style="font-size: 0.7rem; padding: 6px 10px;" onclick="abrirChatAdminModal('${t.id}')">Responder</button>
+            <button class="action-btn" style="padding: 6px 10px; font-size: 0.75rem;" onclick="abrirChatAdminModal('${t.id}')">Responder</button>
         </div>
         `;
     });
@@ -1855,17 +1854,17 @@ function cerrarChatAdminModal() {
 
 function renderizarMensajesChatAdmin() {
     const container = document.getElementById('admin-chat-messages-container');
-    if (!container) return;
+    const titleEl = document.getElementById('admin-chat-title');
     let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
-    if (!ticket || !ticket.mensajes) {
-        container.innerHTML = '<div class="chat-msg admin">No hay mensajes en este ticket.</div>';
-        return;
-    }
+    if (!ticket) return;
+    titleEl.innerText = `💬 Ticket de ${ticket.handle}`;
     let html = '';
-    ticket.mensajes.forEach(m => {
-        let clase = m.emisor === 'admin' ? 'user' : 'admin';
-        html += `<div class="chat-msg ${clase}">${m.texto}</div>`;
-    });
+    if (ticket.mensajes) {
+        ticket.mensajes.forEach(m => {
+            let clase = m.emisor === 'admin' ? 'user' : 'admin';
+            html += `<div class="chat-msg ${clase}">${m.texto}</div>`;
+        });
+    }
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
@@ -1875,116 +1874,102 @@ function enviarMensajeSoporteAdmin() {
     const texto = input.value.trim();
     if (!texto || !ticketAdminActivoId) return;
     let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId);
-    if (ticket) {
-        if (!ticket.mensajes) ticket.mensajes = [];
-        ticket.mensajes.push({ emisor: 'admin', texto: texto });
-        guardarEnSupabaseTabla('tickets_soporte', ticket);
-        guardarTodoInStorage();
-        input.value = '';
-        renderizarMensajesChatAdmin();
-        renderizarTicketsAdmin();
-    }
-}
-
-function declararGanadorAdmin() {
-    const marketId = document.getElementById('admin-market-id').value;
-    const ganador = document.getElementById('admin-result-select').value;
-    if (!marketId) {
-        alert("Selecciona un mercado válido.");
-        return;
-    }
-    estadosMercados[marketId] = ganador;
+    if (!ticket) return;
+    if (!ticket.mensajes) ticket.mensajes = [];
+    ticket.mensajes.push({ emisor: 'admin', texto: texto });
+    guardarEnSupabaseTabla('tickets_soporte', ticket);
     guardarTodoInStorage();
-    cargarMercadosYOrderBook();
-    renderizarPosiciones();
-    alert(`¡Mercado resuelto con éxito! El ganador declarado es: ${ganador}`);
-}
-
-function cancelarYReembolsarMercadoAdmin() {
-    const marketId = document.getElementById('admin-market-id').value;
-    if (!marketId) {
-        alert("Selecciona un mercado válido.");
-        return;
-    }
-    estadosMercados[marketId] = 'CANCELADO';
-    posicionesActivas.forEach(pos => {
-        if (pos.marketId == marketId) {
-            usuarioActual.balance += pos.invertido;
-            registrarTransaccionEnDB({ id: 'REEMB-' + Date.now(), titulo: 'Reembolso por Cancelación', tipo: 'Reembolso', monto: pos.invertido, detalle: `Reembolso total de inversión en mercado cancelado` });
-        }
-    });
-    posicionesActivas = posicionesActivas.filter(p => p.marketId != marketId);
-    guardarTodoInStorage();
-    cargarMercadosYOrderBook();
-    renderizarPosiciones();
-    actualizarUIBalance();
-    alert("⚠️ Mercado cancelado y fondos reembolsados a los usuarios.");
+    input.value = '';
+    renderizarMensajesChatAdmin();
 }
 
 function renderizarHistorialGlobalAdmin() {
-    const container = document.getElementById('admin-global-transactions-container');
-    if (!container) return;
-    if (!historialTransacciones || historialTransacciones.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>';
+    const contenedor = document.getElementById('admin-global-transactions-container');
+    if (!contenedor) return;
+    const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
+    const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
+    const filtroDetalle = document.getElementById('filtroDetalle').value;
+
+    let filtradas = historialTransacciones.filter(tx => {
+        let matchUser = true;
+        let matchTx = true;
+        let matchDetalle = true;
+        if (userSearch && tx.detalle && !tx.detalle.toLowerCase().includes(userSearch)) matchUser = false;
+        if (txSearch && !tx.titulo.toLowerCase().includes(txSearch) && (!tx.detalle || !tx.detalle.toLowerCase().includes(txSearch))) matchTx = false;
+        if (filtroDetalle && tx.tipo !== filtroDetalle && !tx.titulo.includes(filtroDetalle)) matchDetalle = false;
+        return matchUser && matchTx && matchDetalle;
+    });
+
+    if (filtradas.length === 0) {
+        contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con los filtros.</p>';
         return;
     }
+
     let html = '';
-    historialTransacciones.forEach(tx => {
+    filtradas.forEach(tx => {
+        let esPositivo = tx.monto >= 0;
+        let colorMonto = esPositivo ? '#4ade80' : '#f87171';
+        let signoMonto = esPositivo ? '+' : '';
         html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 8px; border-radius: 6px; font-size: 0.7rem;">
-            <div style="font-weight: bold; display: flex; justify-content: space-between;">
-                <span>${tx.titulo}</span>
-                <span style="color: ${tx.monto >= 0 ? '#4ade80' : '#f87171'};">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
+                <span>${tx.titulo} (${tx.tipo})</span>
+                <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span>
             </div>
-            <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div>
+            <div style="color: var(--text-muted);">${tx.detalle || 'Sin detalle adicional'}</div>
         </div>
         `;
     });
-    container.innerHTML = html;
+    contenedor.innerHTML = html;
 }
 
 function calcularMetricasFinancierasAdmin() {
-    const totalSupplyEl = document.getElementById('admin-total-supply');
+    const supplyEl = document.getElementById('admin-total-supply');
     const topUsersEl = document.getElementById('admin-top-users-container');
-    let sumaTotal = cuentasDirectorio.reduce((acc, c) => acc + c.balance, 0);
-    if (totalSupplyEl) totalSupplyEl.innerText = sumaTotal.toFixed(2) + ' Pi';
-    if (topUsersEl) {
-        let sorted = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance);
-        let htmlTop = '';
-        sorted.slice(0, 5).forEach((u, i) => {
-            htmlTop += `<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border-color);"><span>${i + 1}. ${u.handle}</span><b style="color: #4ade80;">${u.balance.toFixed(2)} Pi</b></div>`;
-        });
-        topUsersEl.innerHTML = htmlTop;
-    }
+    let circulanteTotal = 0;
+    cuentasDirectorio.forEach(c => { circulanteTotal += c.balance; });
+    if (supplyEl) supplyEl.innerText = circulanteTotal.toFixed(2) + ' Pi';
+    
+    let ordenadas = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance);
+    let htmlTop = '';
+    ordenadas.slice(0, 5).forEach((u, i) => {
+        htmlTop += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-color);"><span>${i + 1}. ${u.handle} ${u.bloqueado ? '(🔒 Bloqueado)' : ''}</span><b style="color: #4ade80;">${u.balance.toFixed(2)} Pi</b></div>`;
+    });
+    if (topUsersEl) topUsersEl.innerHTML = htmlTop;
 }
 
 function poblarSelectUsuariosAdmin() {
     const select = document.getElementById('admin-user-select');
     if (!select) return;
     let html = '<option value="">-- Seleccionar Usuario --</option>';
-    cuentasDirectorio.forEach(c => {
-        html += `<option value="${c.handle}">${c.handle} (${c.balance.toFixed(2)} Pi)</option>`;
+    cuentasDirectorio.forEach(u => {
+        html += `<option value="${u.handle}">${u.handle} (${u.balance.toFixed(2)} Pi)</option>`;
     });
     select.innerHTML = html;
 }
 
 function cargarDatosUsuarioAdminSeleccionado() {
-    const handle = document.getElementById('admin-user-select').value;
-    usuarioAdminSeleccionadoHandle = handle;
+    const select = document.getElementById('admin-user-select');
     const card = document.getElementById('admin-user-details-card');
+    const handleEl = document.getElementById('adm-det-handle');
+    const balanceEl = document.getElementById('adm-det-balance');
+    const statusEl = document.getElementById('adm-det-status');
     const btnBloq = document.getElementById('admin-btn-bloqueo');
-    if (!handle) {
+
+    usuarioAdminSeleccionadoHandle = select.value;
+    if (!usuarioAdminSeleccionadoHandle) {
         card.style.display = 'none';
         return;
     }
-    let u = cuentasDirectorio.find(c => c.handle === handle);
-    if (u) {
-        document.getElementById('adm-det-handle').innerText = u.handle;
-        document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi';
-        document.getElementById('adm-det-status').innerText = u.bloqueado ? 'Bloqueado 🔒' : 'Activo 🟢';
-        btnBloq.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
-        card.style.display = 'block';
-    }
+    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+    if (!u) return;
+
+    handleEl.innerText = u.handle;
+    balanceEl.innerText = u.balance.toFixed(2) + ' Pi';
+    statusEl.innerText = u.bloqueado ? 'BLOQUEADO 🔒' : 'Activo 🟢';
+    statusEl.style.color = u.bloqueado ? '#ef4444' : '#4ade80';
+    btnBloq.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
+    card.style.display = 'block';
 }
 
 function toggleBloqueoCuentaActual() {
@@ -1993,13 +1978,12 @@ function toggleBloqueoCuentaActual() {
         return;
     }
     let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-    if (u) {
-        u.bloqueado = !u.bloqueado;
-        guardarTodoInStorage();
-        cargarDatosUsuarioAdminSeleccionado();
-        poblarSelectUsuariosAdmin();
-        alert(`Estado de cuenta de ${u.handle} actualizado.`);
-    }
+    if (!u) return;
+    u.bloqueado = !u.bloqueado;
+    guardarTodoInStorage();
+    cargarDatosUsuarioAdminSeleccionado();
+    calcularMetricasFinancierasAdmin();
+    alert(`La cuenta ${u.handle} ha sido ${u.bloqueado ? 'bloqueada' : 'desbloqueada'}.`);
 }
 
 function abrirModalAjusteBalance() {
@@ -2007,7 +1991,9 @@ function abrirModalAjusteBalance() {
         alert("Selecciona un usuario primero.");
         return;
     }
-    document.getElementById('admin-balance-modal-subtitle').innerText = `Ajustar balance para: ${usuarioAdminSeleccionadoHandle}`;
+    document.getElementById('admin-balance-modal-subtitle').innerText = `Ajustando saldo para la cuenta: ${usuarioAdminSeleccionadoHandle}`;
+    document.getElementById('admin-adj-monto').value = '';
+    document.getElementById('admin-adj-nota').value = '';
     document.getElementById('admin-balance-modal').style.display = 'flex';
 }
 
@@ -2016,34 +2002,87 @@ function cerrarModalAjusteBalance() {
 }
 
 function ejecutarAjusteBalanceAdmin() {
-    const tipo = document.getElementById('admin-adj-tipo').value;
+    const tipoOp = document.getElementById('admin-adj-tipo').value;
     const monto = parseFloat(document.getElementById('admin-adj-monto').value);
     const nota = document.getElementById('admin-adj-nota').value.trim();
+
     if (!monto || monto <= 0) {
         alert("Introduce un monto válido.");
         return;
     }
     let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-    if (!u) {
-        alert("Usuario no encontrado.");
-        return;
-    }
-    if (tipo === 'CREDITO') {
+    if (!u) return;
+
+    if (tipoOp === 'CREDITO') {
         u.balance += monto;
     } else {
-        u.balance = Math.max(0, u.balance - monto);
+        if (u.balance < monto) {
+            alert("El usuario no tiene suficiente balance para este débito.");
+            return;
+        }
+        u.balance -= monto;
     }
+
     if (u.handle === usuarioActual.handle) {
         usuarioActual.balance = u.balance;
         actualizarUIBalance();
     }
-    registrarTransaccionEnDB({ id: 'ADJ-' + Date.now(), titulo: `Ajuste Admin (${tipo})`, tipo: 'Admin', monto: tipo === 'CREDITO' ? monto : -monto, detalle: `Ajuste manual en cuenta ${u.handle}. Nota: ${nota}` });
+
+    registrarTransaccionEnDB({
+        id: 'ADJ-' + Date.now(),
+        titulo: `Ajuste Admin (${tipoOp})`,
+        tipo: 'Ajuste',
+        monto: tipoOp === 'CREDITO' ? monto : -monto,
+        detalle: `Cuenta: ${u.handle} | Motivo: ${nota || 'Sin nota de auditoría'}`
+    });
+
     guardarTodoInStorage();
-    cerrarModalAjusteBalance();
     cargarDatosUsuarioAdminSeleccionado();
-    poblarSelectUsuariosAdmin();
     calcularMetricasFinancierasAdmin();
-    alert("¡Ajuste de balance aplicado con éxito!");
+    poblarSelectUsuariosAdmin();
+    cerrarModalAjusteBalance();
+    alert("¡Ajuste de balance ejecutado correctamente!");
+}
+
+async function declararGanadorAdmin() {
+    const marketId = document.getElementById('admin-market-id').value;
+    const resultadoGanador = document.getElementById('admin-result-select').value;
+    if (!marketId) {
+        alert("Selecciona un mercado válido para resolver.");
+        return;
+    }
+    estadosMercados[marketId] = resultadoGanador;
+    guardarTodoInStorage();
+    cargarMercadosYOrderBook();
+    alert(`¡Mercado resuelto con éxito! Ganador oficial declarado: ${resultadoGanador}. Los usuarios ya pueden reclamar sus premios.`);
+}
+
+async function cancelarYReembolsarMercadoAdmin() {
+    const marketId = document.getElementById('admin-market-id').value;
+    if (!marketId) {
+        alert("Selecciona un mercado válido.");
+        return;
+    }
+    if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión a los participantes sin aplicar comisión?")) return;
+
+    estadosMercados[marketId] = 'CANCELADO';
+    posicionesActivas.forEach(p => {
+        if (p.marketId == marketId) {
+            usuarioActual.balance += p.invertido;
+            registrarTransaccionEnDB({
+                id: 'REEMB-' + Date.now(),
+                titulo: 'Reembolso por Cancelación',
+                tipo: 'Reembolso',
+                monto: p.invertido,
+                detalle: `Reembolso total por cancelación del mercado: "${p.titulo}"`
+            });
+            p.estadoOrden = 'CANCELADO';
+        }
+    });
+    posicionesActivas = posicionesActivas.filter(p => p.marketId != marketId);
+    guardarTodoInStorage();
+    cargarMercadosYOrderBook();
+    alert("¡Mercado cancelado y fondos reembolsados con éxito a los inversores!");
 }
 </script> 
 </body> 
