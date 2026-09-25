@@ -1,10 +1,8 @@
-Flask
-flask-cors
-psycopg2-binary
-requests
-werkzeug
-python-dotenv
-gunicorn 
+flask
+flask-socketio
+simple-websocket
+gunicorn
+eventlet
 
 
 
