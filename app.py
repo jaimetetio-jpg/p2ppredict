@@ -563,6 +563,13 @@ def agregar_cabeceras_seguridad(response):
     )
     response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
     response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+    
+    # Parche: Deshabilitar caché en todas las rutas de la API para móviles
+    if request.path.startswith('/api/'):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        
     return response
 
 
@@ -1174,7 +1181,6 @@ def crear_orden_clob():
                 cantidad_restante -= match_cant
 
         else:
-            # ACCIÓN: VENDER (Parche integrado correctamente para buscar compradores externos)
             if tipo_orden == "limit":
                 if DATABASE_URL:
                     c.execute(
