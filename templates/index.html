@@ -907,17 +907,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 }); 
 
 async function sincronizarConSupabase() { 
-    if (!supabaseClient) return; 
+    if (!supabaseClient) {
+        // Si no hay Supabase, cargamos del storage local para que nunca quede en blanco
+        mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
+        return; 
+    }
     try { 
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (!errMerc && mercs) { 
+        if (!errMerc && mercs && mercs.length > 0) { 
             mercadosDinamicos = mercs; 
             mercadosDinamicos.forEach(m => { 
                 nombresMercados[m.id] = m.titulo; 
                 if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
                 if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
             }); 
-        } 
+        } else {
+            // Respaldo local si Supabase devuelve vacío
+            mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
+        }
 
         let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
         if (!errOrd && ordenes) { ordenesGlobales = ordenes; } 
@@ -945,7 +952,8 @@ async function sincronizarConSupabase() {
 
         guardarTodoInStorage();
     } catch (e) { 
-        console.warn("Aviso: Error menor al sincronizar con Supabase.", e); 
+        console.warn("Aviso: Error menor al sincronizar con Supabase, usando caché local.", e); 
+        mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
     } 
 } 
 
