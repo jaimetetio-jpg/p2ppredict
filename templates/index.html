@@ -1,4 +1,3 @@
-DIOS TE AMA!
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -838,7 +837,7 @@ let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio'
 ]; 
 let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
-let mercadosDinamicos = []; // ARRANCAN ESTRICTAMENTE VACÍOS HASTA CONSULTAR SUPABASE
+let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; // CARGA INICIAL DESDE CACHÉ PARA EVITAR BLANCOS 
 
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
@@ -850,9 +849,6 @@ let ordenActivaModal = null;
 let ventaActivaModal = null; 
 let categoriaActualFiltro = 'Todos'; 
 
-// ==========================================
-// FUNCIÓN CENTRALIZADA DE ACTUALIZACIÓN
-// ==========================================
 function cargarMercadosYOrderBook() {
     reconstruirDiccionarioNombresMercados(); 
     renderizarMercadosDinamicos(); 
@@ -866,10 +862,13 @@ function cargarMercadosYOrderBook() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // RENDERIZADO INMEDIATO CON LO QUE HAYA EN LOCALSTORAGE PARA QUE NO SE VEA VACÍO
+    cargarMercadosYOrderBook();
+
+    // SINCRONIZACIÓN INMEDIATA CON SUPABASE
     await sincronizarConSupabase(); 
     sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
-
     cargarMercadosYOrderBook();
 
     setInterval(() => {
@@ -898,16 +897,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 }); 
 
 async function sincronizarConSupabase() { 
-    if (!supabaseClient) { 
-        mercadosDinamicos = []; 
-        return; 
-    }
+    if (!supabaseClient) return; 
     try { 
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
         if (!errMerc && mercs) { 
-            mercadosDinamicos = mercs; // Si está vacía, se queda en [] (cero registros reales)
-        } else {
-            mercadosDinamicos = [];
+            mercadosDinamicos = mercs; 
         }
 
         let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
@@ -1229,7 +1223,6 @@ function crearNuevoMercadoPionero() {
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
     
-    // SI LA BASE DE DATOS ESTÁ VACÍA (CERO REGISTROS), MUESTRA LIMPIO EL AVISO
     if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
         container.innerHTML = ` 
         <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
