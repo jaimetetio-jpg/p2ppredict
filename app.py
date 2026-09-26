@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import random
 import time
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, render_template, request, session, Blueprint
 from flask_cors import CORS
 import psycopg2
 from psycopg2 import pool
@@ -262,6 +262,16 @@ def inicializar_bd():
             mensaje TEXT, 
             fecha TEXT
         )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) UNIQUE NOT NULL,
+            saldo NUMERIC(18, 2) DEFAULT 0.00,
+            kyc_estado VARCHAR(20) DEFAULT 'pendiente',
+            tipo_documento VARCHAR(20),
+            numero_documento VARCHAR(50) UNIQUE,
+            foto_url TEXT,
+            creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
         c.execute(
             "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
         )
@@ -397,11 +407,20 @@ def inicializar_bd():
             mensaje TEXT, 
             fecha TEXT
         )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            saldo REAL DEFAULT 0.00,
+            kyc_estado TEXT DEFAULT 'pendiente',
+            tipo_documento TEXT,
+            numero_documento TEXT UNIQUE,
+            foto_url TEXT,
+            creado_at TEXT
+        )""")
         c.execute(
             "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
         )
 
-    # Se eliminaron los mercados estáticos de BTC y Pi Network de la inicialización para trabajar puramente con datos dinámicos.
     conn.commit()
     conn.close()
 
@@ -2356,6 +2375,71 @@ def admin_toggle_freeze():
     finally:
         if conn:
             conn.close()
+
+
+# ================= PARCHE KYC INTEGRADO (BLUEPRINT) =================
+kyc_bp = Blueprint('kyc_bp', __name__)
+
+@kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
+def registrar_kyc():
+    """
+    Endpoint para procesar la inscripción y datos KYC del usuario.
+    """
+    data = request.json or {}
+    username = data.get('username')
+    tipo_doc = data.get('tipo_documento')
+    num_doc = data.get('numero_documento')
+    foto_url = data.get('foto_url')
+
+    if not username or not tipo_doc or not num_doc:
+        return jsonify({"error": "Faltan datos obligatorios para el registro KYC"}), 400
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    try:
+        if DATABASE_URL:
+            query = """
+                INSERT INTO usuarios_p2p (username, tipo_documento, numero_documento, foto_url, kyc_estado)
+                VALUES (%s, %s, %s, %s, 'pendiente')
+                ON CONFLICT (username) 
+                DO UPDATE SET 
+                    tipo_documento = EXCLUDED.tipo_documento,
+                    numero_documento = EXCLUDED.numero_documento,
+                    foto_url = EXCLUDED.foto_url,
+                    kyc_estado = 'pendiente';
+            """
+            c.execute(query, (username, tipo_doc, num_doc, foto_url))
+        else:
+            query = """
+                INSERT INTO usuarios_p2p (username, tipo_documento, numero_documento, foto_url, kyc_estado)
+                VALUES (?, ?, ?, ?, 'pendiente')
+                ON CONFLICT(username) 
+                DO UPDATE SET 
+                    tipo_documento = excluded.tipo_documento,
+                    numero_documento = excluded.numero_documento,
+                    foto_url = excluded.foto_url,
+                    kyc_estado = 'pendiente';
+            """
+            c.execute(query, (username, tipo_doc, num_doc, foto_url))
+        conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "mensaje": "Datos de KYC recibidos correctamente. Su cuenta está en revisión de identidad.",
+            "kyc_estado": "pendiente"
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# Registrar el Blueprint en la aplicación principal
+app.register_blueprint(kyc_bp)
+# =====================================================================
 
 
 if __name__ == "__main__":
