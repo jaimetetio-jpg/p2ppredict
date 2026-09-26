@@ -1,4 +1,3 @@
-Aquí tienes el repositorio completo con el parche de actualización integrado en un solo bloque limpio, sin errores y preservando toda la estructura original:
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -400,19 +399,16 @@ header {
 <body data-theme="dark"> 
 <header> 
     <div class="logo-area"> 
-        <span>⚡ P2Ppredict</span> 
-    </div> 
+        <span>⚡ P2Ppredict</span> </div> 
     <div class="user-info"> 
         <div> 
             <div id="user-handle" style="font-weight: 600;">@jaimetetio</div> 
             <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;"> 
                 <span id="kyc-indicator-circle" style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> 
-                <span id="kyc-indicator-text" style="font-size: 0.7rem; color: var(--text-muted);">KYC No Solicitado</span> 
-            </div> 
+                <span id="kyc-indicator-text" style="font-size: 0.7rem; color: var(--text-muted);">KYC No Solicitado</span> </div> 
         </div> 
         <span id="user-balance" style="color: #38bdf8; font-weight: 700;">150.00 Pi</span> 
-        <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button> 
-    </div> 
+        <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button> </div> 
 </header> 
 <div class="nav-tabs"> 
     <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button> 
@@ -421,19 +417,15 @@ header {
     <button class="nav-tab" onclick="switchTab('ranking', this)">Ranking</button> 
     <button class="nav-tab" onclick="verificarAccesoAdmin(this)">Admin</button> 
 </div> 
-
 <!-- VISTA: MERCADOS --> 
 <div id="view-mercados" class="section-view active"> 
-    <!-- BANNER DE ESTADO KYC -->
-    <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span>
-            <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Solicitado</span>
-        </div>
-        <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes realizar tu solicitud de KYC completando tus datos personales y de identidad.</p>
-        <button id="kyc-action-btn" class="action-btn" style="background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.75rem; padding: 7px;" onclick="abrirModalKyc()">📝 Solicitar KYC</button>
-    </div>
-
+    <!-- BANNER DE ESTADO KYC --> 
+    <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
+        <div style="display: flex; justify-content: space-between; align-items: center;"> 
+            <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
+            <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Solicitado</span> </div> 
+        <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes realizar tu solicitud de KYC completando tus datos personales y de identidad.</p> 
+        <button id="kyc-action-btn" class="action-btn" style="background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.75rem; padding: 7px;" onclick="abrirModalKyc()">📝 Solicitar KYC</button> </div> 
     <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()"> 
     <div class="filter-pills"> 
         <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
@@ -442,11 +434,9 @@ header {
         <button class="pill" onclick="setCategory('Deportes', this)">Deportes</button> 
         <button class="pill" onclick="setCategory('Comunidad', this)">Comunidad</button> 
     </div> 
-    
     <!-- BANDEJA 1: MERCADOS ACTIVOS --> 
     <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; margin-top: 4px;">🟢 Mercados Activos</div> 
     <div id="markets-container"></div> 
-
     <!-- BANDEJA 2: ESPERANDO RESOLUCIÓN --> 
     <div class="accordion-card" id="acc-espera-resolucion" style="margin-top: 16px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-espera-resolucion')"> 
@@ -459,7 +449,6 @@ header {
             </div> 
         </div> 
     </div> 
-
     <!-- BANDEJA 3: HISTORIAL DE MERCADOS CERRADOS --> 
     <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
@@ -473,7 +462,6 @@ header {
             </div> 
         </div> 
     </div> 
-
     <!-- POSICIONES ACTIVAS EN ACORDEÓN --> 
     <div class="accordion-card open" id="acc-apuestas" style="margin-top: 16px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
@@ -486,7 +474,6 @@ header {
             </div> 
         </div> 
     </div> 
-
     <!-- GESTIÓN DE BILLETERA PI NETWORK --> 
     <div class="accordion-card" id="acc-wallet" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
@@ -505,7 +492,6 @@ header {
             <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div> 
         </div> 
     </div> 
-
     <!-- HISTORIAL DE TRANSACCIONES --> 
     <div class="accordion-card" id="acc-transacciones" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')"> 
@@ -519,7 +505,6 @@ header {
         </div> 
     </div> 
 </div> 
-
 <!-- NUEVA VISTA: CREAR PREDICCIÓN --> 
 <div id="view-crear" class="section-view"> 
     <div class="market-card"> 
@@ -560,7 +545,6 @@ header {
         <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="crearNuevoMercadoPionero()">Publicar Mercado y Asignar Liquidez</button> 
     </div> 
 </div> 
-
 <!-- VISTA: ORDER BOOK P2P VISIBLE --> 
 <div id="view-clob" class="section-view"> 
     <div class="market-card"> 
@@ -568,7 +552,8 @@ header {
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Listado general de ofertas de compra (Bid) y venta (Ask) registradas en el mercado.</p> 
         <div class="form-group"> 
             <label>Seleccionar Mercado Activo</label> 
-            <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()"> </select> 
+            <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()"> 
+            </select> 
         </div> 
         <div id="orderbook-market-status-banner" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem;"> 
             <span style="color: #eab308; font-weight: bold;">● Estado: Abierto</span> 
@@ -591,7 +576,6 @@ header {
         </table> 
     </div> 
 </div> 
-
 <!-- VISTA: RANKING --> 
 <div id="view-ranking" class="section-view"> 
     <div class="market-card"> 
@@ -610,18 +594,16 @@ header {
         </div> 
     </div> 
 </div> 
-
 <!-- VISTA: ADMIN --> 
 <div id="view-admin" class="section-view"> 
-    <!-- GESTIÓN DE SOLICITUDES KYC PENDIENTES -->
+    <!-- GESTIÓN DE SOLICITUDES KYC PENDIENTES --> 
     <div class="market-card" style="margin-top: 0;"> 
         <div class="market-title">🛡️ Solicitudes de Verificación KYC (Pendientes)</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa los datos de identidad y habitación enviados por los usuarios para aprobarlos o rechazarlos.</p> 
         <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
             <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p> 
         </div> 
-    </div>
-
+    </div> 
     <div class="market-card"> 
         <div class="market-title">📈 Métricas Financieras y Circulante Global</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Control en tiempo real del suministro total de Pi y cuentas con mayor balance.</p> 
@@ -634,7 +616,6 @@ header {
             <p style="font-size: 0.75rem; color: var(--text-muted);">Cargando ranking...</p> 
         </div> 
     </div> 
-    
     <div class="market-card"> 
         <div class="market-title">⚙️ Gestión de Usuarios y Balances</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Bloqueo de cuentas, suspensión temporal o ajuste manual de balances con notas de auditoría.</p> 
@@ -654,13 +635,13 @@ header {
             <button id="admin-btn-bloqueo" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444; font-size: 0.75rem;" onclick="toggleBloqueoCuentaActual()">🔒 Bloquear Cuenta</button> 
         </div> 
     </div> 
-
     <div class="market-card"> 
         <div class="market-title">🛠️ Panel de Administración y Resolución</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado o cancélalo si no cumple normativas para reembolsar los fondos.</p> 
         <div class="form-group"> 
             <label>ID de Mercado a Resolver / Gestionar</label> 
-            <select class="form-control" id="admin-market-id"> </select> 
+            <select class="form-control" id="admin-market-id"> 
+            </select> 
         </div> 
         <div class="form-group"> 
             <label>Resultado Ganador Oficial</label> 
@@ -674,7 +655,6 @@ header {
             <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #7c2d12, #451a03); border-color: #ea580c;" onclick="cancelarYReembolsarMercadoAdmin()">🚨 Cancelar y Reembolso Total (Sin Comisión)</button> 
         </div> 
     </div> 
-
     <!-- BANDEJA DE SOPORTE ADMIN --> 
     <div class="market-card" style="margin-top: 14px;"> 
         <div class="market-title">💬 Bandeja de Soporte / Tickets de Reclamo</div> 
@@ -683,7 +663,6 @@ header {
             <p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p> 
         </div> 
     </div> 
-
     <div class="market-card" style="margin-top: 14px;"> 
         <div class="market-title">📜 Auditoría Global: Historial de Transacciones</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Registro completo de todas las operaciones financieras de los usuarios para resolver disputas.</p> 
@@ -706,7 +685,6 @@ header {
         </div> 
     </div> 
 </div> 
-
 <!-- MODAL TERMINAL TRADING --> 
 <div id="trading-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -740,7 +718,6 @@ header {
         <button id="btn-confirmar-compra" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button> 
     </div> 
 </div> 
-
 <!-- MODAL VENTA ACTIVA --> 
 <div id="sell-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -771,7 +748,6 @@ header {
         <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="ejecutarVentaPosicion()">Confirmar Venta</button> 
     </div> 
 </div> 
-
 <!-- MODAL REGISTRO KYC COMPLETO --> 
 <div id="kyc-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -811,7 +787,6 @@ header {
         <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Enviar Solicitud KYC</button> 
     </div> 
 </div> 
-
 <!-- MODAL AUTH ADMIN --> 
 <div id="admin-auth-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -827,7 +802,6 @@ header {
         <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="validarClaveAdmin()">Acceder al Panel</button> 
     </div> 
 </div> 
-
 <!-- MODAL AJUSTE BALANCE ADMIN --> 
 <div id="admin-balance-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -854,7 +828,6 @@ header {
         <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarAjusteBalanceAdmin()">Confirmar y Registrar Ajuste</button> 
     </div> 
 </div> 
-
 <!-- MODAL CHAT SOPORTE USUARIO --> 
 <div id="support-chat-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -870,7 +843,6 @@ header {
         </div> 
     </div> 
 </div> 
-
 <!-- MODAL CHAT RESPUESTA ADMIN --> 
 <div id="admin-chat-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -885,18 +857,16 @@ header {
         </div> 
     </div> 
 </div> 
-
 <div class="support-chat-float"> 
     <button class="action-btn chat-launcher-btn" onclick="abrirSoporteChatUsuario()">💬 Chat de Soporte</button> 
 </div> 
-
 <script> 
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00, kyc_estado: "no_solicitado" }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
 let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
 let ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
-let kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || [];
+let kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || []; 
 let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || [ 
     { handle: "@jaimetetio", balance: 150.00, bloqueado: false, kyc_estado: "no_solicitado" }, 
     { handle: "@crypto_king", balance: 1420.50, bloqueado: false, kyc_estado: "aprobado" }, 
@@ -905,7 +875,6 @@ let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio'
 let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
 let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
-
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
 let ticketAdminActivoId = null; 
@@ -916,7 +885,7 @@ let ordenActivaModal = null;
 let ventaActivaModal = null; 
 let categoriaActualFiltro = 'Todos'; 
 
-function cargarMercadosYOrderBook() {
+function cargarMercadosYOrderBook() { 
     reconstruirDiccionarioNombresMercados(); 
     renderizarMercadosDinamicos(); 
     renderizarMercadosEsperaYHistorial(); 
@@ -925,40 +894,37 @@ function cargarMercadosYOrderBook() {
     restaurarEstadosMercadosVisuales(); 
     cargarHistorialDesdeDB(); 
     actualizarSelectsMercadosActivos(); 
-    renderizarOrderBookVisible();
-    actualizarEstadoKycUI();
-}
+    renderizarOrderBookVisible(); 
+    actualizarEstadoKycUI(); 
+} 
 
-document.addEventListener('DOMContentLoaded', async () => {
-    cargarMercadosYOrderBook();
+document.addEventListener('DOMContentLoaded', async () => { 
+    cargarMercadosYOrderBook(); 
     await sincronizarConSupabase(); 
     sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
-    cargarMercadosYOrderBook();
-
-    setInterval(() => {
-        sincronizarConSupabase();
+    cargarMercadosYOrderBook(); 
+    setInterval(() => { 
+        sincronizarConSupabase(); 
     }, 10000); 
-
     setInterval(actualizarRelojesRegresivos, 1000); 
-
-    if (supabaseClient) {
-        supabaseClient
-            .channel('public:realtime_p2ppredict_sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
-                await sincronizarConSupabase();
-                cargarMercadosYOrderBook();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => {
-                await sincronizarConSupabase();
-                renderizarOrderBookVisible();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => {
-                await sincronizarConSupabase();
-                renderizarPosiciones();
-            })
-            .subscribe();
-    }
+    if (supabaseClient) { 
+        supabaseClient 
+            .channel('public:realtime_p2ppredict_sync') 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => { 
+                await sincronizarConSupabase(); 
+                cargarMercadosYOrderBook(); 
+            }) 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => { 
+                await sincronizarConSupabase(); 
+                renderizarOrderBookVisible(); 
+            }) 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => { 
+                await sincronizarConSupabase(); 
+                renderizarPosiciones(); 
+            }) 
+            .subscribe(); 
+    } 
 }); 
 
 async function sincronizarConSupabase() { 
@@ -967,14 +933,15 @@ async function sincronizarConSupabase() {
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
         if (!errMerc && mercs) { 
             mercadosDinamicos = mercs; 
-        }
-
+        } 
         let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (!errOrd && ordenes) { ordenesGlobales = ordenes; } 
-
+        if (!errOrd && ordenes) { 
+            ordenesGlobales = ordenes; 
+        } 
         let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
-        if (!errTx && txs) { historialTransacciones = txs; } 
-
+        if (!errTx && txs) { 
+            historialTransacciones = txs; 
+        } 
         let { data: pos, error: errPos } = await supabaseClient.from('posiciones_activas').select('*'); 
         if (!errPos && pos) { 
             posicionesActivas = pos.map(p => ({ 
@@ -989,26 +956,25 @@ async function sincronizarConSupabase() {
                 estadoOrden: p.estado_orden || 'ACTIVO' 
             })); 
         } 
-
         let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*'); 
-        if (!errTck && tcks) { ticketsSoporte = tcks; } 
-
-        let { data: kycs, error: errKyc } = await supabaseClient.from('usuarios_p2p').select('*');
-        if (!errKyc && kycs) {
-            kycSolicitudes = kycs.map(k => ({
-                handle: k.username,
-                nombre: k.nombre || '',
-                apellido: k.apellido || '',
-                correo: k.correo || '',
-                tipo: k.tipo_documento,
-                numero: k.numero_documento,
-                direccion: k.direccion || '',
-                estado: k.kyc_estado || 'pendiente'
-            }));
-        }
-
-        guardarTodoInStorage();
-        cargarMercadosYOrderBook();
+        if (!errTck && tcks) { 
+            ticketsSoporte = tcks; 
+        } 
+        let { data: kycs, error: errKyc } = await supabaseClient.from('usuarios_p2p').select('*'); 
+        if (!errKyc && kycs) { 
+            kycSolicitudes = kycs.map(k => ({ 
+                handle: k.username, 
+                nombre: k.nombre || '', 
+                apellido: k.apellido || '', 
+                correo: k.correo || '', 
+                tipo: k.tipo_documento, 
+                numero: k.numero_documento, 
+                direccion: k.direccion || '', 
+                estado: k.kyc_estado || 'pendiente' 
+            })); 
+        } 
+        guardarTodoInStorage(); 
+        cargarMercadosYOrderBook(); 
     } catch (e) { 
         console.warn("Aviso: Error menor al sincronizar con Supabase.", e); 
     } 
@@ -1043,7 +1009,7 @@ function guardarTodoInStorage() {
     localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados)); 
     localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte)); 
     localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos)); 
-    localStorage.setItem('p2p_kyc_solicitudes', JSON.stringify(kycSolicitudes));
+    localStorage.setItem('p2p_kyc_solicitudes', JSON.stringify(kycSolicitudes)); 
 } 
 
 function sincronizarPersistencia() { 
@@ -1056,20 +1022,27 @@ function sincronizarPersistencia() {
     estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
     ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
     mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
-    kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || kycSolicitudes;
+    kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || kycSolicitudes; 
 } 
 
 function reconstruirDiccionarioNombresMercados() { 
-    mercadosDinamicos.forEach(m => { nombresMercados[m.id] = m.titulo; }); 
+    mercadosDinamicos.forEach(m => { 
+        nombresMercados[m.id] = m.titulo; 
+    }); 
 } 
 
 function sincronizarBalanceDirectorioLocal() { 
     let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (u) { 
         u.balance = usuarioActual.balance; 
-        u.kyc_estado = usuarioActual.kyc_estado;
+        u.kyc_estado = usuarioActual.kyc_estado; 
     } else { 
-        cuentasDirectorio.push({ handle: usuarioActual.handle, balance: usuarioActual.balance, bloqueado: false, kyc_estado: usuarioActual.kyc_estado || "no_solicitado" }); 
+        cuentasDirectorio.push({ 
+            handle: usuarioActual.handle, 
+            balance: usuarioActual.balance, 
+            bloqueado: false, 
+            kyc_estado: usuarioActual.kyc_estado || "no_solicitado" 
+        }); 
     } 
 } 
 
@@ -1080,199 +1053,195 @@ function verificarBloqueoUsuarioActual() {
     } 
 } 
 
-function actualizarEstadoKycUI() {
-    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
-    if (u) {
-        usuarioActual.kyc_estado = u.kyc_estado || "no_solicitado";
-    }
-    const banner = document.getElementById('kyc-status-banner');
-    const badge = document.getElementById('kyc-badge-status');
-    const title = document.getElementById('kyc-banner-title');
-    const text = document.getElementById('kyc-banner-text');
-    const btn = document.getElementById('kyc-action-btn');
-    const indicatorCircle = document.getElementById('kyc-indicator-circle');
-    const indicatorText = document.getElementById('kyc-indicator-text');
+function actualizarEstadoKycUI() { 
+    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
+    if (u) { 
+        usuarioActual.kyc_estado = u.kyc_estado || "no_solicitado"; 
+    } 
+    const banner = document.getElementById('kyc-status-banner'); 
+    const badge = document.getElementById('kyc-badge-status'); 
+    const title = document.getElementById('kyc-banner-title'); 
+    const text = document.getElementById('kyc-banner-text'); 
+    const btn = document.getElementById('kyc-action-btn'); 
+    const indicatorCircle = document.getElementById('kyc-indicator-circle'); 
+    const indicatorText = document.getElementById('kyc-indicator-text'); 
+    if (!banner) return; 
+    if (usuarioActual.kyc_estado === 'aprobado') { 
+        banner.style.background = 'rgba(22, 163, 74, 0.15)'; 
+        banner.style.border = '1px solid #16a34a'; 
+        title.style.color = '#4ade80'; 
+        title.innerText = '✅ Verificación KYC Aprobada'; 
+        badge.style.background = '#16a34a'; 
+        badge.innerText = 'Aprobado'; 
+        text.innerText = 'Tu identidad ha sido verificada correctamente por el administrador. Tienes acceso total para depositar y apostar.'; 
+        btn.style.display = 'none'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
+    } else if (usuarioActual.kyc_estado === 'rechazado') { 
+        banner.style.background = 'rgba(220, 38, 38, 0.15)'; 
+        banner.style.border = '1px solid #dc2626'; 
+        title.style.color = '#f87171'; 
+        title.innerText = '❌ Verificación KYC Rechazada'; 
+        badge.style.background = '#dc2626'; 
+        badge.innerText = 'Rechazado'; 
+        text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
+        btn.style.display = 'block'; 
+        btn.innerText = '🔄 Reintentar Solicitud KYC'; 
+        btn.style.background = 'linear-gradient(145deg, #dc2626, #b91c1c)'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
+    } else if (usuarioActual.kyc_estado === 'pendiente') { 
+        banner.style.background = 'rgba(234, 179, 8, 0.15)'; 
+        banner.style.border = '1px solid #eab308'; 
+        title.style.color = '#facc15'; 
+        title.innerText = '⏳ Solicitud de KYC Pendiente'; 
+        badge.style.background = '#ca8a04'; 
+        badge.innerText = 'Pendiente'; 
+        text.innerText = 'Tus datos de identidad y habitación han sido enviados y se encuentran en revisión por el administrador.'; 
+        btn.style.display = 'block'; 
+        btn.innerText = '📝 Modificar Datos KYC'; 
+        btn.style.background = 'linear-gradient(145deg, #ca8a04, #a16207)'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Solicitud Pendiente'; 
+    } else { 
+        banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
+        banner.style.border = '1px solid #2563eb'; 
+        title.style.color = '#60a5fa'; 
+        title.innerText = '🔒 Verificación KYC Requerida'; 
+        badge.style.background = '#2563eb'; 
+        badge.innerText = 'No Solicitado'; 
+        text.innerText = 'Para poder depositar y apostar en la plataforma, debes realizar tu solicitud de KYC completando tus datos personales y de identidad.'; 
+        btn.style.display = 'block'; 
+        btn.innerText = '📝 Solicitar KYC'; 
+        btn.style.background = 'linear-gradient(145deg, #2563eb, #1d4ed8)'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
+        if (indicatorText) indicatorText.innerText = 'KYC No Solicitado'; 
+    } 
+} 
 
-    if (!banner) return;
+function abrirModalKyc() { 
+    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
+    if (req) { 
+        document.getElementById('kyc-nombre').value = req.nombre || ''; 
+        document.getElementById('kyc-apellido').value = req.apellido || ''; 
+        document.getElementById('kyc-correo').value = req.correo || ''; 
+        document.getElementById('kyc-tipo-doc').value = req.tipo || 'ID'; 
+        document.getElementById('kyc-num-doc').value = req.numero || ''; 
+        document.getElementById('kyc-direccion').value = req.direccion || ''; 
+    } 
+    document.getElementById('kyc-modal').style.display = 'flex'; 
+} 
 
-    if (usuarioActual.kyc_estado === 'aprobado') {
-        banner.style.background = 'rgba(22, 163, 74, 0.15)';
-        banner.style.border = '1px solid #16a34a';
-        title.style.color = '#4ade80';
-        title.innerText = '✅ Verificación KYC Aprobada';
-        badge.style.background = '#16a34a';
-        badge.innerText = 'Aprobado';
-        text.innerText = 'Tu identidad ha sido verificada correctamente por el administrador. Tienes acceso total para depositar y apostar.';
-        btn.style.display = 'none';
+function cerrarModalKyc() { 
+    document.getElementById('kyc-modal').style.display = 'none'; 
+} 
 
-        if (indicatorCircle) indicatorCircle.style.background = '#16a34a';
-        if (indicatorText) indicatorText.innerText = 'KYC Aprobado';
-    } else if (usuarioActual.kyc_estado === 'rechazado') {
-        banner.style.background = 'rgba(220, 38, 38, 0.15)';
-        banner.style.border = '1px solid #dc2626';
-        title.style.color = '#f87171';
-        title.innerText = '❌ Verificación KYC Rechazada';
-        badge.style.background = '#dc2626';
-        badge.innerText = 'Rechazado';
-        text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.';
-        btn.style.display = 'block';
-        btn.innerText = '🔄 Reintentar Solicitud KYC';
-        btn.style.background = 'linear-gradient(145deg, #dc2626, #b91c1c)';
+async function enviarSolicitudKyc() { 
+    const nombre = document.getElementById('kyc-nombre').value.trim(); 
+    const apellido = document.getElementById('kyc-apellido').value.trim(); 
+    const correo = document.getElementById('kyc-correo').value.trim(); 
+    const tipo = document.getElementById('kyc-tipo-doc').value; 
+    const numero = document.getElementById('kyc-num-doc').value.trim(); 
+    const direccion = document.getElementById('kyc-direccion').value.trim(); 
+    if (!nombre || !apellido || !correo || !numero || !direccion) { 
+        alert("Por favor, completa todos los campos requeridos (nombre, apellido, correo, documento y dirección)."); 
+        return; 
+    } 
+    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
+    if (req) { 
+        req.nombre = nombre; 
+        req.apellido = apellido; 
+        req.correo = correo; 
+        req.tipo = tipo; 
+        req.numero = numero; 
+        req.direccion = direccion; 
+        req.estado = 'pendiente'; 
+    } else { 
+        kycSolicitudes.push({ 
+            handle: usuarioActual.handle, 
+            nombre, 
+            apellido, 
+            correo, 
+            tipo, 
+            numero, 
+            direccion, 
+            estado: 'pendiente' 
+        }); 
+    } 
+    usuarioActual.kyc_estado = 'pendiente'; 
+    sincronizarBalanceDirectorioLocal(); 
+    guardarTodoInStorage(); 
+    await guardarEnSupabaseTabla('usuarios_p2p', { 
+        username: usuarioActual.handle, 
+        nombre: nombre, 
+        apellido: apellido, 
+        correo: correo, 
+        tipo_documento: tipo, 
+        numero_documento: numero, 
+        direccion: direccion, 
+        kyc_estado: 'pendiente' 
+    }); 
+    cerrarModalKyc(); 
+    actualizarEstadoKycUI(); 
+    alert("✅ ¡Solicitud de KYC enviada con éxito! Ahora el estado aparece como 'solicitud pendiente'."); 
+} 
 
-        if (indicatorCircle) indicatorCircle.style.background = '#dc2626';
-        if (indicatorText) indicatorText.innerText = 'KYC Rechazado';
-    } else if (usuarioActual.kyc_estado === 'pendiente') {
-        banner.style.background = 'rgba(234, 179, 8, 0.15)';
-        banner.style.border = '1px solid #eab308';
-        title.style.color = '#facc15';
-        title.innerText = '⏳ Solicitud de KYC Pendiente';
-        badge.style.background = '#ca8a04';
-        badge.innerText = 'Pendiente';
-        text.innerText = 'Tus datos de identidad y habitación han sido enviados y se encuentran en revisión por el administrador.';
-        btn.style.display = 'block';
-        btn.innerText = '📝 Modificar Datos KYC';
-        btn.style.background = 'linear-gradient(145deg, #ca8a04, #a16207)';
+function renderizarKycAdmin() { 
+    const container = document.getElementById('admin-kyc-requests-container'); 
+    if (!container) return; 
+    if (!kycSolicitudes || kycSolicitudes.length === 0) { 
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p>'; 
+        return; 
+    } 
+    let html = ''; 
+    kycSolicitudes.forEach(k => { 
+        let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04'); 
+        html += ` 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;"> 
+            <div> 
+                <div>Usuario: <b style="color: #38bdf8;">${k.handle}</b></div> 
+                <div style="font-weight: bold; color: var(--text-color); margin-top: 2px;">${k.nombre || ''} ${k.apellido || ''} (${k.correo || 'Sin correo'})</div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Doc: ${k.tipo} - ${k.numero}</div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Dirección: ${k.direccion || 'No especificada'}</div> 
+                <div style="margin-top: 6px;"><span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">${k.estado.toUpperCase()}</span></div> 
+            </div> 
+            <div style="display: flex; gap: 4px; flex-direction: column;"> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">Aprobar</button> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">Rechazar</button> 
+            </div> 
+        </div> 
+        `; 
+    }); 
+    container.innerHTML = html; 
+} 
 
-        if (indicatorCircle) indicatorCircle.style.background = '#eab308';
-        if (indicatorText) indicatorText.innerText = 'KYC Solicitud Pendiente';
-    } else {
-        banner.style.background = 'rgba(37, 99, 235, 0.15)';
-        banner.style.border = '1px solid #2563eb';
-        title.style.color = '#60a5fa';
-        title.innerText = '🔒 Verificación KYC Requerida';
-        badge.style.background = '#2563eb';
-        badge.innerText = 'No Solicitado';
-        text.innerText = 'Para poder depositar y apostar en la plataforma, debes realizar tu solicitud de KYC completando tus datos personales y de identidad.';
-        btn.style.display = 'block';
-        btn.innerText = '📝 Solicitar KYC';
-        btn.style.background = 'linear-gradient(145deg, #2563eb, #1d4ed8)';
-
-        if (indicatorCircle) indicatorCircle.style.background = '#3b82f6';
-        if (indicatorText) indicatorText.innerText = 'KYC No Solicitado';
-    }
-}
-
-function abrirModalKyc() {
-    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle);
-    if (req) {
-        document.getElementById('kyc-nombre').value = req.nombre || '';
-        document.getElementById('kyc-apellido').value = req.apellido || '';
-        document.getElementById('kyc-correo').value = req.correo || '';
-        document.getElementById('kyc-tipo-doc').value = req.tipo || 'ID';
-        document.getElementById('kyc-num-doc').value = req.numero || '';
-        document.getElementById('kyc-direccion').value = req.direccion || '';
-    }
-    document.getElementById('kyc-modal').style.display = 'flex';
-}
-
-function cerrarModalKyc() {
-    document.getElementById('kyc-modal').style.display = 'none';
-}
-
-async function enviarSolicitudKyc() {
-    const nombre = document.getElementById('kyc-nombre').value.trim();
-    const apellido = document.getElementById('kyc-apellido').value.trim();
-    const correo = document.getElementById('kyc-correo').value.trim();
-    const tipo = document.getElementById('kyc-tipo-doc').value;
-    const numero = document.getElementById('kyc-num-doc').value.trim();
-    const direccion = document.getElementById('kyc-direccion').value.trim();
-
-    if (!nombre || !apellido || !correo || !numero || !direccion) {
-        alert("Por favor, completa todos los campos requeridos (nombre, apellido, correo, documento y dirección).");
-        return;
-    }
-
-    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle);
-    if (req) {
-        req.nombre = nombre;
-        req.apellido = apellido;
-        req.correo = correo;
-        req.tipo = tipo;
-        req.numero = numero;
-        req.direccion = direccion;
-        req.estado = 'pendiente';
-    } else {
-        kycSolicitudes.push({ handle: usuarioActual.handle, nombre, apellido, correo, tipo, numero, direccion, estado: 'pendiente' });
-    }
-
-    usuarioActual.kyc_estado = 'pendiente';
-    sincronizarBalanceDirectorioLocal();
-    guardarTodoInStorage();
-
-    await guardarEnSupabaseTabla('usuarios_p2p', {
-        username: usuarioActual.handle,
-        nombre: nombre,
-        apellido: apellido,
-        correo: correo,
-        tipo_documento: tipo,
-        numero_documento: numero,
-        direccion: direccion,
-        kyc_estado: 'pendiente'
-    });
-
-    cerrarModalKyc();
-    actualizarEstadoKycUI();
-    alert("✅ ¡Solicitud de KYC enviada con éxito! Ahora el estado aparece como 'solicitud pendiente'.");
-}
-
-function renderizarKycAdmin() {
-    const container = document.getElementById('admin-kyc-requests-container');
-    if (!container) return;
-
-    if (!kycSolicitudes || kycSolicitudes.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p>';
-        return;
-    }
-
-    let html = '';
-    kycSolicitudes.forEach(k => {
-        let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04');
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-            <div>
-                <div>Usuario: <b style="color: #38bdf8;">${k.handle}</b></div>
-                <div style="font-weight: bold; color: var(--text-color); margin-top: 2px;">${k.nombre || ''} ${k.apellido || ''} (${k.correo || 'Sin correo'})</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Doc: ${k.tipo} - ${k.numero}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Dirección: ${k.direccion || 'No especificada'}</div>
-                <div style="margin-top: 6px;"><span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">${k.estado.toUpperCase()}</span></div>
-            </div>
-            <div style="display: flex; gap: 4px; flex-direction: column;">
-                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">Aprobar</button>
-                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">Rechazar</button>
-            </div>
-        </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-async function aprobarKycAdmin(handleTarget, nuevoEstado) {
-    let req = kycSolicitudes.find(k => k.handle === handleTarget);
-    if (req) {
-        req.estado = nuevoEstado;
-    }
-    let uDir = cuentasDirectorio.find(c => c.handle === handleTarget);
-    if (uDir) {
-        uDir.kyc_estado = nuevoEstado;
-    }
-    if (usuarioActual.handle === handleTarget) {
-        usuarioActual.kyc_estado = nuevoEstado;
-        actualizarEstadoKycUI();
-    }
-    guardarTodoInStorage();
-    await guardarEnSupabaseTabla('usuarios_p2p', {
-        username: handleTarget,
-        nombre: req ? req.nombre : '',
-        apellido: req ? req.apellido : '',
-        correo: req ? req.correo : '',
-        tipo_documento: req ? req.tipo : 'ID',
-        numero_documento: req ? req.numero : 'S/N',
-        direccion: req ? req.direccion : '',
-        kyc_estado: nuevoEstado
-    });
-    renderizarKycAdmin();
-    alert(`Estatus KYC de ${handleTarget} actualizado a: ${nuevoEstado.toUpperCase()}`);
-}
+async function aprobarKycAdmin(handleTarget, nuevoEstado) { 
+    let req = kycSolicitudes.find(k => k.handle === handleTarget); 
+    if (req) { 
+        req.estado = nuevoEstado; 
+    } 
+    let uDir = cuentasDirectorio.find(c => c.handle === handleTarget); 
+    if (uDir) { 
+        uDir.kyc_estado = nuevoEstado; 
+    } 
+    if (usuarioActual.handle === handleTarget) { 
+        usuarioActual.kyc_estado = nuevoEstado; 
+        actualizarEstadoKycUI(); 
+    } 
+    guardarTodoInStorage(); 
+    await guardarEnSupabaseTabla('usuarios_p2p', { 
+        username: handleTarget, 
+        nombre: req ? req.nombre : '', 
+        apellido: req ? req.apellido : '', 
+        correo: req ? req.correo : '', 
+        tipo_documento: req ? req.tipo : 'ID', 
+        numero_documento: req ? req.numero : 'S/N', 
+        direccion: req ? req.direccion : '', 
+        kyc_estado: nuevoEstado 
+    }); 
+    renderizarKycAdmin(); 
+    alert(`Estatus KYC de ${handleTarget} actualizado a: ${nuevoEstado.toUpperCase()}`); 
+} 
 
 function toggleTheme() { 
     const body = document.body; 
@@ -1293,7 +1262,7 @@ function switchTab(tabId, btnElement) {
         renderizarHistorialGlobalAdmin(); 
         calcularMetricasFinancierasAdmin(); 
         poblarSelectUsuariosAdmin(); 
-        renderizarKycAdmin();
+        renderizarKycAdmin(); 
     } 
 } 
 
@@ -1443,11 +1412,11 @@ function cargarHistorialDesdeDB() {
 } 
 
 function crearNuevoMercadoPionero() { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para crear mercados.");
-        abrirModalKyc();
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para crear mercados."); 
+        abrirModalKyc(); 
+        return; 
+    } 
     let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (uCheck && uCheck.bloqueado) { 
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
@@ -1479,20 +1448,63 @@ function crearNuevoMercadoPionero() {
     usuarioActual.balance -= liquidezAportada; 
     actualizarUIBalance(); 
     const nuevoId = 'm-' + Date.now(); 
-    preciosMercados[nuevoId] = { "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, "NO": opcionInicial === 'NO' ? 0.55 : 0.45 }; 
+    preciosMercados[nuevoId] = { 
+        "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, 
+        "NO": opcionInicial === 'NO' ? 0.55 : 0.45 
+    }; 
     estadosMercados[nuevoId] = null; 
     nombresMercados[nuevoId] = titulo; 
-    const nuevoMercado = { id: nuevoId, titulo: titulo, categoria: categoria, fechaCierre: fechaCierreInputVal, estado: 'abierto', creador: usuarioActual.handle, liquidez_total: liquidezAportada }; 
+    const nuevoMercado = { 
+        id: nuevoId, 
+        titulo: titulo, 
+        categoria: categoria, 
+        fechaCierre: fechaCierreInputVal, 
+        estado: 'abierto', 
+        creador: usuarioActual.handle, 
+        liquidez_total: liquidezAportada 
+    }; 
     mercadosDinamicos.push(nuevoMercado); 
     guardarEnSupabaseTabla('mercados_dinamicos', nuevoMercado); 
     const contratosCreador = Math.floor(liquidezAportada / preciosMercados[nuevoId][opcionInicial]); 
-    const nuevaPosicion = { id: 'POS-' + Date.now(), marketId: nuevoId, titulo: titulo, opcion: opcionInicial, contratos: contratosCreador, invertido: liquidezAportada, payout: contratosCreador * 1.00, estadoOrden: 'ACTIVO' }; 
+    const nuevaPosicion = { 
+        id: 'POS-' + Date.now(), 
+        marketId: nuevoId, 
+        titulo: titulo, 
+        opcion: opcionInicial, 
+        contratos: contratosCreador, 
+        invertido: liquidezAportada, 
+        payout: contratosCreador * 1.00, 
+        estadoOrden: 'ACTIVO' 
+    }; 
     posicionesActivas.push(nuevaPosicion); 
-    guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle, titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos, invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout, estado_orden: nuevaPosicion.estadoOrden }); 
-    const nuevaOrdenGlobal = { marketId: nuevoId, tipo: 'CREACIÓN DE MERCADO (Bid)', opcion: opcionInicial, contratos: contratosCreador, precio: preciosMercados[nuevoId][opcionInicial], trader: usuarioActual.handle }; 
+    guardarEnSupabaseTabla('posiciones_activas', { 
+        id: nuevaPosicion.id, 
+        market_id: String(nuevaPosicion.marketId), 
+        handle: usuarioActual.handle, 
+        titulo: nuevaPosicion.titulo, 
+        opcion: nuevaPosicion.opcion, 
+        contratos: nuevaPosicion.contratos, 
+        invertido: nuevaPosicion.invertido, 
+        payout: nuevaPosicion.payout, 
+        estado_orden: nuevaPosicion.estadoOrden 
+    }); 
+    const nuevaOrdenGlobal = { 
+        marketId: nuevoId, 
+        tipo: 'CREACIÓN DE MERCADO (Bid)', 
+        opcion: opcionInicial, 
+        contratos: contratosCreador, 
+        precio: preciosMercados[nuevoId][opcionInicial], 
+        trader: usuarioActual.handle 
+    }; 
     ordenesGlobales.push(nuevaOrdenGlobal); 
     guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ id: 'CREAR-' + Date.now(), titulo: 'Creación de Mercado', tipo: 'Inversión Inicial', monto: -liquidezAportada, detalle: `Creación del mercado: "${titulo}"` }); 
+    registrarTransaccionEnDB({ 
+        id: 'CREAR-' + Date.now(), 
+        titulo: 'Creación de Mercado', 
+        tipo: 'Inversión Inicial', 
+        monto: -liquidezAportada, 
+        detalle: `Creación del mercado: "${titulo}"` 
+    }); 
     guardarTodoInStorage(); 
     cargarMercadosYOrderBook(); 
     document.getElementById('nuevo-titulo').value = ''; 
@@ -1504,7 +1516,6 @@ function crearNuevoMercadoPionero() {
 
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
-    
     if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
         container.innerHTML = ` 
         <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
@@ -1513,36 +1524,31 @@ function renderizarMercadosDinamicos() {
         </div>`; 
         return; 
     } 
-
     let htmlDinamicoHTML = ''; 
-
     mercadosDinamicos.forEach(m => { 
         if (estadosMercados[m.id] !== null && estadosMercados[m.id] !== undefined) return; 
         if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
         const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
         const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
         const targetDate = m.fechaCierre || '2026-12-31T23:59:59'; 
-        
         htmlDinamicoHTML += ` 
         <div class="market-card" data-id="${m.id}" data-category="${m.categoria || 'Comunidad'}"> 
-          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-            <span>🏷️ ${m.categoria || 'Comunidad'} (Creador: ${m.creador || 'Anónimo'})</span> 
-            <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
-          </div> 
-          <div class="market-title">${m.titulo}</div> 
-          <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
-            <span>⏳ Cierre en:</span> 
-            <b class="time-display">Calculando...</b> 
-          </div> 
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
-          <div style="display: flex; gap: 8px;"> 
-            <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
-            <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
-          </div> 
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
+                <span>🏷️ ${m.categoria || 'Comunidad'} (Creador: ${m.creador || 'Anónimo'})</span> 
+                <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
+            </div> 
+            <div class="market-title">${m.titulo}</div> 
+            <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
+                <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
+            </div> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
+            <div style="display: flex; gap: 8px;"> 
+                <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
+                <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
+            </div> 
         </div> 
         `; 
     }); 
-
     if (htmlDinamicoHTML === '') { 
         htmlDinamicoHTML = ` 
         <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
@@ -1550,51 +1556,52 @@ function renderizarMercadosDinamicos() {
             <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">No hay mercados activos actualmente.</p> 
         </div>`; 
     } 
-
     container.innerHTML = htmlDinamicoHTML; 
-    aplicarFiltrosCombinados();
+    aplicarFiltrosCombinados(); 
 } 
 
 function renderizarMercadosEsperaYHistorial() { 
     const contenedorEspera = document.getElementById('espera-resolucion-container'); 
     const contenedorHistorial = document.getElementById('historial-cerrados-container'); 
-    
     let htmlEspera = ''; 
     let htmlCerrados = ''; 
-
-    if (mercadosDinamicos && mercadosDinamicos.length > 0) {
+    if (mercadosDinamicos && mercadosDinamicos.length > 0) { 
         mercadosDinamicos.forEach(m => { 
             let titulo = nombresMercados[m.id] || m.titulo; 
             let estado = estadosMercados[m.id]; 
-
             if (estado === 'ESPERANDO_RESOLUCION') { 
                 htmlEspera += ` 
                 <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-                  <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-                  <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
+                    <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+                    <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
                 </div> 
                 `; 
             } else if (estado !== null && estado !== undefined) { 
                 let badgeGanador = ''; 
                 let colorBadge = '#ef4444'; 
-                if (estado === 'SÍ') { badgeGanador = 'GANADOR: SÍ 🟢'; colorBadge = '#166534'; } 
-                else if (estado === 'NO') { badgeGanador = 'GANADOR: NO 🔴'; colorBadge = '#991b1b'; } 
-                else if (estado === 'CANCELADO') { badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; colorBadge = '#7c2d12'; } 
-                else { badgeGanador = `GANADOR: ${estado}`; } 
-
+                if (estado === 'SÍ') { 
+                    badgeGanador = 'GANADOR: SÍ 🟢'; 
+                    colorBadge = '#166534'; 
+                } else if (estado === 'NO') { 
+                    badgeGanador = 'GANADOR: NO 🔴'; 
+                    colorBadge = '#991b1b'; 
+                } else if (estado === 'CANCELADO') { 
+                    badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; 
+                    colorBadge = '#7c2d12'; 
+                } else { 
+                    badgeGanador = `GANADOR: ${estado}`; 
+                } 
                 htmlCerrados += ` 
                 <div class="market-closed-item" data-title="${titulo.toLowerCase()}" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-                  <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-                  <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
+                    <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+                    <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
                 </div> 
                 `; 
             } 
         }); 
-    }
-
+    } 
     if (htmlEspera === '') htmlEspera = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p>'; 
     if (htmlCerrados === '') htmlCerrados = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados en el historial.</p>'; 
-
     if (contenedorEspera) contenedorEspera.innerHTML = htmlEspera; 
     if (contenedorHistorial) contenedorHistorial.innerHTML = htmlCerrados; 
 } 
@@ -1653,11 +1660,11 @@ function actualizarRelojesRegresivos() {
 } 
 
 function abrirTerminalTrading(idMercado, tituloMercado, opcion) { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para poder apostar.");
-        abrirModalKyc();
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para poder apostar."); 
+        abrirModalKyc(); 
+        return; 
+    } 
     let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (uCheck && uCheck.bloqueado) { 
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
@@ -1747,10 +1754,10 @@ function calcularModalTotal() {
 } 
 
 async function confirmarCompraRapida() { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado.");
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado."); 
+        return; 
+    } 
     if (isSubmitting) return; 
     isSubmitting = true; 
     const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase(); 
@@ -1765,13 +1772,45 @@ async function confirmarCompraRapida() {
     } 
     usuarioActual.balance -= ordenActivaModal.totalConComision; 
     actualizarUIBalance(); 
-    const nuevaPosicion = { id: 'POS-' + Date.now(), marketId: idM, titulo: ordenActivaModal.tituloMercado, opcion: opM, contratos: cantidad, invertido: ordenActivaModal.totalConComision, payout: cantidad * 1.00, estadoOrden: 'ACTIVO' }; 
+    const nuevaPosicion = { 
+        id: 'POS-' + Date.now(), 
+        marketId: idM, 
+        titulo: ordenActivaModal.tituloMercado, 
+        opcion: opM, 
+        contratos: cantidad, 
+        invertido: ordenActivaModal.totalConComision, 
+        payout: cantidad * 1.00, 
+        estadoOrden: 'ACTIVO' 
+    }; 
     posicionesActivas.push(nuevaPosicion); 
-    guardarEnSupabaseTabla('posiciones_activas', { id: nuevaPosicion.id, market_id: String(nuevaPosicion.marketId), handle: usuarioActual.handle, titulo: nuevaPosicion.titulo, opcion: nuevaPosicion.opcion, contratos: nuevaPosicion.contratos, invertido: nuevaPosicion.invertido, payout: nuevaPosicion.payout, estado_orden: nuevaPosicion.estadoOrden }); 
-    const nuevaOrdenGlobal = { marketId: idM, tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)', opcion: opM, contratos: cantidad, precio: precioIngresado, trader: usuarioActual.handle }; 
+    guardarEnSupabaseTabla('posiciones_activas', { 
+        id: nuevaPosicion.id, 
+        market_id: String(nuevaPosicion.marketId), 
+        handle: usuarioActual.handle, 
+        titulo: nuevaPosicion.titulo, 
+        opcion: nuevaPosicion.opcion, 
+        contratos: nuevaPosicion.contratos, 
+        invertido: nuevaPosicion.invertido, 
+        payout: nuevaPosicion.payout, 
+        estado_orden: nuevaPosicion.estadoOrden 
+    }); 
+    const nuevaOrdenGlobal = { 
+        marketId: idM, 
+        tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)', 
+        opcion: opM, 
+        contratos: cantidad, 
+        precio: precioIngresado, 
+        trader: usuarioActual.handle 
+    }; 
     ordenesGlobales.push(nuevaOrdenGlobal); 
     guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ id: 'TX-' + Date.now(), titulo: 'Compra de Contratos', tipo: 'Compra', monto: -ordenActivaModal.totalConComision, detalle: `Adquisición de ${cantidad} contratos de [${opM}] en "${ordenActivaModal.tituloMercado}"` }); 
+    registrarTransaccionEnDB({ 
+        id: 'TX-' + Date.now(), 
+        titulo: 'Compra de Contratos', 
+        tipo: 'Compra', 
+        monto: -ordenActivaModal.totalConComision, 
+        detalle: `Adquisición de ${cantidad} contratos de [${opM}] en "${ordenActivaModal.tituloMercado}"` 
+    }); 
     guardarTodoInStorage(); 
     cerrarTerminalTrading(); 
     renderizarPosiciones(); 
@@ -1782,10 +1821,10 @@ async function confirmarCompraRapida() {
 } 
 
 function abrirModalVenta(idx) { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado.");
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado."); 
+        return; 
+    } 
     const pos = posicionesActivas[idx]; 
     if (!pos) return; 
     let precioBaseMercado = preciosMercados[pos.marketId] ? preciosMercados[pos.marketId][pos.opcion] : 0.50; 
@@ -1859,12 +1898,35 @@ async function ejecutarVentaPosicion() {
         posicion.contratos -= contratosVender; 
         posicion.invertido = posicion.invertido * (posicion.contratos / (posicion.contratos + contratosVender)); 
         posicion.payout = posicion.contratos * 1.00; 
-        guardarEnSupabaseTabla('posiciones_activas', { id: posicion.id, market_id: String(posicion.marketId), handle: usuarioActual.handle, titulo: posicion.titulo, opcion: posicion.opcion, contratos: posicion.contratos, invertido: posicion.invertido, payout: posicion.payout, estado_orden: posicion.estadoOrden }); 
+        guardarEnSupabaseTabla('posiciones_activas', { 
+            id: posicion.id, 
+            market_id: String(posicion.marketId), 
+            handle: usuarioActual.handle, 
+            titulo: posicion.titulo, 
+            opcion: posicion.opcion, 
+            contratos: posicion.contratos, 
+            invertido: posicion.invertido, 
+            payout: posicion.payout, 
+            estado_orden: posicion.estadoOrden 
+        }); 
     } 
-    const nuevaOrdenGlobal = { marketId: posicion.marketId, tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)', opcion: posicion.opcion, contratos: contratosVender, precio: precioUnitarioCalculado, trader: usuarioActual.handle }; 
+    const nuevaOrdenGlobal = { 
+        marketId: posicion.marketId, 
+        tipo: tipoVenta === 'limit' ? 'VENTA LÍMITE (Ask)' : 'VENTA MERCADO (Ask)', 
+        opcion: posicion.opcion, 
+        contratos: contratosVender, 
+        precio: precioUnitarioCalculado, 
+        trader: usuarioActual.handle 
+    }; 
     ordenesGlobales.push(nuevaOrdenGlobal); 
     guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ id: 'TX-' + Date.now(), titulo: 'Venta de Contratos', tipo: 'Venta', monto: retornoEstimado, detalle: `Venta de ${contratosVender} contratos de [${posicion.opcion}] en "${posicion.titulo}"` }); 
+    registrarTransaccionEnDB({ 
+        id: 'TX-' + Date.now(), 
+        titulo: 'Venta de Contratos', 
+        tipo: 'Venta', 
+        monto: retornoEstimado, 
+        detalle: `Venta de ${contratosVender} contratos de [${posicion.opcion}] en "${posicion.titulo}"` 
+    }); 
     guardarTodoInStorage(); 
     cerrarModalVenta(); 
     renderizarPosiciones(); 
@@ -1931,7 +1993,13 @@ async function reclamarPremio(idx) {
         await eliminarDeSupabaseTabla('posiciones_activas', p.id); 
     } 
     posicionesActivas.splice(idx, 1); 
-    registrarTransaccionEnDB({ id: 'PREM-' + Date.now(), titulo: 'Premio de Mercado', tipo: 'Premio', monto: premioTotal, detalle: `Recepción de premio por contrato acertado en "${p.titulo}"` }); 
+    registrarTransaccionEnDB({ 
+        id: 'PREM-' + Date.now(), 
+        titulo: 'Premio de Mercado', 
+        tipo: 'Premio', 
+        monto: premioTotal, 
+        detalle: `Recepción de premio por contrato acertado en "${p.titulo}"` 
+    }); 
     guardarTodoInStorage(); 
     renderizarPosiciones(); 
     renderizarHistorial(); 
@@ -1948,7 +2016,13 @@ async function reclamarReembolso(idx) {
         await eliminarDeSupabaseTabla('posiciones_activas', p.id); 
     } 
     posicionesActivas.splice(idx, 1); 
-    registrarTransaccionEnDB({ id: 'REEMB-' + Date.now(), titulo: 'Reembolso por Cancelación', tipo: 'Reembolso', monto: reembolsoTotal, detalle: `Reembolso total de fondos por cancelación del mercado "${p.titulo}"` }); 
+    registrarTransaccionEnDB({ 
+        id: 'REEMB-' + Date.now(), 
+        titulo: 'Reembolso por Cancelación', 
+        tipo: 'Reembolso', 
+        monto: reembolsoTotal, 
+        detalle: `Reembolso total de fondos por cancelación del mercado "${p.titulo}"` 
+    }); 
     guardarTodoInStorage(); 
     renderizarPosiciones(); 
     renderizarHistorial(); 
@@ -1982,7 +2056,7 @@ function renderizarOrderBookVisible() {
         let colorTipo = ord.tipo.includes('COMPRA') ? '#4ade80' : '#f87171'; 
         html += ` 
         <tr> 
-            <td style="color: ${colorType}; font-weight: bold;">${ord.tipo}</td> 
+            <td style="color: ${colorTipo}; font-weight: bold;">${ord.tipo}</td> 
             <td><b style="color: ${ord.opcion === 'SÍ' ? '#4ade80' : '#f87171'};">${ord.opcion}</b></td> 
             <td>${ord.contratos}</td> 
             <td>${Number(ord.precio).toFixed(2)} Pi</td> 
@@ -1994,11 +2068,11 @@ function renderizarOrderBookVisible() {
 } 
 
 function depositarConPiNetwork() { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para realizar recargas.");
-        abrirModalKyc();
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para realizar recargas."); 
+        abrirModalKyc(); 
+        return; 
+    } 
     const montoInput = parseFloat(document.getElementById('wallet-amount').value); 
     if (!montoInput || montoInput <= 0) { 
         alert("Introduce un monto válido en Pi para recargar."); 
@@ -2026,7 +2100,13 @@ function depositarConPiNetwork() {
     } 
     usuarioActual.balance += montoInput; 
     actualizarUIBalance(); 
-    registrarTransaccionEnDB({ id: 'DEP-' + Date.now(), titulo: 'Recarga de Billetera', tipo: 'Recarga', monto: montoInput, detalle: `Recarga de ${montoInput} Pi mediante Pi Network SDK` }); 
+    registrarTransaccionEnDB({ 
+        id: 'DEP-' + Date.now(), 
+        titulo: 'Recarga de Billetera', 
+        tipo: 'Recarga', 
+        monto: montoInput, 
+        detalle: `Recarga de ${montoInput} Pi mediante Pi Network SDK` 
+    }); 
     guardarTodoInStorage(); 
     document.getElementById('wallet-amount').value = ''; 
     alert(`✅ ¡Recarga de ${montoInput} Pi procesada con éxito!`); 
@@ -2034,11 +2114,11 @@ function depositarConPiNetwork() {
 } 
 
 function retirarBilletera() { 
-    if (usuarioActual.kyc_estado !== 'aprobado') {
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para realizar retiros.");
-        abrirModalKyc();
-        return;
-    }
+    if (usuarioActual.kyc_estado !== 'aprobado') { 
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador para realizar retiros."); 
+        abrirModalKyc(); 
+        return; 
+    } 
     const montoInput = parseFloat(document.getElementById('wallet-amount').value); 
     if (!montoInput || montoInput <= 0) { 
         alert("Introduce un monto válido en Pi para retirar."); 
@@ -2050,7 +2130,13 @@ function retirarBilletera() {
     } 
     usuarioActual.balance -= montoInput; 
     actualizarUIBalance(); 
-    registrarTransaccionEnDB({ id: 'RET-' + Date.now(), titulo: 'Retiro de Billetera', tipo: 'Pi Network', monto: -montoInput, detalle: `Retiro de ${montoInput} Pi hacia la blockchain principal` }); 
+    registrarTransaccionEnDB({ 
+        id: 'RET-' + Date.now(), 
+        titulo: 'Retiro de Billetera', 
+        tipo: 'Pi Network', 
+        monto: -montoInput, 
+        detalle: `Retiro de ${montoInput} Pi hacia la blockchain principal` 
+    }); 
     guardarTodoInStorage(); 
     document.getElementById('wallet-amount').value = ''; 
     alert(`✅ ¡Retiro de ${montoInput} Pi procesado con éxito!`); 
@@ -2118,12 +2204,26 @@ async function enviarMensajeSoporteUsuario() {
     if (!texto) return; 
     let ticketUser = ticketsSoporte.find(t => t.handle === usuarioActual.handle); 
     if (!ticketUser) { 
-        ticketUser = { id: 'TCK-' + Date.now(), handle: usuarioActual.handle, estado: 'activo', mensajes: [] }; 
+        ticketUser = { 
+            id: 'TCK-' + Date.now(), 
+            handle: usuarioActual.handle, 
+            estado: 'activo', 
+            mensajes: [] 
+        }; 
         ticketsSoporte.push(ticketUser); 
     } 
-    ticketUser.mensajes.push({ remitente: 'user', texto: texto, fecha: new Date().toISOString() }); 
+    ticketUser.mensajes.push({ 
+        remitente: 'user', 
+        texto: texto, 
+        fecha: new Date().toISOString() 
+    }); 
     guardarTodoInStorage(); 
-    await guardarEnSupabaseTabla('tickets_soporte', { id: ticketUser.id, handle: ticketUser.handle, estado: ticketUser.estado, mensajes: ticketUser.mensajes }); 
+    await guardarEnSupabaseTabla('tickets_soporte', { 
+        id: ticketUser.id, 
+        handle: ticketUser.handle, 
+        estado: ticketUser.estado, 
+        mensajes: ticketUser.mensajes 
+    }); 
     input.value = ''; 
     renderizarMensajesSoporteUsuario(); 
     renderizarTicketsAdmin(); 
@@ -2185,27 +2285,38 @@ async function enviarMensajeSoporteAdmin() {
     if (!texto || !ticketAdminActivoId) return; 
     let ticket = ticketsSoporte.find(t => t.id === ticketAdminActivoId); 
     if (!ticket) return; 
-    ticket.mensajes.push({ remitente: 'admin', texto: texto, fecha: new Date().toISOString() }); 
+    ticket.mensajes.push({ 
+        remitente: 'admin', 
+        texto: texto, 
+        fecha: new Date().toISOString() 
+    }); 
     guardarTodoInStorage(); 
-    await guardarEnSupabaseTabla('tickets_soporte', { id: ticket.id, handle: ticket.handle, estado: ticket.estado, mensajes: ticket.mensajes }); 
+    await guardarEnSupabaseTabla('tickets_soporte', { 
+        id: ticket.id, 
+        handle: ticket.handle, 
+        estado: ticket.estado, 
+        mensajes: ticket.mensajes 
+    }); 
     input.value = ''; 
     renderizarMensajesAdminChat(); 
     renderizarTicketsAdmin(); 
 } 
 
 function calcularMetricasFinancierasAdmin() { 
-    const supplyEl = document.getElementById('admin-total-supply'); 
+    const totalSupEl = document.getElementById('admin-total-supply'); 
     const topUsersEl = document.getElementById('admin-top-users-container'); 
-    if (!supplyEl || !topUsersEl) return; 
+    if (!totalSupEl || !topUsersEl) return; 
     let sumaTotal = 0; 
-    cuentasDirectorio.forEach(c => { sumaTotal += Number(c.balance); }); 
-    supplyEl.innerText = sumaTotal.toFixed(2) + ' Pi'; 
-    let sortedUsers = cuentasDirectorio.slice().sort((a, b) => b.balance - a.balance); 
-    let htmlTop = ''; 
-    sortedUsers.slice(0, 5).forEach((u, i) => { 
-        htmlTop += `<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>${i + 1}. ${u.handle} ${u.bloqueado ? '(Bloqueado)' : ''}</span><b style="color: #4ade80;">${Number(u.balance).toFixed(2)} Pi</b></div>`; 
+    cuentasDirectorio.forEach(c => { 
+        sumaTotal += Number(c.balance || 0); 
     }); 
-    topUsersEl.innerHTML = htmlTop; 
+    totalSupEl.innerText = sumaTotal.toFixed(2) + ' Pi'; 
+    let cuentasOrdenadas = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance); 
+    let htmlTop = ''; 
+    cuentasOrdenadas.slice(0, 5).forEach((c, i) => { 
+        htmlTop += `<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>${i + 1}. ${c.handle} ${c.bloqueado ? '(Bloqueado)' : ''}</span><b style="color: #4ade80;">${Number(c.balance).toFixed(2)} Pi</b></div>`; 
+    }); 
+    topUsersEl.innerHTML = htmlTop || '<p style="font-size: 0.75rem; color: var(--text-muted);">No hay cuentas registradas.</p>'; 
 } 
 
 function poblarSelectUsuariosAdmin() { 
@@ -2213,7 +2324,7 @@ function poblarSelectUsuariosAdmin() {
     if (!select) return; 
     let html = '<option value="">-- Seleccionar Usuario --</option>'; 
     cuentasDirectorio.forEach(c => { 
-        html += `<option value="${c.handle}">${c.handle} (${Number(c.balance).toFixed(2)} Pi)</option>`; 
+        html += `<option value="${c.handle}">${c.handle} (Bal: ${Number(c.balance).toFixed(2)} Pi)</option>`; 
     }); 
     select.innerHTML = html; 
 } 
@@ -2221,25 +2332,38 @@ function poblarSelectUsuariosAdmin() {
 function cargarDatosUsuarioAdminSeleccionado() { 
     const select = document.getElementById('admin-user-select'); 
     const card = document.getElementById('admin-user-details-card'); 
-    const handleEl = document.getElementById('adm-det-handle'); 
-    const balanceEl = document.getElementById('adm-det-balance'); 
-    const statusEl = document.getElementById('adm-det-status'); 
-    const btnBloqueo = document.getElementById('admin-btn-bloqueo'); 
+    const hnd = document.getElementById('adm-det-handle'); 
+    const bal = document.getElementById('adm-det-balance'); 
+    const st = document.getElementById('adm-det-status'); 
+    const btnBloq = document.getElementById('admin-btn-bloqueo'); 
     if (!select || !card) return; 
-    const handle = select.value; 
-    if (!handle) { 
+    const handleSeleccionado = select.value; 
+    if (!handleSeleccionado) { 
         card.style.display = 'none'; 
         usuarioAdminSeleccionadoHandle = null; 
         return; 
     } 
-    let u = cuentasDirectorio.find(c => c.handle === handle); 
-    if (!u) return; 
-    usuarioAdminSeleccionadoHandle = handle; 
-    handleEl.innerText = u.handle; 
-    balanceEl.innerText = Number(u.balance).toFixed(2) + ' Pi'; 
-    statusEl.innerText = u.bloqueado ? 'BLOQUEADO' : 'Activo'; 
-    statusEl.style.color = u.bloqueado ? '#ef4444' : '#4ade80'; 
-    btnBloqueo.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta'; 
+    usuarioAdminSeleccionadoHandle = handleSeleccionado; 
+    let userObj = cuentasDirectorio.find(c => c.handle === handleSeleccionado); 
+    if (!userObj) { 
+        card.style.display = 'none'; 
+        return; 
+    } 
+    hnd.innerText = userObj.handle; 
+    bal.innerText = Number(userObj.balance).toFixed(2) + ' Pi'; 
+    if (userObj.bloqueado) { 
+        st.innerText = 'Bloqueado'; 
+        st.style.color = '#ef4444'; 
+        btnBloq.innerText = '🔓 Desbloquear Cuenta'; 
+        btnBloq.style.background = 'linear-gradient(145deg, #166534, #14532d)'; 
+        btnBloq.style.borderColor = '#22c55e'; 
+    } else { 
+        st.innerText = 'Activo'; 
+        st.style.color = '#4ade80'; 
+        btnBloq.innerText = '🔒 Bloquear Cuenta'; 
+        btnBloq.style.background = 'linear-gradient(145deg, #b91c1c, #991b1b)'; 
+        btnBloq.style.borderColor = '#ef4444'; 
+    } 
     card.style.display = 'block'; 
 } 
 
@@ -2248,21 +2372,21 @@ function toggleBloqueoCuentaActual() {
         alert("Selecciona primero una cuenta de usuario."); 
         return; 
     } 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
-    if (!u) return; 
-    u.bloqueado = !u.bloqueado; 
+    let userObj = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
+    if (!userObj) return; 
+    userObj.bloqueado = !userObj.bloqueado; 
     guardarTodoInStorage(); 
     cargarDatosUsuarioAdminSeleccionado(); 
     calcularMetricasFinancierasAdmin(); 
-    alert(`Estatus de cuenta ${u.handle} actualizado: ${u.bloqueado ? 'BLOQUEADA' : 'ACTIVA'}`); 
+    alert(`Cuenta ${userObj.handle} ha sido ${userObj.bloqueado ? 'BLOQUEADA' : 'DESBLOQUEADA'} con éxito.`); 
 } 
 
 function abrirModalAjusteBalance() { 
     if (!usuarioAdminSeleccionadoHandle) { 
-        alert("Selecciona primero una cuenta de usuario en el panel."); 
+        alert("Selecciona primero una cuenta de usuario en el panel de administración."); 
         return; 
     } 
-    document.getElementById('admin-balance-modal-subtitle').innerText = `Modificando saldo para: ${usuarioAdminSeleccionadoHandle}`; 
+    document.getElementById('admin-balance-modal-subtitle').innerText = `Modifica el saldo para la cuenta: ${usuarioAdminSeleccionadoHandle}`; 
     document.getElementById('admin-adj-monto').value = ''; 
     document.getElementById('admin-adj-nota').value = ''; 
     document.getElementById('admin-balance-modal').style.display = 'flex'; 
@@ -2281,90 +2405,124 @@ function ejecutarAjusteBalanceAdmin() {
         alert("Introduce un monto válido para el ajuste."); 
         return; 
     } 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
-    if (!u) return; 
-    if (tipoAdj === 'CREDITO') { 
-        u.balance += monto; 
-    } else { 
-        if (u.balance < monto) { 
-            alert("El usuario no tiene suficiente balance para este débito."); 
-            return; 
-        } 
-        u.balance -= monto; 
+    if (!nota) { 
+        alert("Introduce una nota de auditoría o justificación."); 
+        return; 
     } 
-    if (u.handle === usuarioActual.handle) { 
-        usuarioActual.balance = u.balance; 
+    let userObj = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
+    if (!userObj) return; 
+    let cambioNeto = tipoAdj === 'CREDITO' ? monto : -monto; 
+    if (tipoAdj === 'DEBITO' && userObj.balance < monto) { 
+        alert("El usuario no tiene suficiente balance para este débito."); 
+        return; 
+    } 
+    userObj.balance += cambioNeto; 
+    if (usuarioActual.handle === userObj.handle) { 
+        usuarioActual.balance = userObj.balance; 
         actualizarUIBalance(); 
     } 
-    registrarTransaccionEnDB({ id: 'ADJ-' + Date.now(), titulo: `Ajuste Admin (${tipoAdj})`, tipo: tipoAdj === 'CREDITO' ? 'Acreditación' : 'Débito', monto: tipoAdj === 'CREDITO' ? monto : -monto, detalle: `Ajuste manual por administrador. Nota: ${nota || 'Sin nota'}` }); 
+    registrarTransaccionEnDB({ 
+        id: 'ADJ-' + Date.now(), 
+        titulo: `Ajuste Admin (${tipoAdj})`, 
+        tipo: tipoAdj === 'CREDITO' ? 'Acreditación' : 'Débito', 
+        monto: cambioNeto, 
+        detalle: `Ajuste manual por Admin en cuenta ${userObj.handle}. Motivo: "${nota}"` 
+    }); 
     guardarTodoInStorage(); 
     cerrarModalAjusteBalance(); 
     cargarDatosUsuarioAdminSeleccionado(); 
-    calcularMetricasFinancierasAdmin(); 
     poblarSelectUsuariosAdmin(); 
-    alert("✅ ¡Ajuste de balance ejecutado y registrado con éxito!"); 
+    calcularMetricasFinancierasAdmin(); 
+    alert(`✅ ¡Ajuste de balance aplicado con éxito a ${userObj.handle}!`); 
 } 
 
 async function declararGanadorAdmin() { 
-    const select = document.getElementById('admin-market-id'); 
+    const selectM = document.getElementById('admin-market-id'); 
     const selectRes = document.getElementById('admin-result-select'); 
-    if (!select || !select.value) { 
+    if (!selectM || !selectM.value) { 
         alert("Selecciona un mercado válido para resolver."); 
         return; 
     } 
-    const marketId = select.value; 
+    const marketId = selectM.value; 
     const ganadorOficial = selectRes.value; 
     estadosMercados[marketId] = ganadorOficial; 
     guardarTodoInStorage(); 
-    cargarMercadosYOrderBook(); 
-    alert(`✅ ¡Resultado oficial declarado con éxito: ${ganadorOficial} para el mercado! Los usuarios ya pueden reclamar sus premios.`); 
+    await guardarEnSupabaseTabla('mercados_dinamicos', { 
+        id: marketId, 
+        estado: 'cerrado_ganador_' + ganadorOficial 
+    }); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
+    actualizarSelectsMercadosActivos(); 
+    renderizarPosiciones(); 
+    renderizarOrderBookVisible(); 
+    alert(`✅ ¡Mercado resuelto con éxito! Ganador declarado: ${ganadorOficial}. Los usuarios ya pueden reclamar sus premios.`); 
 } 
 
 async function cancelarYReembolsarMercadoAdmin() { 
-    const select = document.getElementById('admin-market-id'); 
-    if (!select || !select.value) { 
+    const selectM = document.getElementById('admin-market-id'); 
+    if (!selectM || !selectM.value) { 
         alert("Selecciona un mercado válido para cancelar."); 
         return; 
     } 
-    const marketId = select.value; 
+    const marketId = selectM.value; 
+    if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado? Se reembolsará el 100% de la inversión a los usuarios activos.")) { 
+        return; 
+    } 
     estadosMercados[marketId] = 'CANCELADO'; 
     guardarTodoInStorage(); 
-    cargarMercadosYOrderBook(); 
-    alert("🚨 Mercado cancelado correctamente. Los usuarios afectados ya pueden reclamar el reembolso total de sus fondos sin comisiones."); 
+    await guardarEnSupabaseTabla('mercados_dinamicos', { 
+        id: marketId, 
+        estado: 'cancelado_reembolso' 
+    }); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
+    actualizarSelectsMercadosActivos(); 
+    renderizarPosiciones(); 
+    renderizarOrderBookVisible(); 
+    alert("🚨 Mercado cancelado con éxito. Los contratos se han habilitado para el reembolso total de fondos."); 
 } 
 
 function renderizarHistorialGlobalAdmin() { 
     const container = document.getElementById('admin-global-transactions-container'); 
-    const userSearch = document.getElementById('admin-user-search').value.toLowerCase(); 
-    const txSearch = document.getElementById('admin-tx-search').value.toLowerCase(); 
-    const filtroDetalle = document.getElementById('filtroDetalle').value; 
+    const searchUser = document.getElementById('admin-user-search'); 
+    const searchTx = document.getElementById('admin-tx-search'); 
+    const filtroDetalle = document.getElementById('filtroDetalle'); 
     if (!container) return; 
     if (!historialTransacciones || historialTransacciones.length === 0) { 
         container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>'; 
         return; 
     } 
+    let queryUser = searchUser ? searchUser.value.toLowerCase() : ''; 
+    let queryTx = searchTx ? searchTx.value.toLowerCase() : ''; 
+    let tipoFiltro = filtroDetalle ? filtroDetalle.value : ''; 
+    let filtradas = historialTransacciones.filter(tx => { 
+        let detalleStr = (tx.detalle || '').toLowerCase(); 
+        let tituloStr = (tx.titulo || '').toLowerCase(); 
+        let matchUser = queryUser === '' || detalleStr.includes(queryUser) || (tx.trader && tx.trader.toLowerCase().includes(queryUser)); 
+        let matchTx = queryTx === '' || detalleStr.includes(queryTx) || tituloStr.includes(queryTx); 
+        let matchTipo = tipoFiltro === '' || tituloStr.includes(tipoFiltro.toLowerCase()) || (tx.tipo && tx.tipo.toLowerCase().includes(tipoFiltro.toLowerCase())); 
+        return matchUser && matchTx && matchTipo; 
+    }); 
+    if (filtradas.length === 0) { 
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros aplicados.</p>'; 
+        return; 
+    } 
     let html = ''; 
-    historialTransacciones.slice().reverse().forEach(tx => { 
-        let detalleTexto = (tx.detalle || '').toLowerCase(); 
-        let tituloTexto = (tx.titulo || '').toLowerCase(); 
-        let tipoTexto = (tx.tipo || '').toLowerCase(); 
-        if (txSearch && !detalleTexto.includes(txSearch) && !tituloTexto.includes(txSearch)) return; 
-        if (filtroDetalle && !tipoTexto.includes(filtroDetalle.toLowerCase()) && !detalleTexto.includes(filtroDetalle.toLowerCase())) return; 
+    filtradas.slice().reverse().forEach(tx => { 
         let colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171'; 
         html += ` 
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;"> 
             <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
-                <span>${tx.titulo}</span> 
+                <span>${tx.titulo} (${tx.tipo || 'Operación'})</span> 
                 <span style="color: ${colorMonto};">${tx.monto >= 0 ? '+' : ''}${Number(tx.monto).toFixed(2)} Pi</span> 
             </div> 
             <div style="color: var(--text-muted);">${tx.detalle}</div> 
         </div> 
         `; 
     }); 
-    if (html === '') html = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones que coincidan con los filtros.</p>'; 
     container.innerHTML = html; 
 } 
 </script> 
 </body> 
 </html>
-
