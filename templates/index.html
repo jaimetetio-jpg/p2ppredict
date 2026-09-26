@@ -1,4 +1,3 @@
-DIOS NOS AMA!
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -418,6 +417,16 @@ header {
 
 <!-- VISTA: MERCADOS --> 
 <div id="view-mercados" class="section-view active"> 
+    <!-- BANNER DE ESTADO KYC -->
+    <div id="kyc-status-banner" style="background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; color: #facc15;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span>
+            <span id="kyc-badge-status" style="background: #ca8a04; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">Pendiente</span>
+        </div>
+        <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder apostar, crear mercados o realizar operaciones en la plataforma, debes completar tu verificación de identidad (KYC).</p>
+        <button id="kyc-action-btn" class="action-btn" style="background: linear-gradient(145deg, #ca8a04, #a16207); border-color: #eab308; font-size: 0.75rem; padding: 7px;" onclick="abrirModalKyc()">📝 Completar Verificación KYC</button>
+    </div>
+
     <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()"> 
     <div class="filter-pills"> 
         <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
@@ -597,7 +606,16 @@ header {
 
 <!-- VISTA: ADMIN --> 
 <div id="view-admin" class="section-view"> 
+    <!-- GESTIÓN DE SOLICITUDES KYC PENDIENTES -->
     <div class="market-card" style="margin-top: 0;"> 
+        <div class="market-title">🛡️ Solicitudes de Verificación KYC (Pendientes)</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa los documentos de identidad enviados por los usuarios para aprobarlos o rechazarlos.</p> 
+        <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
+            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p> 
+        </div> 
+    </div>
+
+    <div class="market-card"> 
         <div class="market-title">📈 Métricas Financieras y Circulante Global</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Control en tiempo real del suministro total de Pi y cuentas con mayor balance.</p> 
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.8rem;"> 
@@ -747,6 +765,34 @@ header {
     </div> 
 </div> 
 
+<!-- MODAL REGISTRO KYC --> 
+<div id="kyc-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #eab308;">📝 Verificación de Identidad (KYC)</h3> 
+            <button onclick="cerrarModalKyc()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Ingresa tus datos oficiales para verificar tu cuenta y habilitar el sistema de apuestas y retiros.</p> 
+        <div class="form-group"> 
+            <label>Tipo de Documento</label> 
+            <select id="kyc-tipo-doc" class="form-control"> 
+                <option value="Cedula">Cédula de Identidad</option> 
+                <option value="Pasaporte">Pasaporte</option> 
+                <option value="Licencia">Licencia de Conducir</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Número de Documento</label> 
+            <input type="text" id="kyc-num-doc" class="form-control" placeholder="Ej. V-25412789"> 
+        </div> 
+        <div class="form-group"> 
+            <label>URL de Foto del Documento / Selfie (Opcional)</label> 
+            <input type="text" id="kyc-foto-url" class="form-control" placeholder="https://ejemplo.com/foto.jpg"> 
+        </div> 
+        <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Enviar Solicitud KYC</button> 
+    </div> 
+</div> 
+
 <!-- MODAL AUTH ADMIN --> 
 <div id="admin-auth-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -826,15 +872,18 @@ header {
 </div> 
 
 <script> 
-let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00 }; 
+let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00, kyc_estado: "pendiente" }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
 let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
 let ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
+let kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || [
+    { handle: "@jaimetetio", tipo: "Cedula", numero: "V-12345678", foto: "", estado: "pendiente" }
+];
 let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || [ 
-    { handle: "@jaimetetio", balance: 150.00, bloqueado: false }, 
-    { handle: "@crypto_king", balance: 1420.50, bloqueado: false }, 
-    { handle: "@pioneerglobal", balance: 98.20, bloqueado: false } 
+    { handle: "@jaimetetio", balance: 150.00, bloqueado: false, kyc_estado: "pendiente" }, 
+    { handle: "@crypto_king", balance: 1420.50, bloqueado: false, kyc_estado: "aprobado" }, 
+    { handle: "@pioneerglobal", balance: 98.20, bloqueado: false, kyc_estado: "aprobado" } 
 ]; 
 let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
@@ -860,6 +909,7 @@ function cargarMercadosYOrderBook() {
     cargarHistorialDesdeDB(); 
     actualizarSelectsMercadosActivos(); 
     renderizarOrderBookVisible();
+    actualizarEstadoKycUI();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -926,6 +976,17 @@ async function sincronizarConSupabase() {
         let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*'); 
         if (!errTck && tcks) { ticketsSoporte = tcks; } 
 
+        let { data: kycs, error: errKyc } = await supabaseClient.from('usuarios_p2p').select('*');
+        if (!errKyc && kycs) {
+            kycSolicitudes = kycs.map(k => ({
+                handle: k.username,
+                tipo: k.tipo_documento,
+                numero: k.numero_documento,
+                foto: k.foto_url || '',
+                estado: k.kyc_estado || 'pendiente'
+            }));
+        }
+
         guardarTodoInStorage();
         cargarMercadosYOrderBook();
     } catch (e) { 
@@ -962,6 +1023,7 @@ function guardarTodoInStorage() {
     localStorage.setItem('p2p_estados_mercados', JSON.stringify(estadosMercados)); 
     localStorage.setItem('p2p_tickets_soporte', JSON.stringify(ticketsSoporte)); 
     localStorage.setItem('p2p_mercados_dinamicos', JSON.stringify(mercadosDinamicos)); 
+    localStorage.setItem('p2p_kyc_solicitudes', JSON.stringify(kycSolicitudes));
 } 
 
 function sincronizarPersistencia() { 
@@ -974,6 +1036,7 @@ function sincronizarPersistencia() {
     estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
     ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
     mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
+    kycSolicitudes = JSON.parse(localStorage.getItem('p2p_kyc_solicitudes')) || kycSolicitudes;
 } 
 
 function reconstruirDiccionarioNombresMercados() { 
@@ -984,8 +1047,9 @@ function sincronizarBalanceDirectorioLocal() {
     let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (u) { 
         u.balance = usuarioActual.balance; 
+        u.kyc_estado = usuarioActual.kyc_estado;
     } else { 
-        cuentasDirectorio.push({ handle: usuarioActual.handle, balance: usuarioActual.balance, bloqueado: false }); 
+        cuentasDirectorio.push({ handle: usuarioActual.handle, balance: usuarioActual.balance, bloqueado: false, kyc_estado: usuarioActual.kyc_estado || "pendiente" }); 
     } 
 } 
 
@@ -995,6 +1059,161 @@ function verificarBloqueoUsuarioActual() {
         alert("⚠️ ATENCIÓN: Tu cuenta se encuentra BLOQUEADA por el administrador del sistema."); 
     } 
 } 
+
+function actualizarEstadoKycUI() {
+    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+    if (u) {
+        usuarioActual.kyc_estado = u.kyc_estado || "pendiente";
+    }
+    const banner = document.getElementById('kyc-status-banner');
+    const badge = document.getElementById('kyc-badge-status');
+    const title = document.getElementById('kyc-banner-title');
+    const text = document.getElementById('kyc-banner-text');
+    const btn = document.getElementById('kyc-action-btn');
+
+    if (!banner) return;
+
+    if (usuarioActual.kyc_estado === 'aprobado') {
+        banner.style.background = 'rgba(22, 163, 74, 0.15)';
+        banner.style.border = '1px solid #16a34a';
+        title.style.color = '#4ade80';
+        title.innerText = '✅ Verificación KYC Aprobada';
+        badge.style.background = '#16a34a';
+        badge.innerText = 'Aprobado';
+        text.innerText = 'Tu identidad ha sido verificada correctamente por el administrador. Tienes acceso total a las apuestas y funciones de la plataforma.';
+        btn.style.display = 'none';
+    } else if (usuarioActual.kyc_estado === 'rechazado') {
+        banner.style.background = 'rgba(220, 38, 38, 0.15)';
+        banner.style.border = '1px solid #dc2626';
+        title.style.color = '#f87171';
+        title.innerText = '❌ Verificación KYC Rechazada';
+        badge.style.background = '#dc2626';
+        badge.innerText = 'Rechazado';
+        text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.';
+        btn.style.display = 'block';
+        btn.innerText = '🔄 Reintentar Verificación KYC';
+    } else {
+        banner.style.background = 'rgba(234, 179, 8, 0.15)';
+        banner.style.border = '1px solid #eab308';
+        title.style.color = '#facc15';
+        title.innerText = '🔒 Verificación KYC Requerida';
+        badge.style.background = '#ca8a04';
+        badge.innerText = 'Pendiente';
+        text.innerText = 'Para poder apostar, crear mercados o realizar operaciones en la plataforma, debes completar tu verificación de identidad (KYC).';
+        let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle);
+        if (req) {
+            btn.innerText = '⏳ Solicitud en Revisión (Modificar)';
+        } else {
+            btn.innerText = '📝 Completar Verificación KYC';
+        }
+        btn.style.display = 'block';
+    }
+}
+
+function abrirModalKyc() {
+    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle);
+    if (req) {
+        document.getElementById('kyc-tipo-doc').value = req.tipo || 'Cedula';
+        document.getElementById('kyc-num-doc').value = req.numero || '';
+        document.getElementById('kyc-foto-url').value = req.foto || '';
+    }
+    document.getElementById('kyc-modal').style.display = 'flex';
+}
+
+function cerrarModalKyc() {
+    document.getElementById('kyc-modal').style.display = 'none';
+}
+
+async function enviarSolicitudKyc() {
+    const tipo = document.getElementById('kyc-tipo-doc').value;
+    const numero = document.getElementById('kyc-num-doc').value.trim();
+    const foto = document.getElementById('kyc-foto-url').value.trim();
+
+    if (!numero) {
+        alert("Por favor, introduce el número de tu documento.");
+        return;
+    }
+
+    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle);
+    if (req) {
+        req.tipo = tipo;
+        req.numero = numero;
+        req.foto = foto;
+        req.estado = 'pendiente';
+    } else {
+        kycSolicitudes.push({ handle: usuarioActual.handle, tipo, numero, foto, estado: 'pendiente' });
+    }
+
+    usuarioActual.kyc_estado = 'pendiente';
+    sincronizarBalanceDirectorioLocal();
+    guardarTodoInStorage();
+
+    await guardarEnSupabaseTabla('usuarios_p2p', {
+        username: usuarioActual.handle,
+        tipo_documento: tipo,
+        numero_documento: numero,
+        foto_url: foto,
+        kyc_estado: 'pendiente'
+    });
+
+    cerrarModalKyc();
+    actualizarEstadoKycUI();
+    alert("✅ ¡Solicitud de KYC enviada con éxito! Queda a la espera de aprobación por el administrador.");
+}
+
+function renderizarKycAdmin() {
+    const container = document.getElementById('admin-kyc-requests-container');
+    if (!container) return;
+
+    if (!kycSolicitudes || kycSolicitudes.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC registradas.</p>';
+        return;
+    }
+
+    let html = '';
+    kycSolicitudes.forEach(k => {
+        let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04');
+        html += `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div>
+                <div>Usuario: <b style="color: #38bdf8;">${k.handle}</b></div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Doc: ${k.tipo} - ${k.numero}</div>
+                <div style="margin-top: 4px;"><span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">${k.estado.toUpperCase()}</span></div>
+            </div>
+            <div style="display: flex; gap: 4px; flex-direction: column;">
+                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">Aprobar</button>
+                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">Rechazar</button>
+            </div>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+async function aprobarKycAdmin(handleTarget, nuevoEstado) {
+    let req = kycSolicitudes.find(k => k.handle === handleTarget);
+    if (req) {
+        req.estado = nuevoEstado;
+    }
+    let uDir = cuentasDirectorio.find(c => c.handle === handleTarget);
+    if (uDir) {
+        uDir.kyc_estado = nuevoEstado;
+    }
+    if (usuarioActual.handle === handleTarget) {
+        usuarioActual.kyc_estado = nuevoEstado;
+        actualizarEstadoKycUI();
+    }
+    guardarTodoInStorage();
+    await guardarEnSupabaseTabla('usuarios_p2p', {
+        username: handleTarget,
+        tipo_documento: req ? req.tipo : 'Cedula',
+        numero_documento: req ? req.numero : 'S/N',
+        foto_url: req ? req.foto : '',
+        kyc_estado: nuevoEstado
+    });
+    renderizarKycAdmin();
+    alert(`Estatus KYC de ${handleTarget} actualizado a: ${nuevoEstado.toUpperCase()}`);
+}
 
 function toggleTheme() { 
     const body = document.body; 
@@ -1015,6 +1234,7 @@ function switchTab(tabId, btnElement) {
         renderizarHistorialGlobalAdmin(); 
         calcularMetricasFinancierasAdmin(); 
         poblarSelectUsuariosAdmin(); 
+        renderizarKycAdmin();
     } 
 } 
 
@@ -1164,6 +1384,11 @@ function cargarHistorialDesdeDB() {
 } 
 
 function crearNuevoMercadoPionero() { 
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Tu cuenta debe tener el KYC aprobado por el administrador para crear mercados.");
+        abrirModalKyc();
+        return;
+    }
     let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (uCheck && uCheck.bloqueado) { 
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
@@ -1369,6 +1594,11 @@ function actualizarRelojesRegresivos() {
 } 
 
 function abrirTerminalTrading(idMercado, tituloMercado, opcion) { 
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Debes tener tu KYC aprobado por el administrador para realizar apuestas.");
+        abrirModalKyc();
+        return;
+    }
     let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (uCheck && uCheck.bloqueado) { 
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
@@ -1458,6 +1688,10 @@ function calcularModalTotal() {
 } 
 
 async function confirmarCompraRapida() { 
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado.");
+        return;
+    }
     if (isSubmitting) return; 
     isSubmitting = true; 
     const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase(); 
@@ -1489,6 +1723,10 @@ async function confirmarCompraRapida() {
 } 
 
 function abrirModalVenta(idx) { 
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado.");
+        return;
+    }
     const pos = posicionesActivas[idx]; 
     if (!pos) return; 
     let precioBaseMercado = preciosMercados[pos.marketId] ? preciosMercados[pos.marketId][pos.opcion] : 0.50; 
@@ -1738,6 +1976,11 @@ function depositarConPiNetwork() {
 } 
 
 function retirarBilletera() { 
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Debes tener tu KYC aprobado para retirar fondos.");
+        abrirModalKyc();
+        return;
+    }
     let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
     if (uCheck && uCheck.bloqueado) { 
         alert("⚠️ Operación denegada: Tu cuenta está bloqueada por el administrador."); 
