@@ -1881,7 +1881,6 @@ function cancelarYReembolsarMercadoAdmin() {
         return;
     }
     estadosMercados[marketId] = 'CANCELADO';
-    // Reembolsar posiciones activas de este mercado
     posicionesActivas.forEach(pos => {
         if (pos.marketId === marketId && pos.estadoOrden === 'ACTIVO') {
             usuarioActual.balance += pos.invertido;
