@@ -1,3 +1,4 @@
+Aquí tienes el código completo de tu backend en Flask con el parche de actualización KYC integrado correctamente en un solo bloque estructurado, limpio y sin alterar ninguna de tus funciones existentes:
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -2445,3 +2446,4 @@ app.register_blueprint(kyc_bp)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
