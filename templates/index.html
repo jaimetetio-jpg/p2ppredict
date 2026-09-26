@@ -1,3 +1,4 @@
+DIOS TE AMA!
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -13,7 +14,7 @@ const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || '';
 const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || ''; 
 const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; 
 if (!supabaseClient) { 
-    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente. El app funcionará con almacenamiento local."); 
+    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente."); 
 } 
 </script> 
 <style> 
@@ -568,7 +569,7 @@ header {
             </thead> 
             <tbody id="orderbook-table-body"> 
                 <tr> 
-                    <td colspan="5" style="text-align: center; color: var(--text-muted);">No hay órdenes en el libro actualmente.</td> 
+                    <td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de la apertura de un mercado.</td> 
                 </tr> 
             </tbody> 
         </table> 
@@ -837,7 +838,7 @@ let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio'
 ]; 
 let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
-let mercadosDinamicos = []; 
+let mercadosDinamicos = []; // ARRANCAN ESTRICTAMENTE VACÍOS HASTA CONSULTAR SUPABASE
 
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
@@ -904,7 +905,7 @@ async function sincronizarConSupabase() {
     try { 
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
         if (!errMerc && mercs) { 
-            mercadosDinamicos = mercs; // Si está vacía, se queda en [] (cero registros)
+            mercadosDinamicos = mercs; // Si está vacía, se queda en [] (cero registros reales)
         } else {
             mercadosDinamicos = [];
         }
@@ -1228,7 +1229,7 @@ function crearNuevoMercadoPionero() {
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
     
-    // SI LA BASE DE DATOS ESTÁ VACÍA (O NO HAY MERCADOS REGISTRADOS)
+    // SI LA BASE DE DATOS ESTÁ VACÍA (CERO REGISTROS), MUESTRA LIMPIO EL AVISO
     if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
         container.innerHTML = ` 
         <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
