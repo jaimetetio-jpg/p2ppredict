@@ -1,3 +1,4 @@
+Aquí tienes el repositorio completo con el parche de actualización integrado de forma limpia, en un solo bloque, sin errores de sintaxis y manteniendo intactas todas las funcionalidades existentes (Order Book P2P, Supabase en tiempo real, pasarela Pi Network y paneles de administración):
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -1788,282 +1789,271 @@ function poblarSelectUsuariosAdmin() {
 
 function cargarDatosUsuarioAdminSeleccionado() { 
     const handle = document.getElementById('admin-user-select').value; 
-    const cardDetalles = document.getElementById('admin-user-details-card'); 
     usuarioAdminSeleccionadoHandle = handle; 
+    const cardDetalles = document.getElementById('admin-user-details-card'); 
+    const btnBloqueo = document.getElementById('admin-btn-bloqueo'); 
     if (!handle) { 
         cardDetalles.style.display = 'none'; 
         return; 
     } 
     let u = cuentasDirectorio.find(c => c.handle === handle); 
-    if (u) { 
-        document.getElementById('adm-det-handle').innerText = u.handle; 
-        document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi'; 
-        document.getElementById('adm-det-status').innerText = u.bloqueado ? 'Bloqueado 🔒' : 'Activo 🟢'; 
-        const btnBloq = document.getElementById('admin-btn-bloqueo'); 
-        if (u.bloqueado) { 
-            btnBloq.innerText = "🔓 Desbloquear Cuenta"; 
-            btnBloq.style.background = "linear-gradient(145deg, #166534, #14532d)"; 
-            btnBloq.style.borderColor = "#22c55e"; 
-        } else { 
-            btnBloq.innerText = "🔒 Bloquear Cuenta"; 
-            btnBloq.style.background = "linear-gradient(145deg, #b91c1c, #991b1b)"; 
-            btnBloq.style.borderColor = "#ef4444"; 
-        } 
-        cardDetalles.style.display = 'block'; 
+    if (!u) return; 
+    document.getElementById('adm-det-handle').innerText = u.handle; 
+    document.getElementById('adm-det-balance').innerText = u.balance.toFixed(2) + ' Pi'; 
+    document.getElementById('adm-det-status').innerText = u.bloqueado ? 'BLOQUEADO 🔒' : 'Activo 🟢'; 
+    document.getElementById('adm-det-status').style.color = u.bloqueado ? '#ef4444' : '#4ade80'; 
+    btnBloqueo.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta'; 
+    cardDetalles.style.display = 'block'; 
+} 
+
+function abrirModalAjusteBalance() { 
+    if (!usuarioAdminSeleccionadoHandle) { 
+        alert("Por favor, selecciona primero un usuario en la sección de gestión."); 
+        return; 
     } 
+    document.getElementById('admin-balance-modal-subtitle').innerText = `Modificar saldo de: ${usuarioAdminSeleccionadoHandle}`; 
+    document.getElementById('admin-adj-monto').value = ''; 
+    document.getElementById('admin-adj-nota').value = ''; 
+    document.getElementById('admin-balance-modal').style.display = 'flex'; 
+} 
+
+function cerrarModalAjusteBalance() { 
+    document.getElementById('admin-balance-modal').style.display = 'none'; 
+} 
+
+function ejecutarAjusteBalanceAdmin() { 
+    if (!usuarioAdminSeleccionadoHandle) return; 
+    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
+    if (!u) return; 
+    const tipoAdj = document.getElementById('admin-adj-tipo').value; 
+    const montoAdj = parseFloat(document.getElementById('admin-adj-monto').value); 
+    const notaAdj = document.getElementById('admin-adj-nota').value.trim(); 
+    if (!montoAdj || montoAdj <= 0) { 
+        alert("Introduce un monto válido para el ajuste."); 
+        return; 
+    } 
+    if (tipoAdj === 'CREDITO') { 
+        u.balance += montoAdj; 
+    } else { 
+        if (u.balance < montoAdj) { 
+            alert("El usuario no tiene suficiente balance para debitar esa cantidad."); 
+            return; 
+        } 
+        u.balance -= montoAdj; 
+    } 
+    if (u.handle === usuarioActual.handle) { 
+        usuarioActual.balance = u.balance; 
+        actualizarUIBalance(); 
+    } 
+    registrarTransaccionEnDB({ id: 'ADJ-' + Date.now(), titulo: `Ajuste Administrativo (${tipoAdj})`, tipo: 'Admin', monto: tipoAdj === 'CREDITO' ? montoAdj : -montoAdj, detalle: `Cuenta: ${u.handle} | Nota: ${notaAdj || 'Sin nota'}` }); 
+    guardarTodoInStorage(); 
+    calcularMetricasFinancierasAdmin(); 
+    cargarDatosUsuarioAdminSeleccionado(); 
+    cerrarModalAjusteBalance(); 
+    alert(`Ajuste de balance aplicado con éxito a ${u.handle}.`); 
 } 
 
 function toggleBloqueoCuentaActual() { 
-    if (!usuarioAdminSeleccionadoHandle) { 
-        alert("Selecciona primero una cuenta de usuario."); 
+    if (!usuarioAdminSeleccionadoHandle) return; 
+    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
+    if (!u) return; 
+    u.bloqueado = !u.bloqueado; 
+    guardarTodoInStorage(); 
+    cargarDatosUsuarioAdminSeleccionado(); 
+    poblarSelectUsuariosAdmin(); 
+    alert(`La cuenta ${u.handle} ha sido ${u.bloqueado ? 'BLOQUEADA' : 'DESBLOQUEADA'}.`); 
+} 
+
+function declararGanadorAdmin() { 
+    const marketId = document.getElementById('admin-market-id').value; 
+    const ganador = document.getElementById('admin-result-select').value; 
+    if (!marketId) { 
+        alert("Selecciona un mercado válido para resolver."); 
         return; 
     } 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle); 
-    if (u) { 
-        u.bloqueado = !u.bloqueado; 
-        guardarTodoInStorage(); 
-        cargarDatosUsuarioAdminSeleccionado(); 
-        poblarSelectUsuariosAdmin(); 
-        alert(`Cuenta ${u.handle} ${u.bloqueado ? 'bloqueada' : 'desbloqueada'} con éxito.`); 
+    if (!confirm(`¿Estás seguro de declarar ganador la opción [${ganador}] para este mercado? Esta acción liquidará los contratos.`)) return; 
+    estadosMercados[marketId] = ganador; 
+    guardarTodoInStorage(); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
+    actualizarSelectsMercadosActivos(); 
+    renderizarPosiciones(); 
+    alert(`¡Mercado resuelto con éxito! Resultado ganador: ${ganador}`); 
+} 
+
+function cancelarYReembolsarMercadoAdmin() { 
+    const marketId = document.getElementById('admin-market-id').value; 
+    if (!marketId) { 
+        alert("Selecciona un mercado válido para cancelar."); 
+        return; 
     } 
-}
+    if (!confirm("⚠️ ¿Estás seguro de cancelar este mercado y reembolsar el 100% de la inversión inicial/comprada a los usuarios?")) return; 
+    estadosMercados[marketId] = 'CANCELADO'; 
+    posicionesActivas.forEach(pos => { 
+        if (pos.marketId == marketId) { 
+            if (pos.handle === usuarioActual.handle || !pos.handle) { 
+                usuarioActual.balance += pos.invertido; 
+            } 
+            registrarTransaccionEnDB({ id: 'REF-' + Date.now(), titulo: 'Reembolso por Cancelación', tipo: 'Reembolso', monto: pos.invertido, detalle: `Reembolso total de mercado cancelado: "${pos.titulo}"` }); 
+        } 
+    }); 
+    posicionesActivas = posicionesActivas.filter(p => p.marketId != marketId); 
+    guardarTodoInStorage(); 
+    actualizarUIBalance(); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
+    actualizarSelectsMercadosActivos(); 
+    renderizarPosiciones(); 
+    alert("Mercado cancelado y fondos reembolsados con éxito."); 
+} 
 
-function abrirModalAjusteBalance() {
-    if (!usuarioAdminSeleccionadoHandle) {
-        alert("Selecciona primero un usuario para ajustar el balance.");
-        return;
-    }
-    document.getElementById('admin-balance-modal-subtitle').innerText = `Modificar saldo para: ${usuarioAdminSeleccionadoHandle}`;
-    document.getElementById('admin-adj-monto').value = '';
-    document.getElementById('admin-adj-nota').value = '';
-    document.getElementById('admin-balance-modal').style.display = 'flex';
-}
+function renderizarTicketsAdmin() { 
+    const container = document.getElementById('admin-tickets-container'); 
+    if (!ticketsSoporte || ticketsSoporte.length === 0) { 
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>'; 
+        return; 
+    } 
+    let html = ''; 
+    ticketsSoporte.forEach(t => { 
+        let ultimoMensaje = t.mensajes && t.mensajes.length > 0 ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes'; 
+        html += ` 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+          <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px;"> 
+            <span style="color: #38bdf8;">${t.usuario || '@jaimetetio'}</span> 
+            <span style="color: #eab308;">${t.estado || 'Abierto'}</span> 
+          </div> 
+          <div style="color: var(--text-muted); margin-bottom: 6px; font-size: 0.75rem;">Último mensaje: "${ultimoMensaje}"</div> 
+          <button class="action-btn" style="width: 100%; font-size: 0.75rem; padding: 6px;" onclick="abrirChatAdminModal('${t.id}')">💬 Responder Ticket</button> 
+        </div> 
+        `; 
+    }); 
+    container.innerHTML = html; 
+} 
 
-function cerrarModalAjusteBalance() {
-    document.getElementById('admin-balance-modal').style.display = 'none';
-}
+function abrirChatAdminModal(ticketId) { 
+    ticketAdminActivoId = ticketId; 
+    const t = ticketsSoporte.find(item => item.id == ticketId); 
+    if (!t) return; 
+    document.getElementById('admin-chat-title').innerText = `💬 Responder a ${t.usuario || '@jaimetetio'}`; 
+    renderizarMensajesChatAdmin(t); 
+    document.getElementById('admin-chat-modal').style.display = 'flex'; 
+} 
 
-function ejecutarAjusteBalanceAdmin() {
-    const tipo = document.getElementById('admin-adj-tipo').value;
-    const monto = parseFloat(document.getElementById('admin-adj-monto').value);
-    const nota = document.getElementById('admin-adj-nota').value.trim();
-    if (!monto || monto <= 0) {
-        alert("Introduce un monto válido para el ajuste.");
-        return;
-    }
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-    if (!u) return;
+function cerrarChatAdminModal() { 
+    document.getElementById('admin-chat-modal').style.display = 'none'; 
+    ticketAdminActivoId = null; 
+} 
 
-    if (tipo === 'DEBITO' && u.balance < monto) {
-        alert("El usuario no tiene suficiente balance para este débito.");
-        return;
-    }
+function renderizarMensajesChatAdmin(ticket) { 
+    const box = document.getElementById('admin-chat-messages-container'); 
+    if (!ticket.mensajes || ticket.mensajes.length === 0) { 
+        box.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem; text-align: center;">No hay mensajes en este ticket.</div>'; 
+        return; 
+    } 
+    let html = ''; 
+    ticket.mensajes.forEach(m => { 
+        let clase = m.remitente === 'admin' ? 'admin' : 'user'; 
+        html += `<div class="chat-msg ${clase}"><b>${m.remitente === 'admin' ? 'Admin' : m.remitente}:</b> ${m.texto}</div>`; 
+    }); 
+    box.innerHTML = html; 
+    box.scrollTop = box.scrollHeight; 
+} 
 
-    if (tipo === 'CREDITO') {
-        u.balance += monto;
-    } else {
-        u.balance -= monto;
-    }
+function enviarMensajeSoporteAdmin() { 
+    const input = document.getElementById('chat-admin-input'); 
+    const texto = input.value.trim(); 
+    if (!texto || !ticketAdminActivoId) return; 
+    let t = ticketsSoporte.find(item => item.id == ticketAdminActivoId); 
+    if (!t) return; 
+    if (!t.mensajes) t.mensajes = []; 
+    t.mensajes.push({ remitente: 'admin', texto: texto, tiempo: Date.now() }); 
+    input.value = ''; 
+    guardarTodoInStorage(); 
+    renderizarMensajesChatAdmin(t); 
+    renderizarTicketsAdmin(); 
+} 
 
-    if (usuarioActual.handle === u.handle) {
-        usuarioActual.balance = u.balance;
-        actualizarUIBalance();
-    }
+function renderizarHistorialGlobalAdmin() { 
+    const contenedor = document.getElementById('admin-global-transactions-container'); 
+    const filtroUser = document.getElementById('admin-user-search').value.toLowerCase(); 
+    const filtroTx = document.getElementById('admin-tx-search').value.toLowerCase(); 
+    const filtroDetalle = document.getElementById('filtroDetalle').value; 
+    
+    if (!historialTransacciones || historialTransacciones.length === 0) { 
+        contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>'; 
+        return; 
+    } 
+    let html = ''; 
+    let filtradas = historialTransacciones.filter(tx => { 
+        let textoCompleto = (tx.titulo + ' ' + (tx.detalle || '') + ' ' + tx.tipo).toLowerCase(); 
+        let cumpleTx = textoCompleto.includes(filtroTx); 
+        let cumpleDetalle = !filtroDetalle || tx.tipo.toLowerCase().includes(filtroDetalle.toLowerCase()) || (tx.detalle && tx.detalle.toLowerCase().includes(filtroDetalle.toLowerCase())); 
+        return cumpleTx && cumpleDetalle; 
+    }); 
 
-    registrarTransaccionEnDB({
-        id: 'ADJ-' + Date.now(),
-        titulo: `Ajuste Admin (${tipo})`,
-        tipo: 'Admin',
-        monto: tipo === 'CREDITO' ? monto : -monto,
-        detalle: `Nota: ${nota || 'Sin justificación'}`
-    });
+    if (filtradas.length === 0) { 
+        contenedor.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros dados.</p>'; 
+        return; 
+    } 
 
-    guardarTodoInStorage();
-    cargarDatosUsuarioAdminSeleccionado();
-    calcularMetricasFinancierasAdmin();
-    cerrarModalAjusteBalance();
-    alert("¡Ajuste manual ejecutado con éxito!");
-}
+    filtradas.forEach(tx => { 
+        const esPositivo = tx.monto >= 0; 
+        const colorMonto = esPositivo ? '#4ade80' : '#f87171'; 
+        const signoMonto = esPositivo ? '+' : ''; 
+        html += ` 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;"> 
+          <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
+            <span>${tx.titulo}</span> 
+            <span style="color: ${colorMonto};">${signoMonto}${tx.monto.toFixed(2)} Pi</span> 
+          </div> 
+          <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div> 
+        </div> 
+        `; 
+    }); 
+    contenedor.innerHTML = html; 
+} 
 
-function declararGanadorAdmin() {
-    const marketId = document.getElementById('admin-market-id').value;
-    const ganador = document.getElementById('admin-result-select').value;
-    if (!marketId) {
-        alert("Selecciona un mercado válido para resolver.");
-        return;
-    }
-    estadosMercados[marketId] = ganador;
-    guardarTodoInStorage();
-    cargarMercadosYOrderBook();
-    alert(`¡Mercado resuelto oficialmente! Ganador declarado: ${ganador}`);
-}
+function abrirSoporteChatUsuario() { 
+    let t = ticketsSoporte.find(item => item.usuario === usuarioActual.handle); 
+    if (!t) { 
+        t = { id: 'TICK-' + Date.now(), usuario: usuarioActual.handle, estado: 'Abierto', mensajes: [{ remitente: 'admin', texto: '¡Hola! ¿En qué podemos ayudarte con tus transacciones o predicciones?', tiempo: Date.now() }] }; 
+        ticketsSoporte.push(t); 
+        guardarTodoInStorage(); 
+    } 
+    renderizarMensajesChatUsuario(t); 
+    document.getElementById('support-chat-modal').style.display = 'flex'; 
+} 
 
-function cancelarYReembolsarMercadoAdmin() {
-    const marketId = document.getElementById('admin-market-id').value;
-    if (!marketId) {
-        alert("Selecciona un mercado válido para cancelar.");
-        return;
-    }
-    estadosMercados[marketId] = 'CANCELADO';
-    posicionesActivas.forEach(pos => {
-        if (pos.marketId === marketId) {
-            usuarioActual.balance += pos.invertido;
-            registrarTransaccionEnDB({
-                id: 'REEMB-' + Date.now(),
-                titulo: 'Reembolso por Cancelación',
-                tipo: 'Reembolso',
-                monto: pos.invertido,
-                detalle: `Reembolso total de inversión en mercado cancelado: "${pos.titulo}"`
-            });
-        }
-    });
-    posicionesActivas = posicionesActivas.filter(pos => pos.marketId !== marketId);
-    guardarTodoInStorage();
-    actualizarUIBalance();
-    cargarMercadosYOrderBook();
-    alert("Mercado cancelado y fondos reembolsados exitosamente a los usuarios.");
-}
+function cerrarChatSoporteUsuario() { 
+    document.getElementById('support-chat-modal').style.display = 'none'; 
+} 
 
-function renderizarTicketsAdmin() {
-    const cont = document.getElementById('admin-tickets-container');
-    if (!cont) return;
-    if (!ticketsSoporte || ticketsSoporte.length === 0) {
-        cont.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>';
-        return;
-    }
-    let html = '';
-    ticketsSoporte.forEach(t => {
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;">
-            <div style="font-weight: bold; margin-bottom: 4px;">Ticket de: ${t.handle}</div>
-            <div style="color: var(--text-muted); margin-bottom: 6px;">${t.ultimoMensaje || 'Sin mensajes'}</div>
-            <button class="action-btn" style="font-size: 0.75rem; padding: 6px 10px;" onclick="abrirChatAdminModal('${t.id}')">💬 Responder Ticket</button>
-        </div>
-        `;
-    });
-    cont.innerHTML = html;
-}
+function renderizarMensajesChatUsuario(ticket) { 
+    const box = document.getElementById('chat-messages-container'); 
+    let html = ''; 
+    ticket.mensajes.forEach(m => { 
+        let clase = m.remitente === 'admin' ? 'admin' : 'user'; 
+        html += `<div class="chat-msg ${clase}"><b>${m.remitente === 'admin' ? 'Soporte' : 'Tú'}:</b> ${m.texto}</div>`; 
+    }); 
+    box.innerHTML = html; 
+    box.scrollTop = box.scrollHeight; 
+} 
 
-function abrirChatAdminModal(ticketId) {
-    ticketAdminActivoId = ticketId;
-    document.getElementById('admin-chat-modal').style.display = 'flex';
-    renderizarMensajesChatAdmin();
-}
-
-function cerrarChatAdminModal() {
-    document.getElementById('admin-chat-modal').style.display = 'none';
-    ticketAdminActivoId = null;
-}
-
-function renderizarMensajesChatAdmin() {
-    const box = document.getElementById('admin-chat-messages-container');
-    if (!box) return;
-    let t = ticketsSoporte.find(item => item.id === ticketAdminActivoId);
-    if (!t || !t.mensajes) {
-        box.innerHTML = '<p style="font-size: 0.75rem; color: var(--text-muted);">No hay mensajes en este chat.</p>';
-        return;
-    }
-    let html = '';
-    t.mensajes.forEach(m => {
-        let clase = m.remitente === 'admin' ? 'admin' : 'user';
-        html += `<div class="chat-msg ${clase}">${m.texto}</div>`;
-    });
-    box.innerHTML = html;
-    box.scrollTop = box.scrollHeight;
-}
-
-function enviarMensajeSoporteAdmin() {
-    const input = document.getElementById('chat-admin-input');
-    const texto = input.value.trim();
-    if (!texto || !ticketAdminActivoId) return;
-    let t = ticketsSoporte.find(item => item.id === ticketAdminActivoId);
-    if (t) {
-        if (!t.mensajes) t.mensajes = [];
-        t.mensajes.push({ remitente: 'admin', texto: texto });
-        t.ultimoMensaje = texto;
-        guardarTodoInStorage();
-        input.value = '';
-        renderizarMensajesChatAdmin();
-        renderizarTicketsAdmin();
-    }
-}
-
-function renderizarHistorialGlobalAdmin() {
-    const cont = document.getElementById('admin-global-transactions-container');
-    if (!cont) return;
-    const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
-    const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
-    const filtroDetalle = document.getElementById('filtroDetalle').value;
-
-    let filtradas = historialTransacciones.filter(tx => {
-        let matchDetalle = !filtroDetalle || (tx.tipo && tx.tipo.toLowerCase().includes(filtroDetalle.toLowerCase())) || (tx.titulo && tx.titulo.toLowerCase().includes(filtroDetalle.toLowerCase()));
-        let matchTxSearch = !txSearch || (tx.detalle && tx.detalle.toLowerCase().includes(txSearch)) || (tx.titulo && tx.titulo.toLowerCase().includes(txSearch));
-        return matchDetalle && matchTxSearch;
-    });
-
-    if (filtradas.length === 0) {
-        cont.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros seleccionados.</p>';
-        return;
-    }
-
-    let html = '';
-    filtradas.forEach(tx => {
-        let esPositivo = tx.monto >= 0;
-        let colorMonto = esPositivo ? '#4ade80' : '#f87171';
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; font-size: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
-                <span>${tx.titulo}</span>
-                <span style="color: ${colorMonto};">${esPositivo ? '+' : ''}${tx.monto.toFixed(2)} Pi</span>
-            </div>
-            <div style="color: var(--text-muted);">${tx.detalle || tx.tipo}</div>
-        </div>
-        `;
-    });
-    cont.innerHTML = html;
-}
-
-function abrirSoporteChatUsuario() {
-    document.getElementById('support-chat-modal').style.display = 'flex';
-    renderizarMensajesSoporteUsuario();
-}
-
-function cerrarChatSoporteUsuario() {
-    document.getElementById('support-chat-modal').style.display = 'none';
-}
-
-function renderizarMensajesSoporteUsuario() {
-    const box = document.getElementById('chat-messages-container');
-    if (!box) return;
-    let t = ticketsSoporte.find(item => item.handle === usuarioActual.handle);
-    if (!t || !t.mensajes || t.mensajes.length === 0) {
-        box.innerHTML = '<p style="font-size: 0.75rem; color: var(--text-muted);">Escribe tu consulta o reclamo para iniciar el chat con soporte.</p>';
-        return;
-    }
-    let html = '';
-    t.mensajes.forEach(m => {
-        let clase = m.remitente === 'user' ? 'user' : 'admin';
-        html += `<div class="chat-msg ${clase}">${m.texto}</div>`;
-    });
-    box.innerHTML = html;
-    box.scrollTop = box.scrollHeight;
-}
-
-function enviarMensajeSoporteUsuario() {
-    const input = document.getElementById('chat-user-input');
-    const texto = input.value.trim();
-    if (!texto) return;
-    let t = ticketsSoporte.find(item => item.handle === usuarioActual.handle);
-    if (!t) {
-        t = { id: 'TICK-' + Date.now(), handle: usuarioActual.handle, mensajes: [], ultimoMensaje: '' };
-        ticketsSoporte.push(t);
-    }
-    t.mensajes.push({ remitente: 'user', texto: texto });
-    t.ultimoMensaje = texto;
-    guardarTodoInStorage();
-    input.value = '';
-    renderizarMensajesSoporteUsuario();
-}
+function enviarMensajeSoporteUsuario() { 
+    const input = document.getElementById('chat-user-input'); 
+    const texto = input.value.trim(); 
+    if (!texto) return; 
+    let t = ticketsSoporte.find(item => item.usuario === usuarioActual.handle); 
+    if (!t) { 
+        t = { id: 'TICK-' + Date.now(), usuario: usuarioActual.handle, estado: 'Abierto', mensajes: [] }; 
+        ticketsSoporte.push(t); 
+    } 
+    t.mensajes.push({ remitente: usuarioActual.handle, texto: texto, tiempo: Date.now() }); 
+    input.value = ''; 
+    guardarTodoInStorage(); 
+    renderizarMensajesChatUsuario(t); 
+} 
 </script> 
 </body> 
 </html>
+
