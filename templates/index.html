@@ -825,66 +825,19 @@ header {
 </div> 
 
 <script> 
-// DATOS POR DEFECTO PRECARGADOS (Incluyendo Tigres de Aragua y Crypto)
-const MERCADOS_DEFAULT = [
-    { 
-        id: 'm-tigres-aragua-1', 
-        titulo: '¿Ganarán los Tigres de Aragua su próximo juego en la LVBP?', 
-        categoria: 'Deportes', 
-        fechaCierre: '2026-10-30T23:59', 
-        estado: 'abierto', 
-        creador: '@jaimetetio', 
-        liquidez_total: 25.0 
-    },
-    { 
-        id: 'm-pi-mainnet-2', 
-        titulo: '¿Lanzará Pi Network la Mainnet Abierta antes de finalizar el año?', 
-        categoria: 'Pi Ecosystem', 
-        fechaCierre: '2026-12-31T23:59', 
-        estado: 'abierto', 
-        creador: '@crypto_king', 
-        liquidez_total: 50.0 
-    },
-    { 
-        id: 'm-btc-100k-3', 
-        titulo: '¿Superará Bitcoin los $100,000 USD en este ciclo de mercado?', 
-        categoria: 'Crypto', 
-        fechaCierre: '2026-11-30T23:59', 
-        estado: 'abierto', 
-        creador: '@pioneerglobal', 
-        liquidez_total: 30.0 
-    }
-];
-
-const ORDENES_DEFAULT = [
-    { marketId: 'm-tigres-aragua-1', tipo: 'COMPRA MERCADO (Bid)', opcion: 'SÍ', contratos: 15, precio: 0.52, trader: '@crypto_king' },
-    { marketId: 'm-tigres-aragua-1', tipo: 'VENTA MERCADO (Ask)', opcion: 'NO', contratos: 10, precio: 0.48, trader: '@pioneerglobal' },
-    { marketId: 'm-pi-mainnet-2', tipo: 'COMPRA LÍMITE (Bid)', opcion: 'SÍ', contratos: 25, precio: 0.60, trader: '@jaimetetio' }
-];
-
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00 }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
-let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || null; 
-if (!ordenesGlobales || ordenesGlobales.length === 0) {
-    ordenesGlobales = ORDENES_DEFAULT;
-}
+let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
 let ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
 let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || [ 
     { handle: "@jaimetetio", balance: 150.00, bloqueado: false }, 
     { handle: "@crypto_king", balance: 1420.50, bloqueado: false }, 
     { handle: "@pioneerglobal", balance: 98.20, bloqueado: false } 
 ]; 
-let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {
-    'm-tigres-aragua-1': { "SÍ": 0.52, "NO": 0.48 },
-    'm-pi-mainnet-2': { "SÍ": 0.60, "NO": 0.40 },
-    'm-btc-100k-3': { "SÍ": 0.55, "NO": 0.45 }
-}; 
+let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
-let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || null;
-if (!mercadosDinamicos || mercadosDinamicos.length === 0) {
-    mercadosDinamicos = MERCADOS_DEFAULT;
-}
+let mercadosDinamicos = []; 
 
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
@@ -911,19 +864,15 @@ function cargarMercadosYOrderBook() {
     renderizarOrderBookVisible();
 }
 
-// 1. Carga inicial, Polling automático (10s) y canales de Supabase Realtime
 document.addEventListener('DOMContentLoaded', async () => {
-    guardarTodoInStorage(); // Forzar guardado inicial de los defaults
     await sincronizarConSupabase(); 
     sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
 
-    // Carga inicial inmediata al entrar a la app
     cargarMercadosYOrderBook();
 
-    // Bucle automático de actualización cada 10 segundos (Polling)
     setInterval(() => {
-        cargarMercadosYOrderBook();
+        sincronizarConSupabase();
     }, 10000); 
 
     setInterval(actualizarRelojesRegresivos, 1000); 
@@ -948,17 +897,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 }); 
 
 async function sincronizarConSupabase() { 
-    if (!supabaseClient) {
+    if (!supabaseClient) { 
+        mercadosDinamicos = []; 
         return; 
     }
     try { 
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (!errMerc && mercs && mercs.length > 0) { 
-            mercadosDinamicos = mercs; 
-        } 
+        if (!errMerc && mercs) { 
+            mercadosDinamicos = mercs; // Si está vacía, se queda en [] (cero registros)
+        } else {
+            mercadosDinamicos = [];
+        }
 
         let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (!errOrd && ordenes && ordenes.length > 0) { ordenesGlobales = ordenes; } 
+        if (!errOrd && ordenes) { ordenesGlobales = ordenes; } 
 
         let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
         if (!errTx && txs) { historialTransacciones = txs; } 
@@ -982,8 +934,9 @@ async function sincronizarConSupabase() {
         if (!errTck && tcks) { ticketsSoporte = tcks; } 
 
         guardarTodoInStorage();
+        cargarMercadosYOrderBook();
     } catch (e) { 
-        console.warn("Aviso: Error menor al sincronizar con Supabase, usando caché local.", e); 
+        console.warn("Aviso: Error menor al sincronizar con Supabase.", e); 
     } 
 } 
 
@@ -1023,11 +976,11 @@ function sincronizarPersistencia() {
     cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || cuentasDirectorio; 
     posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
     historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
-    ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || ORDENES_DEFAULT; 
-    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || preciosMercados; 
+    ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
+    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
     estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
     ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
-    mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || MERCADOS_DEFAULT; 
+    mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
 } 
 
 function reconstruirDiccionarioNombresMercados() { 
@@ -1117,7 +1070,9 @@ function aplicarFiltrosCombinados() {
     const query = document.getElementById('search-input').value.toLowerCase(); 
     const cards = document.querySelectorAll('#markets-container .market-card'); 
     cards.forEach(card => { 
-        const title = card.querySelector('.market-title').innerText.toLowerCase(); 
+        const titleElement = card.querySelector('.market-title'); 
+        if (!titleElement) return; 
+        const title = titleElement.innerText.toLowerCase(); 
         const cardCat = card.getAttribute('data-category'); 
         let cumpleQuery = title.includes(query); 
         let cumpleCat = (categoriaActualFiltro === 'Todos' || cardCat === categoriaActualFiltro); 
@@ -1173,13 +1128,15 @@ function actualizarSelectsMercadosActivos() {
     if (selectClob) { 
         const valorAnterior = selectClob.value; 
         let htmlClob = ''; 
-        mercadosDinamicos.forEach(m => { 
-            if (estadosMercados[m.id] === null || estadosMercados[m.id] === undefined) { 
-                htmlClob += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)}</option>`; 
-            } 
-        }); 
-        if (htmlClob === '') { 
-            htmlClob = '<option value="">No hay mercados activos</option>'; 
+        if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
+            htmlClob = '<option value="">A la espera de la apertura de un mercado</option>'; 
+        } else { 
+            mercadosDinamicos.forEach(m => { 
+                if (estadosMercados[m.id] === null || estadosMercados[m.id] === undefined) { 
+                    htmlClob += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)}</option>`; 
+                } 
+            }); 
+            if (htmlClob === '') htmlClob = '<option value="">No hay mercados activos</option>'; 
         } 
         selectClob.innerHTML = htmlClob; 
         if (valorAnterior && selectClob.querySelector(`option[value="${valorAnterior}"]`)) { 
@@ -1190,14 +1147,16 @@ function actualizarSelectsMercadosActivos() {
     if (selectAdmin) { 
         const valorAdminAnterior = selectAdmin.value; 
         let htmlAdmin = ''; 
-        mercadosDinamicos.forEach(m => { 
-            let st = estadosMercados[m.id]; 
-            if (st === null || st === undefined || st === 'ESPERANDO_RESOLUCION') { 
-                htmlAdmin += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)} (${st === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`; 
-            } 
-        }); 
-        if (htmlAdmin === '') { 
-            htmlAdmin = '<option value="">No hay mercados pendientes por resolver</option>'; 
+        if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
+            htmlAdmin = '<option value="">No hay mercados</option>'; 
+        } else { 
+            mercadosDinamicos.forEach(m => { 
+                let st = estadosMercados[m.id]; 
+                if (st === null || st === undefined || st === 'ESPERANDO_RESOLUCION') { 
+                    htmlAdmin += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)} (${st === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`; 
+                } 
+            }); 
+            if (htmlAdmin === '') htmlAdmin = '<option value="">No hay mercados pendientes</option>'; 
         } 
         selectAdmin.innerHTML = htmlAdmin; 
         if (valorAdminAnterior && selectAdmin.querySelector(`option[value="${valorAdminAnterior}"]`)) { 
@@ -1268,6 +1227,17 @@ function crearNuevoMercadoPionero() {
 
 function renderizarMercadosDinamicos() { 
     const container = document.getElementById('markets-container'); 
+    
+    // SI LA BASE DE DATOS ESTÁ VACÍA (O NO HAY MERCADOS REGISTRADOS)
+    if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
+        container.innerHTML = ` 
+        <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
+            <div style="font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">⏳ A la espera de la apertura de un mercado</div> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">No hay eventos activos en este momento en la base de datos. Los nuevos mercados aparecerán aquí automáticamente en tiempo real.</p> 
+        </div>`; 
+        return; 
+    } 
+
     let htmlDinamicoHTML = ''; 
 
     mercadosDinamicos.forEach(m => { 
@@ -1298,7 +1268,11 @@ function renderizarMercadosDinamicos() {
     }); 
 
     if (htmlDinamicoHTML === '') { 
-        htmlDinamicoHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">No hay mercados activos actualmente. ¡Crea uno nuevo desde la pestaña superior!</p>'; 
+        htmlDinamicoHTML = ` 
+        <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
+            <div style="font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">⏳ A la espera de la apertura de un mercado</div> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">No hay mercados activos actualmente.</p> 
+        </div>`; 
     } 
 
     container.innerHTML = htmlDinamicoHTML; 
@@ -1312,33 +1286,35 @@ function renderizarMercadosEsperaYHistorial() {
     let htmlEspera = ''; 
     let htmlCerrados = ''; 
 
-    mercadosDinamicos.forEach(m => { 
-        let titulo = nombresMercados[m.id] || m.titulo; 
-        let estado = estadosMercados[m.id]; 
+    if (mercadosDinamicos && mercadosDinamicos.length > 0) {
+        mercadosDinamicos.forEach(m => { 
+            let titulo = nombresMercados[m.id] || m.titulo; 
+            let estado = estadosMercados[m.id]; 
 
-        if (estado === 'ESPERANDO_RESOLUCION') { 
-            htmlEspera += ` 
-            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-              <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-              <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
-            </div> 
-            `; 
-        } else if (estado !== null && estado !== undefined) { 
-            let badgeGanador = ''; 
-            let colorBadge = '#ef4444'; 
-            if (estado === 'SÍ') { badgeGanador = 'GANADOR: SÍ 🟢'; colorBadge = '#166534'; } 
-            else if (estado === 'NO') { badgeGanador = 'GANADOR: NO 🔴'; colorBadge = '#991b1b'; } 
-            else if (estado === 'CANCELADO') { badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; colorBadge = '#7c2d12'; } 
-            else { badgeGanador = `GANADOR: ${estado}`; } 
+            if (estado === 'ESPERANDO_RESOLUCION') { 
+                htmlEspera += ` 
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+                  <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+                  <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
+                </div> 
+                `; 
+            } else if (estado !== null && estado !== undefined) { 
+                let badgeGanador = ''; 
+                let colorBadge = '#ef4444'; 
+                if (estado === 'SÍ') { badgeGanador = 'GANADOR: SÍ 🟢'; colorBadge = '#166534'; } 
+                else if (estado === 'NO') { badgeGanador = 'GANADOR: NO 🔴'; colorBadge = '#991b1b'; } 
+                else if (estado === 'CANCELADO') { badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; colorBadge = '#7c2d12'; } 
+                else { badgeGanador = `GANADOR: ${estado}`; } 
 
-            htmlCerrados += ` 
-            <div class="market-closed-item" data-title="${titulo.toLowerCase()}" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-              <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-              <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
-            </div> 
-            `; 
-        } 
-    }); 
+                htmlCerrados += ` 
+                <div class="market-closed-item" data-title="${titulo.toLowerCase()}" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
+                  <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
+                  <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
+                </div> 
+                `; 
+            } 
+        }); 
+    }
 
     if (htmlEspera === '') htmlEspera = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p>'; 
     if (htmlCerrados === '') htmlCerrados = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados en el historial.</p>'; 
@@ -1606,6 +1582,13 @@ function renderizarOrderBookVisible() {
     const marketIdFiltro = document.getElementById('orderbook-market-filter').value; 
     const tbody = document.getElementById('orderbook-table-body'); 
     const bannerStatus = document.getElementById('orderbook-market-status-banner'); 
+    
+    if (!mercadosDinamicos || mercadosDinamicos.length === 0 || !marketIdFiltro) { 
+        if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #eab308; font-weight: bold;">● A la espera de la apertura de un mercado.</span>`; 
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">A la espera de la apertura de un mercado.</td></tr>'; 
+        return; 
+    } 
+
     if (!marketIdFiltro || (estadosMercados[marketIdFiltro] !== null && estadosMercados[marketIdFiltro] !== undefined && estadosMercados[marketIdFiltro] !== 'ESPERANDO_RESOLUCION')) { 
         if (bannerStatus) bannerStatus.innerHTML = `<span style="color: #ef4444; font-weight: bold;">● No hay mercado activo seleccionado o está cerrado.</span>`; 
         if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Seleccione un mercado válido.</td></tr>'; 
@@ -1785,7 +1768,6 @@ function retirarBilletera() {
     alert(`Retiro de ${montoInput.toFixed(2)} Pi procesado correctamente.`); 
 } 
 
-// Funciones de Panel de Administración, Tickets de Soporte y Métricas
 function calcularMetricasFinancierasAdmin() { 
     let totalCirculante = 0; 
     cuentasDirectorio.forEach(c => { totalCirculante += c.balance; }); 
@@ -2006,7 +1988,6 @@ function renderizarHistorialGlobalAdmin() {
     container.innerHTML = html; 
 } 
 
-// Funcionalidad de Chat de Soporte Usuario y Administrador
 function abrirSoporteChatUsuario() { 
     renderizarMensajesChatUsuario(); 
     document.getElementById('support-chat-modal').style.display = 'flex'; 
