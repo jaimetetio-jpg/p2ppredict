@@ -1,4 +1,3 @@
-Aquí tienes el código completo e integrado de tu repositorio con el parche de actualización aplicado correctamente. Se han eliminado los saldos de cortesía iniciales para cuentas nuevas (jaimetetio), estableciéndolos en 0.0 para garantizar el flujo correcto hacia la Mainnet y el sistema KYC.
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -2424,4 +2423,3 @@ app.register_blueprint(kyc_bp)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
