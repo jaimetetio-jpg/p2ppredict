@@ -1,3 +1,4 @@
+Aquí tienes el código completo e integrado de tu repositorio con el parche de actualización aplicado correctamente. Se han eliminado los saldos de cortesía iniciales para cuentas nuevas (jaimetetio), estableciéndolos en 0.0 para garantizar el flujo correcto hacia la Mainnet y el sistema KYC.
 from collections import defaultdict
 from datetime import datetime
 import os
@@ -575,41 +576,19 @@ def obtener_saldo(username):
     row = c.fetchone()
 
     if not row:
-        saldo_inicial = (
-            0.10 if username.lower() in ["@jaimetetio", "jaimetetio"] else 0.0
-        )
+        saldo_inicial = 0.0  # Todos los usuarios nuevos arrancan en 0 en Mainnet
         if DATABASE_URL:
             c.execute(
                 "INSERT INTO usuarios (username, saldo_disponible, is_frozen)"
                 " VALUES (%s, %s, FALSE)",
                 (username, saldo_inicial),
             )
-            if saldo_inicial > 0:
-                txid = (
-                    f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                )
-                fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-                c.execute(
-                    "INSERT INTO transacciones (username, tipo, monto, txid,"
-                    " fecha) VALUES (%s, %s, %s, %s, %s)",
-                    (username, "Crédito Inicial", saldo_inicial, txid, fecha),
-                )
         else:
             c.execute(
                 "INSERT INTO usuarios (username, saldo_disponible, is_frozen)"
                 " VALUES (?, ?, 0)",
                 (username, saldo_inicial),
             )
-            if saldo_inicial > 0:
-                txid = (
-                    f"CREDITO_INICIAL_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                )
-                fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-                c.execute(
-                    "INSERT INTO transacciones (username, tipo, monto, txid,"
-                    " fecha) VALUES (?, ?, ?, ?, ?)",
-                    (username, "Crédito Inicial", saldo_inicial, txid, fecha),
-                )
         conn.commit()
         saldo = saldo_inicial
         is_frozen = False
@@ -974,7 +953,7 @@ def crear_orden_clob():
             }), 403
 
         if not row_user:
-            saldo_inicial = 150.00 if username.lower() in ["@jaimetetio", "jaimetetio"] else 0.0
+            saldo_inicial = 0.0  # Sin saldo automático; debe fondear vía pasarela post-KYC
             if DATABASE_URL:
                 c.execute(
                     "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
@@ -2445,3 +2424,4 @@ app.register_blueprint(kyc_bp)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
