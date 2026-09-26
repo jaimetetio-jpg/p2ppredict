@@ -1,4 +1,3 @@
-DIOS TE BENDIGA CHIKILLA!
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -423,7 +422,7 @@ header {
         <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
         <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button> 
         <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button> 
-        <button class="pill" onclick="setCategory('Tecnología', this)">Tecnología</button> 
+        <button class="pill" onclick="setCategory('Deportes', this)">Deportes</button> 
         <button class="pill" onclick="setCategory('Comunidad', this)">Comunidad</button> 
     </div> 
     
@@ -511,13 +510,14 @@ header {
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros, fija su fecha de cierre y aporta liquidez inicial.</p> 
         <div class="form-group"> 
             <label>Pregunta / Título de la Predicción</label> 
-            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Lanzará Pi Network la mainnet abierta antes de agosto?"> 
+            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Ganarán los Tigres de Aragua el próximo juego de la LVBP?"> 
         </div> 
         <div class="form-group"> 
             <label>Categoría</label> 
             <select id="nuevo-categoria" class="form-control"> 
                 <option value="Crypto">Crypto</option> 
                 <option value="Pi Ecosystem">Pi Ecosystem</option> 
+                <option value="Deportes">Deportes</option> 
                 <option value="Tecnología">Tecnología</option> 
                 <option value="Comunidad">Comunidad</option> 
             </select> 
@@ -825,19 +825,67 @@ header {
 </div> 
 
 <script> 
+// DATOS POR DEFECTO PRECARGADOS (Incluyendo Tigres de Aragua y Crypto)
+const MERCADOS_DEFAULT = [
+    { 
+        id: 'm-tigres-aragua-1', 
+        titulo: '¿Ganarán los Tigres de Aragua su próximo juego en la LVBP?', 
+        categoria: 'Deportes', 
+        fechaCierre: '2026-10-30T23:59', 
+        estado: 'abierto', 
+        creador: '@jaimetetio', 
+        liquidez_total: 25.0 
+    },
+    { 
+        id: 'm-pi-mainnet-2', 
+        titulo: '¿Lanzará Pi Network la Mainnet Abierta antes de finalizar el año?', 
+        categoria: 'Pi Ecosystem', 
+        fechaCierre: '2026-12-31T23:59', 
+        estado: 'abierto', 
+        creador: '@crypto_king', 
+        liquidez_total: 50.0 
+    },
+    { 
+        id: 'm-btc-100k-3', 
+        titulo: '¿Superará Bitcoin los $100,000 USD en este ciclo de mercado?', 
+        categoria: 'Crypto', 
+        fechaCierre: '2026-11-30T23:59', 
+        estado: 'abierto', 
+        creador: '@pioneerglobal', 
+        liquidez_total: 30.0 
+    }
+];
+
+const ORDENES_DEFAULT = [
+    { marketId: 'm-tigres-aragua-1', tipo: 'COMPRA MERCADO (Bid)', opcion: 'SÍ', contratos: 15, precio: 0.52, trader: '@crypto_king' },
+    { marketId: 'm-tigres-aragua-1', tipo: 'VENTA MERCADO (Ask)', opcion: 'NO', contratos: 10, precio: 0.48, trader: '@pioneerglobal' },
+    { marketId: 'm-pi-mainnet-2', tipo: 'COMPRA LÍMITE (Bid)', opcion: 'SÍ', contratos: 25, precio: 0.60, trader: '@jaimetetio' }
+];
+
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@jaimetetio", balance: 150.00 }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
-let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
+let ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || null; 
+if (!ordenesGlobales || ordenesGlobales.length === 0) {
+    ordenesGlobales = ORDENES_DEFAULT;
+}
 let ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
 let cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || [ 
     { handle: "@jaimetetio", balance: 150.00, bloqueado: false }, 
     { handle: "@crypto_king", balance: 1420.50, bloqueado: false }, 
     { handle: "@pioneerglobal", balance: 98.20, bloqueado: false } 
 ]; 
-let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
+let preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {
+    'm-tigres-aragua-1': { "SÍ": 0.52, "NO": 0.48 },
+    'm-pi-mainnet-2': { "SÍ": 0.60, "NO": 0.40 },
+    'm-btc-100k-3': { "SÍ": 0.55, "NO": 0.45 }
+}; 
 let estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
-let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
+let mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || null;
+if (!mercadosDinamicos || mercadosDinamicos.length === 0) {
+    mercadosDinamicos = MERCADOS_DEFAULT;
+}
+
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
 let ticketAdminActivoId = null; 
@@ -865,6 +913,7 @@ function cargarMercadosYOrderBook() {
 
 // 1. Carga inicial, Polling automático (10s) y canales de Supabase Realtime
 document.addEventListener('DOMContentLoaded', async () => {
+    guardarTodoInStorage(); // Forzar guardado inicial de los defaults
     await sincronizarConSupabase(); 
     sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
@@ -895,39 +944,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 renderizarPosiciones();
             })
             .subscribe();
-
-        supabaseClient
-          .channel('custom-all-channel')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => {
-            await sincronizarConSupabase();
-            cargarMercadosYOrderBook();
-          })
-          .subscribe();
     }
 }); 
 
 async function sincronizarConSupabase() { 
     if (!supabaseClient) {
-        // Si no hay Supabase, cargamos del storage local para que nunca quede en blanco
-        mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
         return; 
     }
     try { 
         let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
         if (!errMerc && mercs && mercs.length > 0) { 
             mercadosDinamicos = mercs; 
-            mercadosDinamicos.forEach(m => { 
-                nombresMercados[m.id] = m.titulo; 
-                if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
-                if (estadosMercados[m.id] === undefined) estadosMercados[m.id] = null; 
-            }); 
-        } else {
-            // Respaldo local si Supabase devuelve vacío
-            mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
-        }
+        } 
 
         let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (!errOrd && ordenes) { ordenesGlobales = ordenes; } 
+        if (!errOrd && ordenes && ordenes.length > 0) { ordenesGlobales = ordenes; } 
 
         let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
         if (!errTx && txs) { historialTransacciones = txs; } 
@@ -953,7 +984,6 @@ async function sincronizarConSupabase() {
         guardarTodoInStorage();
     } catch (e) { 
         console.warn("Aviso: Error menor al sincronizar con Supabase, usando caché local.", e); 
-        mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || [];
     } 
 } 
 
@@ -993,11 +1023,11 @@ function sincronizarPersistencia() {
     cuentasDirectorio = JSON.parse(localStorage.getItem('p2p_cuentas_directorio')) || cuentasDirectorio; 
     posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
     historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
-    ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || []; 
-    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || {}; 
+    ordenesGlobales = JSON.parse(localStorage.getItem('p2p_ordenes_globales')) || ORDENES_DEFAULT; 
+    preciosMercados = JSON.parse(localStorage.getItem('p2p_precios_mercados')) || preciosMercados; 
     estadosMercados = JSON.parse(localStorage.getItem('p2p_estados_mercados')) || {}; 
     ticketsSoporte = JSON.parse(localStorage.getItem('p2p_tickets_soporte')) || []; 
-    mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || []; 
+    mercadosDinamicos = JSON.parse(localStorage.getItem('p2p_mercados_dinamicos')) || MERCADOS_DEFAULT; 
 } 
 
 function reconstruirDiccionarioNombresMercados() { 
