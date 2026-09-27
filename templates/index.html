@@ -1,4 +1,4 @@
-DIOS TE AMO MUCHÍSIMO 
+GRACIAS DIOS
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -1845,7 +1845,7 @@ function filtrarMercadosCerrados() {
     const query = document.getElementById('search-closed-input').value.toLowerCase(); 
     const items = document.querySelectorAll('#historial-cerrados-container .market-closed-item'); 
     items.forEach(item => { 
-        const title = item.getAttribute('data-title'); 
+        const title = item.getAttribute('data-title') || ''; 
         if (title.includes(query)) { 
             item.style.display = 'block'; 
         } else { 
@@ -1854,463 +1854,685 @@ function filtrarMercadosCerrados() {
     }); 
 } 
 
-function actualizarRelojesRegresivos() { 
-    const countdownElements = document.querySelectorAll('.countdown-timer'); 
-    const ahora = Date.now(); 
-    countdownElements.forEach(el => { 
-        const targetStr = el.getAttribute('data-target'); 
-        if (!targetStr) return; 
-        let fechaLimpia = targetStr; 
-        if (fechaLimpia.length === 16) { 
-            fechaLimpia += ":00"; 
-        } 
-        const targetTime = new Date(fechaLimpia).getTime(); 
-        const display = el.querySelector('.time-display'); 
-        if (!display) return; 
-        if (isNaN(targetTime)) { 
-            display.innerText = "Fecha inválida"; 
-            return; 
-        } 
-        const diferencia = targetTime - ahora; 
-        const marketId = el.id.replace('countdown-', ''); 
-        if (diferencia <= 0) { 
-            if (estadosMercados[marketId] === null || estadosMercados[marketId] === undefined) { 
-                estadosMercados[marketId] = 'ESPERANDO_RESOLUCION'; 
-                guardarTodoInStorage(); 
-                renderizarMercadosDinamicos(); 
-                renderizarMercadosEsperaYHistorial(); 
-                actualizarSelectsMercadosActivos(); 
-            } 
-        } else { 
-            const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24)); 
-            const horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); 
-            const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60)); 
-            const segundos = Math.floor((diferencia % (1000 * 60)) / 1000); 
-            let textoTiempo = ""; 
-            if (dias > 0) textoTiempo += `${dias}d `; 
-            textoTiempo += `${String(horas).padStart(2, '0')}h ${String(minutos).padStart(2, '0')}m ${String(segundos).padStart(2, '0')}s`; 
-            display.innerText = textoTiempo; 
-        } 
-    }); 
-} 
-
-function abrirTerminalTrading(idMercado, tituloMercado, opcion) { 
-    if (usuarioActual.handle === "@invitado") { 
-        alert("⚠️ Debes iniciar sesión o registrarte para realizar operaciones."); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    if (usuarioActual.kyc_estado !== 'aprobado') { 
-        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador."); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (uCheck && uCheck.bloqueado) { 
-        alert("⚠️ Operación denegada: Tu cuenta está bloqueada."); 
-        return; 
-    } 
-    if (estadosMercados[idMercado] !== null && estadosMercados[idMercado] !== undefined) { 
-        alert("Este mercado ya se encuentra cerrado."); 
-        return; 
-    } 
-    let precioAskActual = preciosMercados[idMercado] ? preciosMercados[idMercado][opcion] : 0.50; 
-    ordenActivaModal = { idMercado, tituloMercado, opcion, precioAskBase: precioAskActual }; 
-    document.getElementById('modal-market-text').innerText = tituloMercado; 
-    const orderTypeSelect = document.getElementById('modal-order-type'); 
-    const limitPriceInput = document.getElementById('modal-limit-price'); 
-    const amountInput = document.getElementById('modal-amount'); 
-    const btnConfirmar = document.getElementById('btn-confirmar-compra'); 
-    const successBanner = document.getElementById('modal-success-banner'); 
-    orderTypeSelect.disabled = false; 
-    orderTypeSelect.value = 'MARKET'; 
-    document.getElementById('group-limit-price').style.display = 'none'; 
-    amountInput.value = 1; 
-    limitPriceInput.value = precioAskActual.toFixed(2); 
-    if(successBanner) successBanner.style.display = 'block'; 
-    if(btnConfirmar) { 
-        btnConfirmar.disabled = false; 
-        btnConfirmar.innerText = "Confirmar Orden al Order Book"; 
-    } 
-    calcularModalTotal(); 
-    document.getElementById('trading-modal').style.display = 'flex'; 
-} 
-
-function cerrarTerminalTrading() { 
-    isSubmitting = false; 
-    document.getElementById('trading-modal').style.display = 'none'; 
-} 
-
-function cambiarTipoOrdenModal() { 
-    const tipoOrden = document.getElementById('modal-order-type').value; 
-    const groupLimit = document.getElementById('group-limit-price'); 
-    if (tipoOrden === 'LIMIT') { 
-        groupLimit.style.display = 'block'; 
-    } else { 
-        groupLimit.style.display = 'none'; 
-    } 
-    calcularModalTotal(); 
-} 
-
-function calcularModalTotal() { 
-    const tipoOrden = document.getElementById('modal-order-type').value; 
-    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1; 
-    let precioFinalUnitario = 0; 
-    if (tipoOrden === 'LIMIT') { 
-        precioFinalUnitario = parseFloat(document.getElementById('modal-limit-price').value) || ordenActivaModal.precioAskBase; 
-    } else { 
-        const precioDinamicoUnitario = ordenActivaModal.precioAskBase * (1 + (cantidad - 1) * 0.003); 
-        precioFinalUnitario = Math.min(precioDinamicoUnitario, 0.98); 
-    } 
-    ordenActivaModal.precioCalculadoUnitario = precioFinalUnitario; 
-    let subtotalReq = cantidad * precioFinalUnitario; 
-    let totalConComision = subtotalReq * 1.02; 
-    const payout = cantidad * 1.00; 
-    document.getElementById('modal-price-unit').innerText = precioFinalUnitario.toFixed(3); 
-    document.getElementById('modal-total-req').innerText = totalConComision.toFixed(2) + ' (incluye 2% comisión)'; 
-    document.getElementById('modal-payout').innerText = payout.toFixed(2); 
-    ordenActivaModal.totalConComision = totalConComision; 
-} 
-
-async function confirmarCompraRapida() { 
-    if (usuarioActual.handle === "@invitado" || usuarioActual.kyc_estado !== 'aprobado') { 
-        alert("⚠️ Operación denegada."); 
-        return; 
-    } 
-    if (isSubmitting) return; 
-    isSubmitting = true; 
-    const tipoOrden = document.getElementById('modal-order-type').value.toLowerCase(); 
-    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1; 
-    const precioIngresado = tipoOrden === 'limit' ? parseFloat(document.getElementById('modal-limit-price').value) : (ordenActivaModal.precioAskBase || 0.50); 
-    const idM = ordenActivaModal.idMercado; 
-    const opM = ordenActivaModal.opcion; 
-    if (usuarioActual.balance < ordenActivaModal.totalConComision) { 
-        alert("Balance insuficiente."); 
-        isSubmitting = false; 
-        return; 
-    } 
-    usuarioActual.balance -= ordenActivaModal.totalConComision; 
-    actualizarUIBalance(); 
-    const nuevaPosicion = { 
-        id: 'POS-' + Date.now(), 
-        marketId: idM, 
-        titulo: ordenActivaModal.tituloMercado, 
-        opcion: opM, 
-        contratos: cantidad, 
-        invertido: ordenActivaModal.totalConComision, 
-        payout: cantidad * 1.00, 
-        estadoOrden: 'ACTIVO' 
-    }; 
-    posicionesActivas.push(nuevaPosicion); 
-    
-    // Guardar inmediatamente en Supabase con la estructura exacta de la tabla
-    await guardarEnSupabaseTabla('posiciones_activas', { 
-        id: nuevaPosicion.id, 
-        market_id: String(nuevaPosicion.marketId), 
-        handle: usuarioActual.handle, 
-        titulo: nuevaPosicion.titulo, 
-        opcion: nuevaPosicion.opcion, 
-        contratos: nuevaPosicion.contratos, 
-        invertido: nuevaPosicion.invertido, 
-        payout: nuevaPosicion.payout, 
-        estado_orden: nuevaPosicion.estadoOrden 
-    }); 
-
-    const nuevaOrdenGlobal = { 
-        marketId: idM, 
-        tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)', 
-        opcion: opM, 
-        contratos: cantidad, 
-        precio: precioIngresado, 
-        trader: usuarioActual.handle 
-    }; 
-    ordenesGlobales.push(nuevaOrdenGlobal); 
-    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-
-    registrarTransaccionEnDB({ 
-        id: 'TX-' + Date.now(), 
-        titulo: 'Compra de Contratos', 
-        tipo: 'Compra', 
-        monto: -ordenActivaModal.totalConComision, 
-        detalle: `Adquisición de ${cantidad} contratos de [${opM}]` 
-    }); 
-
-    guardarTodoInStorage(); 
-    cerrarTerminalTrading(); 
-    renderizarPosiciones(); 
-    renderizarHistorial(); 
-    renderizarOrderBookVisible(); 
-    alert("✅ ¡Compra realizada con éxito!"); 
-    isSubmitting = false; 
-} 
-
-function abrirModalVenta(idx) { 
-    if (usuarioActual.handle === "@invitado" || usuarioActual.kyc_estado !== 'aprobado') { 
-        alert("⚠️ Operación denegada."); 
-        return; 
-    } 
-    const pos = posicionesActivas[idx]; 
-    if (!pos) return; 
-    let precioBaseMercado = preciosMercados[pos.marketId] ? preciosMercados[pos.marketId][pos.opcion] : 0.50; 
-    ventaActivaModal = { index: idx, posicion: pos, precioBase: precioBaseMercado }; 
-    document.getElementById('sell-modal-title').innerText = `${pos.titulo} (${pos.opcion})`; 
-    document.getElementById('sell-max-contracts').innerText = pos.contratos; 
-    document.getElementById('sell-amount-contracts').value = pos.contratos; 
-    document.getElementById('sell-modal-type').value = 'MARKET'; 
-    document.getElementById('group-sell-limit-price').style.display = 'none'; 
-    document.getElementById('sell-limit-price').value = precioBaseMercado.toFixed(2); 
-    calcularTotalVentaModal(); 
-    document.getElementById('sell-modal').style.display = 'flex'; 
-} 
-
-function cerrarModalVenta() { 
-    document.getElementById('sell-modal').style.display = 'none'; 
-} 
-
-function cambiarTipoVentaModal() { 
-    const tipo = document.getElementById('sell-modal-type').value; 
-    const groupLimit = document.getElementById('group-sell-limit-price'); 
-    if (tipo === 'LIMIT') { 
-        groupLimit.style.display = 'block'; 
-    } else { 
-        groupLimit.style.display = 'none'; 
-    } 
-    calcularTotalVentaModal(); 
-} 
-
-function calcularTotalVentaModal() { 
-    const tipo = document.getElementById('sell-modal-type').value; 
-    const contratosVender = parseInt(document.getElementById('sell-amount-contracts').value) || 1; 
-    const maxContratos = ventaActivaModal.posicion.contratos; 
-    if (contratosVender > maxContratos) { 
-        document.getElementById('sell-amount-contracts').value = maxContratos; 
-        return; 
-    } 
-    let precioUnitarioSalida = tipo === 'LIMIT' ? parseFloat(document.getElementById('sell-limit-price').value) : ventaActivaModal.precioBase; 
-    let retornoEstimado = contratosVender * precioUnitarioSalida; 
-    document.getElementById('sell-price-unit').innerText = precioUnitarioSalida.toFixed(3); 
-    document.getElementById('sell-total-return').innerText = retornoEstimado.toFixed(2); 
-    ventaActivaModal.retornoCalculado = retornoEstimado; 
-    ventaActivaModal.contratosVender = contratosVender; 
-    ventaActivaModal.precioSalidaUnitario = precioUnitarioSalida; 
-} 
-
-async function ejecutarVentaPosicion() { 
-    const pos = ventaActivaModal.posicion; 
-    const contratosVender = ventaActivaModal.contratosVender; 
-    const retorno = ventaActivaModal.retornoCalculado; 
-    usuarioActual.balance += retorno; 
-    actualizarUIBalance(); 
-    if (contratosVender >= pos.contratos) { 
-        posicionesActivas.splice(ventaActivaModal.index, 1); 
-        await eliminarDeSupabaseTabla('posiciones_activas', pos.id); 
-    } else { 
-        pos.contratos -= contratosVender; 
-        pos.invertido -= (pos.invertido * (contratosVender / (pos.contratos + contratosVender))); 
-        guardarEnSupabaseTabla('posiciones_activas', { 
-            id: pos.id, 
-            market_id: String(pos.marketId), 
-            handle: usuarioActual.handle, 
-            titulo: pos.titulo, 
-            opcion: pos.opcion, 
-            contratos: pos.contratos, 
-            invertido: pos.invertido, 
-            payout: pos.payout, 
-            estado_orden: pos.estadoOrden 
-        }); 
-    } 
-    const nuevaOrdenGlobal = { 
-        marketId: pos.marketId, 
-        tipo: 'VENTA (Ask)', 
-        opcion: pos.opcion, 
-        contratos: contratosVender, 
-        precio: ventaActivaModal.precioSalidaUnitario, 
-        trader: usuarioActual.handle 
-    }; 
-    ordenesGlobales.push(nuevaOrdenGlobal); 
-    guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    registrarTransaccionEnDB({ 
-        id: 'VENTA-' + Date.now(), 
-        titulo: 'Venta de Contratos', 
-        tipo: 'Venta', 
-        monto: retorno, 
-        detalle: `Venta de ${contratosVender} contratos` 
-    }); 
-    guardarTodoInStorage(); 
-    cerrarModalVenta(); 
-    renderizarPosiciones(); 
-    renderizarHistorial(); 
-    renderizarOrderBookVisible(); 
-    alert("✅ ¡Venta ejecutada con éxito!"); 
-} 
-
 function renderizarPosiciones() { 
     const container = document.getElementById('my-positions-content'); 
     if (!container) return; 
-    let misPosiciones = posicionesActivas.filter(p => p.handle === usuarioActual.handle); 
-    if (usuarioActual.handle === "@invitado") { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">Inicia sesión para ver tus posiciones.</p>'; 
-        return; 
-    }
+
+    let misPosiciones = posicionesActivas.filter(p => p.handle === usuarioActual.handle && p.estadoOrden === 'ACTIVO'); 
+    let tieneComprasActivas = misPosiciones.length > 0 ? "SÍ" : "NO"; 
+
     if (!misPosiciones || misPosiciones.length === 0) { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>'; 
+        container.innerHTML = ` 
+            <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; text-align: center;"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 6px 0;">No tienes posiciones activas.</p> 
+                <div style="font-size: 0.75rem; color: #38bdf8;">¿Tiene compras activas? <b>NO</b></div> 
+            </div>`; 
         return; 
     } 
-    let html = ''; 
-    misPosiciones.forEach((p, idx) => { 
-        let globalIdx = posicionesActivas.indexOf(p); 
-        html += ` 
-        <div class="position-ticket" data-watermark="${p.opcion}"> 
-            <div style="font-size: 0.9rem; font-weight: bold; margin-bottom: 4px;">${p.titulo}</div> 
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Opción: <b style="color: ${p.opcion === 'SÍ' ? '#4ade80' : '#f87171'};">${p.opcion}</b> | Contratos: <b>${p.contratos}</b></div> 
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">Invertido: ${p.invertido.toFixed(2)} Pi | Payout: <span style="color: #4ade80; font-weight: bold;">${p.payout.toFixed(2)} Pi</span></div> 
-            <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8); font-size: 0.75rem; padding: 7px;" onclick="abrirModalVenta(${globalIdx})">💱 Vender Posición</button> 
-        </div> 
-        `; 
-    }); 
-    container.innerHTML = html; 
-} 
 
-function registrarTransaccionEnDB(txObj) { 
-    historialTransacciones.unshift({ 
-        handle: usuarioActual.handle, 
-        ...txObj 
-    }); 
-    guardarEnSupabaseTabla('historial_transacciones', { 
-        handle: usuarioActual.handle, 
-        ...txObj 
-    }); 
-} 
+    let html = ` 
+        <div style="margin-bottom: 8px; font-size: 0.75rem; color: #38bdf8; text-align: right;"> 
+            ¿Tiene compras activas? <b>${tieneComprasActivas}</b> 
+        </div>`; 
 
-function renderizarHistorial() { 
-    const container = document.getElementById('my-history-content'); 
-    if (!container) return; 
-    let misTxs = historialTransacciones.filter(t => t.handle === usuarioActual.handle); 
-    if (usuarioActual.handle === "@invitado") { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">Inicia sesión para ver tu historial.</p>'; 
-        return; 
-    }
-    if (!misTxs || misTxs.length === 0) { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>'; 
-        return; 
-    } 
-    let html = ''; 
-    misTxs.forEach(t => { 
-        let colorMonto = t.monto >= 0 ? '#4ade80' : '#f87171'; 
-        let signo = t.monto >= 0 ? '+' : ''; 
+    misPosiciones.forEach(p => { 
+        let precioActualEstimado = 0.50; 
+        if (preciosMercados[p.marketId] && preciosMercados[p.marketId][p.opcion]) { 
+            precioActualEstimado = preciosMercados[p.marketId][p.opcion]; 
+        } 
+        let valorActualMercado = p.contratos * precioActualEstimado; 
+        let colorAgua = p.opcion === 'SÍ' ? 'rgba(22, 163, 74, 0.05)' : 'rgba(153, 27, 27, 0.05)'; 
+
         html += ` 
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 0.75rem;"> 
-            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;"> 
-                <span>${t.titulo}</span> 
-                <span style="color: ${colorMonto};">${signo}${t.monto.toFixed(2)} Pi</span> 
+        <div class="position-ticket" data-watermark="${p.opcion}" style="background: ${colorAgua};"> 
+            <div style="font-weight: bold; margin-bottom: 4px; font-size: 0.85rem;">${p.titulo}</div> 
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;"> 
+                <span>Opción: <b style="color: ${p.opcion === 'SÍ' ? '#4ade80' : '#f87171'};">${p.opcion}</b></span> 
+                <span>Contratos: <b>${p.contratos}</b></span> 
             </div> 
-            <div style="color: var(--text-muted);">${t.detalle || t.tipo}</div> 
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;"> 
+                <span>Invertido: <b>${p.invertido.toFixed(2)} Pi</b></span> 
+                <span>Valor Mercado: <b style="color: #38bdf8;">${valorActualMercado.toFixed(2)} Pi</b></span> 
+            </div> 
+            <button class="action-btn" style="width: 100%; padding: 6px; font-size: 0.75rem; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="abrirModalVenta('${p.id}')">💱 Vender / Salir de Posición</button> 
         </div> 
         `; 
     }); 
+
     container.innerHTML = html; 
-} 
+}
 
-async function depositarConPiNetwork() { 
-    if (usuarioActual.handle === "@invitado") { 
-        alert("⚠️ Debes iniciar sesión o registrarte."); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    const monto = parseFloat(document.getElementById('wallet-amount').value); 
-    if (!monto || monto <= 0) { 
-        alert("Introduce un monto válido."); 
-        return; 
-    } 
-    try { 
-        usuarioActual.balance += monto; 
-        actualizarUIBalance(); 
-        registrarTransaccionEnDB({ 
-            id: 'REC-' + Date.now(), 
-            titulo: 'Recarga Pi Network', 
-            tipo: 'Recarga', 
-            monto: monto, 
-            detalle: `Recarga exitosa` 
-        }); 
-        guardarTodoInStorage(); 
-        alert(`✅ ¡Recarga de ${monto} Pi completada!`); 
-    } catch (e) { 
-        console.error(e); 
-        alert("Error procesando pago."); 
-    } 
-} 
+function renderizarHistorial() {
+    const container = document.getElementById('my-history-content');
+    if (!container) return;
+    if (!historialTransacciones || historialTransacciones.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p>';
+        return;
+    }
+    let html = '';
+    historialTransacciones.slice().reverse().forEach(tx => {
+        let colorMonto = tx.monto >= 0 ? '#4ade80' : '#f87171';
+        html += `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-weight: bold; color: var(--text-color);">${tx.titulo || tx.tipo}</div>
+                <div style="color: var(--text-muted);">${tx.detalle || ''}</div>
+            </div>
+            <div style="font-weight: bold; color: ${colorMonto}; white-space: nowrap;">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</div>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
 
-function retirarBilletera() { 
-    if (usuarioActual.handle === "@invitado") { 
-        alert("⚠️ Debes iniciar sesión."); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    const monto = parseFloat(document.getElementById('wallet-amount').value); 
-    if (!monto || monto <= 0 || usuarioActual.balance < monto) { 
-        alert("Monto inválido o balance insuficiente."); 
-        return; 
-    } 
-    usuarioActual.balance -= monto; 
-    actualizarUIBalance(); 
-    registrarTransaccionEnDB({ 
-        id: 'RET-' + Date.now(), 
-        titulo: 'Retiro de Billetera', 
-        tipo: 'Pi Network', 
-        monto: -monto, 
-        detalle: `Retiro exitoso de ${monto} Pi` 
-    }); 
-    guardarTodoInStorage(); 
-    alert(`✅ ¡Retiro de ${monto} Pi procesado!`); 
-} 
+function registrarTransaccionEnDB(tx) {
+    historialTransacciones.push(tx);
+    guardarEnSupabaseTabla('historial_transacciones', tx);
+    guardarTodoInStorage();
+    renderizarHistorial();
+}
 
-function renderizarOrderBookVisible() { 
-    const select = document.getElementById('orderbook-market-filter'); 
-    const tbody = document.getElementById('orderbook-table-body'); 
-    if (!select || !tbody) return; 
-    const marketIdSeleccionado = select.value; 
-    if (!marketIdSeleccionado) { 
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Selecciona un mercado activo.</td></tr>'; 
-        return; 
-    } 
-    let filtradas = ordenesGlobales.filter(o => String(o.marketId) === String(marketIdSeleccionado)); 
-    if (!filtradas || filtradas.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay órdenes registradas.</td></tr>'; 
-        return; 
-    } 
-    let html = ''; 
-    filtradas.forEach(o => { 
-        let colorTipo = o.tipo.includes('COMPRA') ? '#4ade80' : '#f87171'; 
-        html += ` 
-        <tr> 
-            <td><b style="color: ${colorTipo};">${o.tipo}</b></td> 
-            <td><b>${o.opcion}</b></td> 
-            <td>${o.contratos}</td> 
-            <td>${Number(o.precio).toFixed(3)} Pi</td> 
-            <td>${o.trader}</td> 
-        </tr> 
-        `; 
-    }); 
-    tbody.innerHTML = html; 
-} 
+function actualizarRelojesRegresivos() {
+    document.querySelectorAll('.countdown-timer').forEach(el => {
+        const target = new Date(el.getAttribute('data-target')).getTime();
+        const now = new Date().getTime();
+        const diff = target - now;
+        const display = el.querySelector('.time-display');
+        if (!display) return;
+        if (diff <= 0) {
+            display.innerText = "Cerrado / Finalizado";
+            return;
+        }
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        display.innerText = `${hours}h ${minutes}m ${seconds}s`;
+    });
+}
 
-function declararGanadorAdmin() { alert("Función de resolución administrativa ejecutada."); }
-function cancelarYReembolsarMercadoAdmin() { alert("Mercado cancelado y reembolsado."); }
-function renderizarTicketsAdmin() {}
-function renderizarHistorialGlobalAdmin() {}
-function calcularMetricasFinancierasAdmin() {}
-function poblarSelectUsuariosAdmin() {}
-function abrirSoporteChatUsuario() { document.getElementById('support-chat-modal').style.display = 'flex'; }
-function cerrarChatSoporteUsuario() { document.getElementById('support-chat-modal').style.display = 'none'; }
-function enviarMensajeSoporteUsuario() {}
-function cerrarChatAdminModal() {}
-function enviarMensajeSoporteAdmin() {}
-function toggleBloqueoCuentaActual() {}
-function abrirModalAjusteBalance() {}
-function cerrarModalAjusteBalance() {}
-function ejecutarAjusteBalanceAdmin() {}
-function cargarDatosUsuarioAdminSeleccionado() {}
+function renderizarOrderBookVisible() {
+    const select = document.getElementById('orderbook-market-filter');
+    const tbody = document.getElementById('orderbook-table-body');
+    if (!select || !tbody) return;
+    const marketId = select.value;
+    if (!marketId) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Selecciona un mercado activo.</td></tr>';
+        return;
+    }
+    const filtered = ordenesGlobales.filter(o => String(o.marketId) === String(marketId));
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay órdenes registradas en este mercado.</td></tr>';
+        return;
+    }
+    let html = '';
+    filtered.forEach(o => {
+        let colorOpcion = o.opcion === 'SÍ' ? '#4ade80' : '#f87171';
+        html += `
+        <tr>
+            <td>${o.tipo || 'Limit'}</td>
+            <td><b style="color: ${colorOpcion};">${o.opcion}</b></td>
+            <td>${o.contratos}</td>
+            <td>${Number(o.precio).toFixed(2)} Pi</td>
+            <td>${o.trader || '@anónimo'}</td>
+        </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function abrirTerminalTrading(marketId, titulo, opcion) {
+    if (usuarioActual.handle === "@invitado") {
+        alert("⚠️ Debes iniciar sesión o registrarte para realizar operaciones.");
+        abrirModalKyc();
+        return;
+    }
+    if (usuarioActual.kyc_estado !== 'aprobado') {
+        alert("⚠️ Operación denegada: Tu KYC debe estar aprobado por el administrador.");
+        abrirModalKyc();
+        return;
+    }
+    let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle);
+    if (uCheck && uCheck.bloqueado) {
+        alert("⚠️ Operación denegada: Tu cuenta está bloqueada.");
+        return;
+    }
+    ordenActivaModal = { marketId, titulo, opcion };
+    document.getElementById('modal-title').innerText = titulo;
+    document.getElementById('modal-market-text').innerText = `Estás comprando contratos para la opción: ${opcion}`;
+    document.getElementById('modal-amount').value = 1;
+    document.getElementById('modal-order-type').value = 'MARKET';
+    document.getElementById('group-limit-price').style.display = 'none';
+    calcularModalTotal();
+    document.getElementById('trading-modal').style.display = 'flex';
+}
+
+function cerrarTerminalTrading() {
+    document.getElementById('trading-modal').style.display = 'none';
+    ordenActivaModal = null;
+}
+
+function cambiarTipoOrdenModal() {
+    const tipo = document.getElementById('modal-order-type').value;
+    const groupLimit = document.getElementById('group-limit-price');
+    if (tipo === 'LIMIT') {
+        groupLimit.style.display = 'block';
+    } else {
+        groupLimit.style.display = 'none';
+    }
+    calcularModalTotal();
+}
+
+function calcularModalTotal() {
+    if (!ordenActivaModal) return;
+    const tipo = document.getElementById('modal-order-type').value;
+    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+    let precioUnitario = 0.50;
+    if (tipo === 'MARKET') {
+        if (preciosMercados[ordenActivaModal.marketId] && preciosMercados[ordenActivaModal.marketId][ordenActivaModal.opcion]) {
+            precioUnitario = preciosMercados[ordenActivaModal.marketId][ordenActivaModal.opcion];
+        }
+    } else {
+        precioUnitario = parseFloat(document.getElementById('modal-limit-price').value) || 0.50;
+    }
+    const totalReq = cantidad * precioUnitario;
+    const payout = cantidad * 1.00;
+    document.getElementById('modal-price-unit').innerText = precioUnitario.toFixed(2);
+    document.getElementById('modal-total-req').innerText = totalReq.toFixed(2);
+    document.getElementById('modal-payout').innerText = payout.toFixed(2);
+}
+
+function confirmarCompraRapida() {
+    if (!ordenActivaModal) return;
+    const tipo = document.getElementById('modal-order-type').value;
+    const cantidad = parseInt(document.getElementById('modal-amount').value) || 1;
+    let precioUnitario = tipo === 'MARKET' ? (preciosMercados[ordenActivaModal.marketId]?.[ordenActivaModal.opcion] || 0.50) : (parseFloat(document.getElementById('modal-limit-price').value) || 0.50);
+    const totalReq = cantidad * precioUnitario;
+
+    if (usuarioActual.balance < totalReq) {
+        alert("Balance insuficiente para completar la compra.");
+        return;
+    }
+
+    usuarioActual.balance -= totalReq;
+    actualizarUIBalance();
+
+    const nuevaPos = {
+        id: 'POS-' + Date.now(),
+        marketId: ordenActivaModal.marketId,
+        handle: usuarioActual.handle,
+        titulo: ordenActivaModal.titulo,
+        opcion: ordenActivaModal.opcion,
+        contratos: cantidad,
+        invertido: totalReq,
+        payout: cantidad * 1.00,
+        estadoOrden: 'ACTIVO'
+    };
+    posicionesActivas.push(nuevaPos);
+    guardarEnSupabaseTabla('posiciones_activas', {
+        id: nuevaPos.id,
+        market_id: String(nuevaPos.marketId),
+        handle: nuevaPos.handle,
+        titulo: nuevaPos.titulo,
+        opcion: nuevaPos.opcion,
+        contratos: nuevaPos.contratos,
+        invertido: nuevaPos.invertido,
+        payout: nuevaPos.payout,
+        estado_orden: nuevaPos.estadoOrden
+    });
+
+    const ordenGl = {
+        marketId: ordenActivaModal.marketId,
+        tipo: tipo === 'MARKET' ? 'Market (Ask)' : 'Limit (Bid)',
+        opcion: ordenActivaModal.opcion,
+        contratos: cantidad,
+        precio: precioUnitario,
+        trader: usuarioActual.handle
+    };
+    ordenesGlobales.push(ordenGl);
+    guardarEnSupabaseTabla('ordenes_clob', ordenGl);
+
+    registrarTransaccionEnDB({
+        id: 'COMPRA-' + Date.now(),
+        titulo: 'Compra de Contratos',
+        tipo: 'Inversión',
+        monto: -totalReq,
+        detalle: `Compra ${cantidad} contratos (${ordenActivaModal.opcion}) en "${ordenActivaModal.titulo}"`
+    });
+
+    guardarTodoInStorage();
+    cerrarTerminalTrading();
+    cargarMercadosYOrderBook();
+    alert("✅ ¡Compra realizada con éxito!");
+}
+
+function abrirModalVenta(posId) {
+    const pos = posicionesActivas.find(p => p.id === posId);
+    if (!pos) return;
+    ventaActivaModal = pos;
+    document.getElementById('sell-modal-title').innerText = pos.titulo;
+    document.getElementById('sell-max-contracts').innerText = pos.contratos;
+    document.getElementById('sell-amount-contracts').value = pos.contratos;
+    document.getElementById('sell-modal-type').value = 'MARKET';
+    document.getElementById('group-sell-limit-price').style.display = 'none';
+    calcularTotalVentaModal();
+    document.getElementById('sell-modal').style.display = 'flex';
+}
+
+function cerrarModalVenta() {
+    document.getElementById('sell-modal').style.display = 'none';
+    ventaActivaModal = null;
+}
+
+function cambiarTipoVentaModal() {
+    const tipo = document.getElementById('sell-modal-type').value;
+    document.getElementById('group-sell-limit-price').style.display = tipo === 'LIMIT' ? 'block' : 'none';
+    calcularTotalVentaModal();
+}
+
+function calcularTotalVentaModal() {
+    if (!ventaActivaModal) return;
+    const tipo = document.getElementById('sell-modal-type').value;
+    const contratos = parseInt(document.getElementById('sell-amount-contracts').value) || 1;
+    let precioUnitario = 0.50;
+    if (tipo === 'MARKET') {
+        if (preciosMercados[ventaActivaModal.marketId] && preciosMercados[ventaActivaModal.marketId][ventaActivaModal.opcion]) {
+            precioUnitario = preciosMercados[ventaActivaModal.marketId][ventaActivaModal.opcion];
+        }
+    } else {
+        precioUnitario = parseFloat(document.getElementById('sell-limit-price').value) || 0.50;
+    }
+    const retorno = contratos * precioUnitario;
+    document.getElementById('sell-price-unit').innerText = precioUnitario.toFixed(2);
+    document.getElementById('sell-total-return').innerText = retorno.toFixed(2);
+}
+
+function ejecutarVentaPosicion() {
+    if (!ventaActivaModal) return;
+    const contratosVender = parseInt(document.getElementById('sell-amount-contracts').value) || 1;
+    if (contratosVender > ventaActivaModal.contratos) {
+        alert("No puedes vender más contratos de los que posees en esta posición.");
+        return;
+    }
+    const tipo = document.getElementById('sell-modal-type').value;
+    let precioUnitario = tipo === 'MARKET' ? (preciosMercados[ventaActivaModal.marketId]?.[ventaActivaModal.opcion] || 0.50) : (parseFloat(document.getElementById('sell-limit-price').value) || 0.50);
+    const retorno = contratosVender * precioUnitario;
+
+    usuarioActual.balance += retorno;
+    actualizarUIBalance();
+
+    if (contratosVender === ventaActivaModal.contratos) {
+        ventaActivaModal.estadoOrden = 'VENDIDO';
+        eliminarDeSupabaseTabla('posiciones_activas', ventaActivaModal.id);
+    } else {
+        ventaActivaModal.contratos -= contratosVender;
+        ventaActivaModal.invertido -= (contratosVender * (ventaActivaModal.invertido / (ventaActivaModal.contratos + contratosVender)));
+        guardarEnSupabaseTabla('posiciones_activas', {
+            id: ventaActivaModal.id,
+            market_id: String(ventaActivaModal.marketId),
+            handle: ventaActivaModal.handle,
+            titulo: ventaActivaModal.titulo,
+            opcion: ventaActivaModal.opcion,
+            contratos: ventaActivaModal.contratos,
+            invertido: ventaActivaModal.invertido,
+            payout: ventaActivaModal.payout,
+            estado_orden: ventaActivaModal.estadoOrden
+        });
+    }
+
+    registrarTransaccionEnDB({
+        id: 'VENTA-' + Date.now(),
+        titulo: 'Venta de Posición',
+        tipo: 'Retorno',
+        monto: retorno,
+        detalle: `Venta de ${contratosVender} contratos (${ventaActivaModal.opcion})`
+    });
+
+    guardarTodoInStorage();
+    cerrarModalVenta();
+    cargarMercadosYOrderBook();
+    alert("✅ ¡Venta ejecutada con éxito!");
+}
+
+function depositarConPiNetwork() {
+    if (usuarioActual.handle === "@invitado") {
+        alert("⚠️ Debes iniciar sesión o registrarte para realizar depósitos.");
+        abrirModalKyc();
+        return;
+    }
+    const monto = parseFloat(document.getElementById('wallet-amount').value);
+    if (!monto || monto <= 0) {
+        alert("Introduce un monto válido para recargar.");
+        return;
+    }
+    usuarioActual.balance += monto;
+    actualizarUIBalance();
+    registrarTransaccionEnDB({
+        id: 'REC-' + Date.now(),
+        titulo: 'Recarga Pi Network',
+        tipo: 'Recarga',
+        monto: monto,
+        detalle: `Recarga de ${monto} Pi mediante SDK`
+    });
+    guardarTodoInStorage();
+    alert(`✅ ¡Recarga de ${monto} Pi realizada con éxito!`);
+    document.getElementById('wallet-amount').value = '';
+}
+
+function retirarBilletera() {
+    if (usuarioActual.handle === "@invitado") {
+        alert("⚠️ Debes iniciar sesión.");
+        return;
+    }
+    const monto = parseFloat(document.getElementById('wallet-amount').value);
+    if (!monto || monto <= 0) {
+        alert("Introduce un monto válido para retirar.");
+        return;
+    }
+    if (usuarioActual.balance < monto) {
+        alert("Balance insuficiente para retirar.");
+        return;
+    }
+    usuarioActual.balance -= monto;
+    actualizarUIBalance();
+    registrarTransaccionEnDB({
+        id: 'RET-' + Date.now(),
+        titulo: 'Retiro Pi Wallet',
+        tipo: 'Retiro',
+        monto: -monto,
+        detalle: `Retiro de ${monto} Pi`
+    });
+    guardarTodoInStorage();
+    alert(`✅ ¡Retiro de ${monto} Pi procesado con éxito!`);
+    document.getElementById('wallet-amount').value = '';
+}
+
+function abrirSoporteChatUsuario() {
+    if (usuarioActual.handle === "@invitado") {
+        alert("Debes iniciar sesión para usar el chat de soporte.");
+        abrirModalKyc();
+        return;
+    }
+    renderizarMensajesSoporteUsuario();
+    document.getElementById('support-chat-modal').style.display = 'flex';
+}
+
+function cerrarChatSoporteUsuario() {
+    document.getElementById('support-chat-modal').style.display = 'none';
+}
+
+function renderizarMensajesSoporteUsuario() {
+    const box = document.getElementById('chat-messages-container');
+    if (!box) return;
+    let t = ticketsSoporte.find(tk => tk.handle === usuarioActual.handle);
+    if (!t || !t.mensajes || t.mensajes.length === 0) {
+        box.innerHTML = '<div class="chat-msg admin">Hola, ¿en qué podemos ayudarte con tus transacciones o reclamos?</div>';
+        return;
+    }
+    let html = '';
+    t.mensajes.forEach(m => {
+        let cls = m.emisor === 'user' ? 'user' : 'admin';
+        html += `<div class="chat-msg ${cls}">${m.texto}</div>`;
+    });
+    box.innerHTML = html;
+    box.scrollTop = box.scrollHeight;
+}
+
+function enviarMensajeSoporteUsuario() {
+    const input = document.getElementById('chat-user-input');
+    const texto = input.value.trim();
+    if (!texto) return;
+    let t = ticketsSoporte.find(tk => tk.handle === usuarioActual.handle);
+    if (!t) {
+        t = { id: 'TKT-' + Date.now(), handle: usuarioActual.handle, mensajes: [] };
+        ticketsSoporte.push(t);
+    }
+    t.mensajes.push({ emisor: 'user', texto, fecha: new Date().toISOString() });
+    input.value = '';
+    guardarTodoInStorage();
+    renderizarMensajesSoporteUsuario();
+    renderizarTicketsAdmin();
+}
+
+function renderizarTicketsAdmin() {
+    const container = document.getElementById('admin-tickets-container');
+    if (!container) return;
+    if (!ticketsSoporte || ticketsSoporte.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>';
+        return;
+    }
+    let html = '';
+    ticketsSoporte.forEach(tk => {
+        let ultimoMsg = tk.mensajes && tk.mensajes.length > 0 ? tk.mensajes[tk.mensajes.length - 1].texto : 'Sin mensajes';
+        html += `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div>Usuario: <b style="color: #38bdf8;">${tk.handle}</b></div>
+                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 2px;">Último: "${ultimoMsg}"</div>
+            </div>
+            <button class="action-btn" style="font-size: 0.75rem; padding: 6px 10px;" onclick="abrirChatAdminModal('${tk.id}')">Responder</button>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function abrirChatAdminModal(ticketId) {
+    ticketAdminActivoId = ticketId;
+    renderizarMensajesAdminModal();
+    document.getElementById('admin-chat-modal').style.display = 'flex';
+}
+
+function cerrarChatAdminModal() {
+    document.getElementById('admin-chat-modal').style.display = 'none';
+    ticketAdminActivoId = null;
+}
+
+function renderizarMensajesAdminModal() {
+    const box = document.getElementById('admin-chat-messages-container');
+    if (!box || !ticketAdminActivoId) return;
+    let t = ticketsSoporte.find(tk => tk.id === ticketAdminActivoId);
+    if (!t) return;
+    document.getElementById('admin-chat-title').innerText = `💬 Ticket de ${t.handle}`;
+    let html = '';
+    t.mensajes.forEach(m => {
+        let cls = m.emisor === 'admin' ? 'user' : 'admin';
+        html += `<div class="chat-msg ${cls}">${m.texto}</div>`;
+    });
+    box.innerHTML = html;
+    box.scrollTop = box.scrollHeight;
+}
+
+function enviarMensajeSoporteAdmin() {
+    const input = document.getElementById('chat-admin-input');
+    const texto = input.value.trim();
+    if (!texto || !ticketAdminActivoId) return;
+    let t = ticketsSoporte.find(tk => tk.id === ticketAdminActivoId);
+    if (!t) return;
+    t.mensajes.push({ emisor: 'admin', texto, fecha: new Date().toISOString() });
+    input.value = '';
+    guardarTodoInStorage();
+    renderizarMensajesAdminModal();
+    renderizarTicketsAdmin();
+}
+
+function renderizarHistorialGlobalAdmin() {
+    const container = document.getElementById('admin-global-transactions-container');
+    if (!container) return;
+    if (!historialTransacciones || historialTransacciones.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p>';
+        return;
+    }
+    let html = '';
+    historialTransacciones.slice().reverse().forEach(tx => {
+        html += `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 8px; border-radius: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-weight: bold; color: #38bdf8;">${tx.titulo || tx.tipo}</span>: ${tx.detalle || ''}
+            </div>
+            <div style="font-weight: bold; color: ${tx.monto >= 0 ? '#4ade80' : '#f87171'};">${tx.monto >= 0 ? '+' : ''}${tx.monto.toFixed(2)} Pi</div>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function calcularMetricasFinancierasAdmin() {
+    let totalSupply = 0;
+    cuentasDirectorio.forEach(c => {
+        totalSupply += Number(c.balance) || 0;
+    });
+    const supplyEl = document.getElementById('admin-total-supply');
+    if (supplyEl) supplyEl.innerText = totalSupply.toFixed(2) + ' Pi';
+
+    const topContainer = document.getElementById('admin-top-users-container');
+    if (topContainer) {
+        let sorted = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance).slice(0, 5);
+        let htmlTop = '';
+        sorted.forEach((c, idx) => {
+            htmlTop += `<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>${idx + 1}. ${c.handle}</span><b style="color: #4ade80;">${Number(c.balance).toFixed(2)} Pi</b></div>`;
+        });
+        topContainer.innerHTML = htmlTop || '<p style="font-size: 0.75rem; color: var(--text-muted);">No hay cuentas.</p>';
+    }
+}
+
+function poblarSelectUsuariosAdmin() {
+    const select = document.getElementById('admin-user-select');
+    if (!select) return;
+    let html = '<option value="">-- Seleccionar Usuario --</option>';
+    cuentasDirectorio.forEach(c => {
+        html += `<option value="${c.handle}">${c.handle} (${Number(c.balance).toFixed(2)} Pi)</option>`;
+    });
+    select.innerHTML = html;
+}
+
+function cargarDatosUsuarioAdminSeleccionado() {
+    const handle = document.getElementById('admin-user-select').value;
+    usuarioAdminSeleccionadoHandle = handle;
+    const card = document.getElementById('admin-user-details-card');
+    if (!handle) {
+        card.style.display = 'none';
+        return;
+    }
+    let u = cuentasDirectorio.find(c => c.handle === handle);
+    if (!u) return;
+    document.getElementById('adm-det-handle').innerText = u.handle;
+    document.getElementById('adm-det-balance').innerText = Number(u.balance).toFixed(2) + ' Pi';
+    const statusEl = document.getElementById('adm-det-status');
+    statusEl.innerText = u.bloqueado ? 'BLOQUEADO' : 'Activo';
+    statusEl.style.color = u.bloqueado ? '#ef4444' : '#4ade80';
+    document.getElementById('admin-btn-bloqueo').innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
+    card.style.display = 'block';
+}
+
+function abrirModalAjusteBalance() {
+    if (!usuarioAdminSeleccionadoHandle) {
+        alert("Selecciona un usuario primero.");
+        return;
+    }
+    document.getElementById('admin-adj-monto').value = '';
+    document.getElementById('admin-adj-nota').value = '';
+    document.getElementById('admin-balance-modal').style.display = 'flex';
+}
+
+function cerrarModalAjusteBalance() {
+    document.getElementById('admin-balance-modal').style.display = 'none';
+}
+
+function ejecutarAjusteBalanceAdmin() {
+    if (!usuarioAdminSeleccionadoHandle) return;
+    const tipo = document.getElementById('admin-adj-tipo').value;
+    const monto = parseFloat(document.getElementById('admin-adj-monto').value);
+    const nota = document.getElementById('admin-adj-nota').value.trim();
+    if (!monto || monto <= 0) {
+        alert("Introduce un monto válido.");
+        return;
+    }
+    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+    if (!u) return;
+
+    if (tipo === 'CREDITO') {
+        u.balance += monto;
+    } else {
+        if (u.balance < monto) {
+            alert("El usuario no tiene suficiente saldo para este débito.");
+            return;
+        }
+        u.balance -= monto;
+    }
+
+    if (usuarioActual.handle === u.handle) {
+        usuarioActual.balance = u.balance;
+        actualizarUIBalance();
+    }
+
+    registrarTransaccionEnDB({
+        id: 'ADJ-' + Date.now(),
+        titulo: 'Ajuste Admin de Balance',
+        tipo: tipo,
+        monto: tipo === 'CREDITO' ? monto : -monto,
+        detalle: `Nota admin: "${nota || 'Sin nota'}"`
+    });
+
+    guardarTodoInStorage();
+    cerrarModalAjusteBalance();
+    cargarDatosUsuarioAdminSeleccionado();
+    calcularMetricasFinancierasAdmin();
+    poblarSelectUsuariosAdmin();
+    alert("✅ ¡Ajuste de balance aplicado con éxito!");
+}
+
+function toggleBloqueoCuentaActual() {
+    if (!usuarioAdminSeleccionadoHandle) return;
+    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
+    if (!u) return;
+    u.bloqueado = !u.bloqueado;
+    guardarTodoInStorage();
+    cargarDatosUsuarioAdminSeleccionado();
+    alert(`Cuenta ${u.handle} ${u.bloqueado ? 'bloqueada' : 'desbloqueada'} con éxito.`);
+}
+
+function declararGanadorAdmin() {
+    const marketId = document.getElementById('admin-market-id').value;
+    const ganador = document.getElementById('admin-result-select').value;
+    if (!marketId) {
+        alert("Selecciona un mercado válido.");
+        return;
+    }
+    estadosMercados[marketId] = ganador;
+    guardarTodoInStorage();
+    cargarMercadosYOrderBook();
+    alert(`✅ ¡Resultado declarado con éxito: ${ganador}!`);
+}
+
+function cancelarYReembolsarMercadoAdmin() {
+    const marketId = document.getElementById('admin-market-id').value;
+    if (!marketId) {
+        alert("Selecciona un mercado válido.");
+        return;
+    }
+    estadosMercados[marketId] = 'CANCELADO';
+    posicionesActivas.forEach(p => {
+        if (String(p.marketId) === String(marketId) && p.estadoOrden === 'ACTIVO') {
+            p.estadoOrden = 'REEMBOLSADO';
+            if (p.handle === usuarioActual.handle) {
+                usuarioActual.balance += p.invertido;
+            } else {
+                let uAcc = cuentasDirectorio.find(c => c.handle === p.handle);
+                if (uAcc) uAcc.balance += p.invertido;
+            }
+            registrarTransaccionEnDB({
+                id: 'REEMB-' + Date.now(),
+                titulo: 'Reembolso por Cancelación',
+                tipo: 'Reembolso',
+                monto: p.invertido,
+                detalle: `Reembolso total por cancelación del mercado`
+            });
+        }
+    });
+    guardarTodoInStorage();
+    cargarMercadosYOrderBook();
+    alert("🚨 Mercado cancelado y reembolsado totalmente sin comisión.");
+}
 </script> 
 </body> 
 </html>
-
