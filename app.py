@@ -764,7 +764,6 @@ def participar():
 
         nuevo_saldo = saldo_actual - monto
         
-        # Identificadores unificados para asegurar compatibilidad con operaciones activas
         pos_id = f"pos_{username}_{ev_id_int}_{opcion_id}_{int(time.time())}"
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -777,12 +776,10 @@ def participar():
                 "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
                 (monto, opcion_id),
             )
-            # Inserción en historial general
             c.execute(
                 "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
                 (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
             )
-            # Inserción espejo en posiciones_activas para que el panel frontal los reconozca al instante
             c.execute(
                 """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
@@ -2370,7 +2367,6 @@ def admin_toggle_freeze():
             conn.close()
 
 
-# ================= NUEVO PARCHE DE ADMINISTRACIÓN DE USUARIOS =================
 @app.route('/api/admin/users', methods=['GET'])
 def admin_get_users():
     try:
@@ -2421,9 +2417,6 @@ kyc_bp = Blueprint('kyc_bp', __name__)
 
 @kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
 def registrar_kyc():
-    """
-    Endpoint para procesar la inscripción y datos KYC del usuario.
-    """
     data = request.json or {}
     username = data.get('username')
     tipo_doc = data.get('tipo_documento')
@@ -2493,10 +2486,6 @@ def registrar_kyc():
 
 @kyc_bp.route('/api/usuario/iniciar-sesion', methods=['POST'])
 def iniciar_sesion_usuario():
-    """
-    Endpoint para manejar el inicio de sesión del usuario validando su existencia 
-    sin inyectar usuarios predeterminados ficticios como jaimetetio ni saldos artificiales.
-    """
     data = request.json or {}
     username = data.get('username')
 
@@ -2542,9 +2531,118 @@ def iniciar_sesion_usuario():
         if conn:
             conn.close()
 
+@kyc_bp.route("/api/kyc/procesar", methods=["POST"])
+def procesar_kyc():
+    if not check_rate_limit(limit=10, window=60):
+        return jsonify({
+            "success": False,
+            "error": "Demasiadas solicitudes. Por favor, intente más tarde."
+        }), 429
+
+    data = request.form if request.form else (request.json or {})
+    username = data.get("username")
+    tipo_documento = data.get("tipo_documento")
+    numero_documento = data.get("numero_documento")
+    
+    if not username or not tipo_documento or not numero_documento:
+        return jsonify({
+            "success": False, 
+            "error": "Faltan campos obligatorios para completar el KYC."
+        }), 400
+
+    foto_url = data.get("foto_url", "")
+    if 'archivo' in request.files:
+        file = request.files['archivo']
+        if file and file.filename != '':
+            filename = f"kyc_{username}_{int(time.time())}_{file.filename}"
+            upload_folder = os.path.join("static", "uploads", "kyc")
+            os.makedirs(upload_folder, exist_ok=True)
+            filepath = os.path.join(upload_folder, filename)
+            file.save(filepath)
+            foto_url = f"/static/uploads/kyc/{filename}"
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        if DATABASE_URL:
+            c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (username,))
+            user_kyc = c.fetchone()
+
+            if user_kyc:
+                c.execute(
+                    """
+                    UPDATE usuarios_p2p 
+                    SET kyc_estado = 'en_revision', 
+                        tipo_documento = %s, 
+                        numero_documento = %s, 
+                        foto_url = %s 
+                    WHERE username = %s
+                    """,
+                    (tipo_documento, numero_documento, foto_url, username)
+                )
+            else:
+                c.execute(
+                    """
+                    INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
+                    VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
+                    """,
+                    (username, tipo_documento, numero_documento, foto_url, fecha_actual)
+                )
+        else:
+            c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = ?", (username,))
+            user_kyc = c.fetchone()
+            if user_kyc:
+                c.execute(
+                    """
+                    UPDATE usuarios_p2p 
+                    SET kyc_estado = 'en_revision', 
+                        tipo_documento = ?, 
+                        numero_documento = ?, 
+                        foto_url = ? 
+                    WHERE username = ?
+                    """,
+                    (tipo_documento, numero_documento, foto_url, username)
+                )
+            else:
+                c.execute(
+                    """
+                    INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
+                    VALUES (?, 0.00, 'en_revision', ?, ?, ?, ?)
+                    """,
+                    (username, tipo_documento, numero_documento, foto_url, fecha_actual)
+                )
+
+        conn.commit()
+        
+        registrar_global_audit(
+            username, 
+            "ENVIO_KYC", 
+            f"Documento tipo {tipo_documento} enviado para verificación."
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Datos de KYC recibidos y guardados correctamente. Su cuenta se encuentra en revisión.",
+            "kyc_status": "en_revision"
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({
+            "success": False, 
+            "error": f"Error al procesar el registro KYC en la base de datos: {str(e)}"
+        }), 500
+    finally:
+        if conn:
+            conn.close()
+
 # Registrar el Blueprint de KYC en la aplicación principal Flask
 app.register_blueprint(kyc_bp)
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
