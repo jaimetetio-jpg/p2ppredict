@@ -1,3 +1,4 @@
+DIOS TE BENDIGA 
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -921,7 +922,7 @@ header {
 </div> 
 
 <script> 
-// Modificación aplicada: Inicialización con @invitado y 0.00 Pi
+// Inicialización por defecto como invitado
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
@@ -958,16 +959,47 @@ function cargarMercadosYOrderBook() {
     actualizarEstadoKycUI(); 
 } 
 
+// Parche de actualización en tiempo real y sondeo integrado
 document.addEventListener('DOMContentLoaded', async () => { 
+    // Carga inicial local y sincronización inmediata
+    sincronizarPersistencia(); 
     cargarMercadosYOrderBook(); 
     await sincronizarConSupabase(); 
-    sincronizarPersistencia(); 
     verificarBloqueoUsuarioActual(); 
     cargarMercadosYOrderBook(); 
-    setInterval(() => { 
-        sincronizarConSupabase(); 
-    }, 10000); 
+
+    // Respaldo por sondeo (Polling) cada 5 segundos para garantizar frescura de datos
+    setInterval(async () => { 
+        await sincronizarConSupabase(); 
+    }, 5000); 
+
+    // Relojes regresivos actualizándose cada segundo
     setInterval(actualizarRelojesRegresivos, 1000); 
+
+    // Configuración avanzada de Supabase Realtime para escucha multicanal instantánea
+    if (supabaseClient) { 
+        supabaseClient 
+            .channel('p2ppredict_live_channel') 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => { 
+                console.log("Cambio detectado en mercados:", payload);
+                await sincronizarConSupabase(); 
+                cargarMercadosYOrderBook(); 
+            }) 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => { 
+                console.log("Cambio detectado en Order Book:", payload);
+                await sincronizarConSupabase(); 
+                renderizarOrderBookVisible(); 
+            }) 
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => { 
+                await sincronizarConSupabase(); 
+                renderizarPosiciones(); 
+            }) 
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log("Conectado al canal en tiempo real de Supabase.");
+                }
+            }); 
+    } 
 
     const btnCargarUsuarios = document.getElementById('btn-cargar-usuarios');
     if (btnCargarUsuarios) {
@@ -1013,24 +1045,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-
-    if (supabaseClient) { 
-        supabaseClient 
-            .channel('public:realtime_p2ppredict_sync') 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                cargarMercadosYOrderBook(); 
-            }) 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                renderizarOrderBookVisible(); 
-            }) 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                renderizarPosiciones(); 
-            }) 
-            .subscribe(); 
-    } 
 }); 
 
 async function sincronizarConSupabase() { 
