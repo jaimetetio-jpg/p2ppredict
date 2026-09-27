@@ -104,6 +104,10 @@ def obtener_conexion():
         return conn
 
 
+# Alias para mantener compatibilidad con el parche de administración solicitado
+get_db_connection = obtener_conexion
+
+
 def actualizar_esquema_db():
     if not DATABASE_URL:
         return
@@ -575,7 +579,7 @@ def obtener_saldo(username):
     row = c.fetchone()
 
     if not row:
-        saldo_inicial = 0.0  # Todos los usuarios nuevos arrancan en 0 en Mainnet
+        saldo_inicial = 0.0
         if DATABASE_URL:
             c.execute(
                 "INSERT INTO usuarios (username, saldo_disponible, is_frozen)"
@@ -952,7 +956,7 @@ def crear_orden_clob():
             }), 403
 
         if not row_user:
-            saldo_inicial = 0.0  # Sin saldo automático; debe fondear vía pasarela post-KYC
+            saldo_inicial = 0.0
             if DATABASE_URL:
                 c.execute(
                     "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
@@ -2417,3 +2421,59 @@ def registrar_kyc():
 
 # Registrar el Blueprint en la aplicación principal
 app.register_blueprint(kyc_bp)
+
+
+# ================= NUEVO PARCHE DE ADMINISTRACIÓN DE USUARIOS =================
+@app.route('/api/admin/users', methods=['GET'])
+def admin_get_users():
+    # Opcional: Validar si el usuario actual es administrador
+    # if session.get('username') != 'jaimetetio': 
+    #     return jsonify({"error": "No autorizado"}), 403
+
+    try:
+        conn = get_db_connection()  # Usa tu función de conexión a PostgreSQL
+        cur = conn.cursor()
+        
+        # Consultar los datos de los usuarios registrados en profiles (o usuarios_p2p según convenga)
+        cur.execute("""
+            SELECT id, username, saldo, kyc_estado, creado_at 
+            FROM public.usuarios_p2p 
+            ORDER BY creado_at DESC;
+        """)
+        rows = cur.fetchall()
+        
+        users_list = []
+        for row in rows:
+            # Soportar tanto diccionarios (RealDictCursor) como tuplas estándar
+            if isinstance(row, dict):
+                users_list.append({
+                    "id": str(row.get("id")),
+                    "username": row.get("username"),
+                    "balance": float(row.get("saldo", 0.0)),
+                    "kyc_status": row.get("kyc_estado"),
+                    "created_at": str(row.get("creado_at"))
+                })
+            else:
+                users_list.append({
+                    "id": str(row[0]),
+                    "username": row[1],
+                    "balance": float(row[2]),
+                    "kyc_status": row[3],
+                    "created_at": str(row[4])
+                })
+            
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "total_users": len(users_list),
+            "users": users_list
+        }), 200
+
+    except Exception as e:
+        print(f"Error al obtener usuarios para admin: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
