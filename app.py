@@ -705,14 +705,12 @@ def participar():
     try:
         if DATABASE_URL:
             c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = %s FOR UPDATE",
+                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
                 (username,),
             )
         else:
             c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = ?",
+                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
                 (username,),
             )
         row = c.fetchone()
@@ -765,6 +763,11 @@ def participar():
             return jsonify({"success": False, "error": "Opción inválida"}), 400
 
         nuevo_saldo = saldo_actual - monto
+        
+        # Identificadores unificados para asegurar compatibilidad con operaciones activas
+        pos_id = f"pos_{username}_{ev_id_int}_{opcion_id}_{int(time.time())}"
+        fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         if DATABASE_URL:
             c.execute(
                 "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
@@ -774,14 +777,19 @@ def participar():
                 "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
                 (monto, opcion_id),
             )
+            # Inserción en historial general
             c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento,"
-                " opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
+                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
                 (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
             )
+            # Inserción espejo en posiciones_activas para que el panel frontal los reconozca al instante
             c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (%s, %s, %s, %s, %s)",
+                """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
+            )
+            c.execute(
+                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
                 (
                     username,
                     "Apuesta",
@@ -800,13 +808,16 @@ def participar():
                 (monto, opcion_id),
             )
             c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento,"
-                " opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
                 (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
             )
             c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (?, ?, ?, ?, ?)",
+                """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
+            )
+            c.execute(
+                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
                 (
                     username,
                     "Apuesta",
