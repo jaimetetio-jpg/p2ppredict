@@ -2359,82 +2359,13 @@ def admin_toggle_freeze():
             conn.close()
 
 
-# ================= PARCHE KYC INTEGRADO (BLUEPRINT) =================
-kyc_bp = Blueprint('kyc_bp', __name__)
-
-@kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
-def registrar_kyc():
-    """
-    Endpoint para procesar la inscripción y datos KYC del usuario.
-    """
-    data = request.json or {}
-    username = data.get('username')
-    tipo_doc = data.get('tipo_documento')
-    num_doc = data.get('numero_documento')
-    foto_url = data.get('foto_url')
-
-    if not username or not tipo_doc or not num_doc:
-        return jsonify({"error": "Faltan datos obligatorios para el registro KYC"}), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        if DATABASE_URL:
-            query = """
-                INSERT INTO usuarios_p2p (username, tipo_documento, numero_documento, foto_url, kyc_estado)
-                VALUES (%s, %s, %s, %s, 'pendiente')
-                ON CONFLICT (username) 
-                DO UPDATE SET 
-                    tipo_documento = EXCLUDED.tipo_documento,
-                    numero_documento = EXCLUDED.numero_documento,
-                    foto_url = EXCLUDED.foto_url,
-                    kyc_estado = 'pendiente';
-            """
-            c.execute(query, (username, tipo_doc, num_doc, foto_url))
-        else:
-            query = """
-                INSERT INTO usuarios_p2p (username, tipo_documento, numero_documento, foto_url, kyc_estado)
-                VALUES (?, ?, ?, ?, 'pendiente')
-                ON CONFLICT(username) 
-                DO UPDATE SET 
-                    tipo_documento = excluded.tipo_documento,
-                    numero_documento = excluded.numero_documento,
-                    foto_url = excluded.foto_url,
-                    kyc_estado = 'pendiente';
-            """
-            c.execute(query, (username, tipo_doc, num_doc, foto_url))
-        conn.commit()
-
-        return jsonify({
-            "status": "success",
-            "mensaje": "Datos de KYC recibidos correctamente. Su cuenta está en revisión de identidad.",
-            "kyc_estado": "pendiente"
-        }), 200
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-# Registrar el Blueprint en la aplicación principal
-app.register_blueprint(kyc_bp)
-
-
 # ================= NUEVO PARCHE DE ADMINISTRACIÓN DE USUARIOS =================
 @app.route('/api/admin/users', methods=['GET'])
 def admin_get_users():
-    # Opcional: Validar si el usuario actual es administrador
-    # if session.get('username') != 'jaimetetio': 
-    #     return jsonify({"error": "No autorizado"}), 403
-
     try:
-        conn = get_db_connection()  # Usa tu función de conexión a PostgreSQL
+        conn = get_db_connection()
         cur = conn.cursor()
         
-        # Consultar los datos de los usuarios registrados en profiles (o usuarios_p2p según convenga)
         cur.execute("""
             SELECT id, username, saldo, kyc_estado, creado_at 
             FROM public.usuarios_p2p 
@@ -2444,7 +2375,6 @@ def admin_get_users():
         
         users_list = []
         for row in rows:
-            # Soportar tanto diccionarios (RealDictCursor) como tuplas estándar
             if isinstance(row, dict):
                 users_list.append({
                     "id": str(row.get("id")),
@@ -2475,5 +2405,135 @@ def admin_get_users():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# ================= PARCHE KYC INTEGRADO Y AUTENTICACIÓN (BLUEPRINT) =================
+kyc_bp = Blueprint('kyc_bp', __name__)
+
+@kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
+def registrar_kyc():
+    """
+    Endpoint para procesar la inscripción y datos KYC del usuario.
+    """
+    data = request.json or {}
+    username = data.get('username')
+    tipo_doc = data.get('tipo_documento')
+    num_doc = data.get('numero_documento')
+    foto_url = data.get('foto_url', '')
+
+    if not username or not tipo_doc or not num_doc:
+        return jsonify({"success": False, "error": "Faltan datos obligatorios para el registro KYC"}), 400
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    try:
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if DATABASE_URL:
+            c.execute(
+                """
+                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
+                VALUES (%s, 0.00, 'aprobado', %s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE SET 
+                    kyc_estado = 'aprobado',
+                    tipo_documento = EXCLUDED.tipo_documento,
+                    numero_documento = EXCLUDED.numero_documento,
+                    foto_url = EXCLUDED.foto_url
+                """,
+                (username, tipo_doc, num_doc, foto_url, fecha_actual)
+            )
+            c.execute(
+                """
+                INSERT INTO usuarios (username, saldo_disponible, is_frozen)
+                VALUES (%s, 0.0, FALSE)
+                ON CONFLICT (username) DO NOTHING
+                """,
+                (username,)
+            )
+        else:
+            c.execute(
+                """
+                INSERT OR REPLACE INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
+                VALUES (?, 0.00, 'aprobado', ?, ?, ?, ?)
+                """,
+                (username, tipo_doc, num_doc, foto_url, fecha_actual)
+            )
+            c.execute(
+                """
+                INSERT OR IGNORE INTO usuarios (username, saldo_disponible, is_frozen)
+                VALUES (?, 0.0, 0)
+                """,
+                (username,)
+            )
+            
+        conn.commit()
+        registrar_global_audit(username, "REGISTRO_KYC", f"Usuario inscrito exitosamente con documento {num_doc}")
+        return jsonify({
+            "success": True,
+            "message": "Inscripción y validación KYC completada exitosamente."
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"success": False, "error": f"Error al procesar el registro KYC: {str(e)}"}), 500
+    finally:
+        if c:
+            c.close()
+        if conn:
+            conn.close()
+
+@kyc_bp.route('/api/usuario/iniciar-sesion', methods=['POST'])
+def iniciar_sesion_usuario():
+    """
+    Endpoint para manejar el inicio de sesión del usuario validando su existencia 
+    sin inyectar usuarios predeterminados ficticios como jaimetetio ni saldos artificiales.
+    """
+    data = request.json or {}
+    username = data.get('username')
+
+    if not username:
+        return jsonify({"success": False, "error": "El nombre de usuario es obligatorio"}), 400
+
+    conn = obtener_conexion()
+    c = conn.cursor()
+    try:
+        if DATABASE_URL:
+            c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s", (username,))
+        else:
+            c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?", (username,))
+        
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({
+                "success": False, 
+                "error": "El usuario no está registrado. Por favor, haga clic en 'Inscribirse' para registrarse."
+            }), 404
+
+        row_dict = dict(row)
+        if row_dict.get("is_frozen"):
+            return jsonify({
+                "success": False, 
+                "error": "Su cuenta se encuentra suspendida temporalmente."
+            }), 403
+
+        session['username'] = username
+        return jsonify({
+            "success": True,
+            "message": "Sesión iniciada correctamente",
+            "username": username,
+            "saldo_disponible": row_dict.get("saldo_disponible", 0.0)
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if c:
+            c.close()
+        if conn:
+            conn.close()
+
+# Registrar el Blueprint de KYC en la aplicación principal Flask
+app.register_blueprint(kyc_bp)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
