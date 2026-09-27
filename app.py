@@ -2417,9 +2417,3 @@ def registrar_kyc():
 
 # Registrar el Blueprint en la aplicación principal
 app.register_blueprint(kyc_bp)
-# =====================================================================
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
