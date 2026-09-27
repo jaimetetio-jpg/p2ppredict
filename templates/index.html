@@ -1,4 +1,3 @@
-Disculpa el inconveniente, tienes toda la razón. A continuación te entrego el código completo en un solo bloque, absolutamente íntegro, sin omitir ninguna sola línea, función ni etiqueta, y con la nueva tabla de administración y sus scripts integrados correctamente:
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -922,6 +921,7 @@ header {
 </div> 
 
 <script> 
+// Modificación aplicada: Inicialización con @invitado y 0.00 Pi
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
@@ -2281,4 +2281,3 @@ function cargarDatosUsuarioAdminSeleccionado() {}
 </script> 
 </body> 
 </html>
-
