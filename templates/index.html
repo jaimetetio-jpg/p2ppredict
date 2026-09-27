@@ -1,4 +1,3 @@
-DIOS TE BENDIGA 1
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -429,10 +428,10 @@ header {
 
 <!-- VISTA: MERCADOS --> 
 <div id="view-mercados" class="section-view active"> 
-    <!-- SECCIÓN DE AUTENTICACIÓN (Se ocultará automáticamente al estar registrado/aprobado) -->
+    <!-- SECCIÓN DE REGISTRO Y AUTENTICACIÓN (Siempre visible) -->
     <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
-        <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Autenticación y Cuenta Supabase</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave o regístrate para operar en la plataforma.</p> 
+        <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Registro y Autenticación</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o recupera tus datos de acceso.</p> 
         <div style="display: flex; flex-direction: column; gap: 8px;"> 
             <div style="display: flex; gap: 8px;"> 
                 <button id="kyc-action-btn" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.8rem; padding: 9px;" onclick="abrirModalKyc()">📝 Registrarse</button> 
@@ -441,10 +440,13 @@ header {
                 <input type="password" id="input-login-clave" class="form-control" placeholder="Clave / Contraseña de usuario..." style="margin-bottom: 0; flex: 1;"> 
                 <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.8rem; padding: 10px 14px; white-space: nowrap;" onclick="iniciarSesionUsuario()">Iniciar sesión</button> 
             </div> 
+            <div style="text-align: right; margin-top: 2px;">
+                <button onclick="abrirModalRecuperacion()" style="background: transparent; border: none; color: #38bdf8; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">🔑 ¿Olvidó usuario / contraseña?</button>
+            </div>
         </div> 
     </div> 
 
-    <!-- BANNER ESTADO KYC (Se ocultará cuando esté aprobado) -->
+    <!-- BANNER ESTADO KYC (Oculto cuando el KYC está aprobado) -->
     <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
         <div style="display: flex; justify-content: space-between; align-items: center;"> 
             <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
@@ -843,6 +845,25 @@ header {
     </div> 
 </div> 
 
+<!-- MODAL RECUPERACIÓN CREDENCIALES --> 
+<div id="recovery-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">🔑 Recuperar Usuario y Contraseña</h3> 
+            <button onclick="cerrarModalRecuperacion()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Introduce tu correo electrónico registrado para consultar tus datos de acceso o recibir asistencia.</p> 
+        <div class="form-group"> 
+            <label>Correo Electrónico Registrado</label> 
+            <input type="email" id="rec-correo" class="form-control" placeholder="tucorreo@ejemplo.com"> 
+        </div> 
+        <div style="display: flex; gap: 8px;"> 
+            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarRecuperacion()">Buscar Credenciales</button> 
+            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #7c3aed, #6d28d9);" onclick="irASoporteDesdeRecuperacion()">Ir al Chat de Soporte</button> 
+        </div> 
+    </div> 
+</div> 
+
 <!-- MODAL AUTH ADMIN --> 
 <div id="admin-auth-modal" class="modal-overlay"> 
     <div class="modal-card"> 
@@ -1169,16 +1190,8 @@ function actualizarEstadoKycUI() {
     const text = document.getElementById('kyc-banner-text'); 
     const indicatorCircle = document.getElementById('kyc-indicator-circle'); 
     const indicatorText = document.getElementById('kyc-indicator-text'); 
-    const authSection = document.getElementById('auth-section-container');
 
     if (!banner) return; 
-
-    // Ocultar sección de autenticación/registro si ya inició sesión o está verificado
-    if (usuarioActual.handle !== "@invitado") {
-        if (authSection) authSection.style.display = 'none';
-    } else {
-        if (authSection) authSection.style.display = 'block';
-    }
 
     if (usuarioActual.handle === "@invitado") { 
         banner.style.display = 'flex';
@@ -1195,10 +1208,7 @@ function actualizarEstadoKycUI() {
     } 
 
     if (usuarioActual.kyc_estado === 'aprobado') { 
-        // 1. Ocultar completamente el cuadro verde grande cuando el KYC esté aprobado
         banner.style.display = 'none'; 
-
-        // 2. Mostrar indicador verde en la cabecera con el texto "KYC Aprobado"
         if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
         if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
     } else {
@@ -1258,6 +1268,35 @@ function abrirModalKyc() {
 function cerrarModalKyc() { 
     document.getElementById('kyc-modal').style.display = 'none'; 
 } 
+
+function abrirModalRecuperacion() {
+    document.getElementById('rec-correo').value = '';
+    document.getElementById('recovery-modal').style.display = 'flex';
+}
+
+function cerrarModalRecuperacion() {
+    document.getElementById('recovery-modal').style.display = 'none';
+}
+
+function ejecutarRecuperacion() {
+    const correoInput = document.getElementById('rec-correo').value.trim();
+    if (!correoInput) {
+        alert("Por favor, introduce tu correo electrónico.");
+        return;
+    }
+    let encontrada = kycSolicitudes.find(k => k.correo && k.correo.toLowerCase() === correoInput.toLowerCase());
+    if (encontrada) {
+        alert(`✅ Cuenta encontrada:\nUsuario: ${encontrada.handle}\nClave: ${encontrada.clave || 'No disponible'}`);
+        cerrarModalRecuperacion();
+    } else {
+        alert("❌ No se encontró ninguna cuenta asociada a este correo. Utiliza el Chat de Soporte para recibir ayuda del administrador.");
+    }
+}
+
+function irASoporteDesdeRecuperacion() {
+    cerrarModalRecuperacion();
+    abrirSoporteChatUsuario();
+}
 
 async function enviarSolicitudKyc() { 
     const username = document.getElementById('kyc-username').value.trim(); 
