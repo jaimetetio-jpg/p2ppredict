@@ -1,4 +1,4 @@
-DIOS TE BENDIGA 
+DIOS TE BENDIGA 1
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -429,7 +429,8 @@ header {
 
 <!-- VISTA: MERCADOS --> 
 <div id="view-mercados" class="section-view active"> 
-    <div style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
+    <!-- SECCIÓN DE AUTENTICACIÓN (Se ocultará automáticamente al estar registrado/aprobado) -->
+    <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
         <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Autenticación y Cuenta Supabase</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave o regístrate para operar en la plataforma.</p> 
         <div style="display: flex; flex-direction: column; gap: 8px;"> 
@@ -443,12 +444,14 @@ header {
         </div> 
     </div> 
 
+    <!-- BANNER ESTADO KYC (Se ocultará cuando esté aprobado) -->
     <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
         <div style="display: flex; justify-content: space-between; align-items: center;"> 
             <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
             <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Registrado</span> </div> 
         <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes registrarte y realizar tu solicitud de KYC.</p> 
     </div> 
+
     <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()"> 
     <div class="filter-pills"> 
         <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
@@ -617,7 +620,6 @@ header {
 
 <!-- VISTA: ADMIN --> 
 <div id="view-admin" class="section-view"> 
-    <!-- PANEL DE ADMINISTRACIÓN (PARCHE) --> 
     <div class="market-card" style="margin-top: 0;"> 
         <div class="market-title">Panel de Administración</div> 
         <button id="btn-cargar-usuarios" class="btn-admin" style="margin-top: 8px;">Consultar Usuarios Activos</button> 
@@ -635,13 +637,11 @@ header {
                     </tr> 
                 </thead> 
                 <tbody id="admin-users-tbody"> 
-                    <!-- Los datos se inyectarán aquí mediante JavaScript --> 
                 </tbody> 
             </table> 
         </div> 
     </div> 
 
-    <!-- GESTIÓN DE SOLICITUDES KYC PENDIENTES --> 
     <div class="market-card"> 
         <div class="market-title">🛡️ Solicitudes de Verificación KYC (Pendientes)</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa los datos de identidad y habitación enviados por los usuarios para aprobarlos o rechazarlos.</p> 
@@ -922,7 +922,6 @@ header {
 </div> 
 
 <script> 
-// Inicialización por defecto como invitado
 let usuarioActual = JSON.parse(localStorage.getItem('p2p_usuario')) || { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
 let posicionesActivas = JSON.parse(localStorage.getItem('p2p_posiciones')) || []; 
 let historialTransacciones = JSON.parse(localStorage.getItem('p2p_historial_transacciones')) || []; 
@@ -959,34 +958,27 @@ function cargarMercadosYOrderBook() {
     actualizarEstadoKycUI(); 
 } 
 
-// Parche de actualización en tiempo real y sondeo integrado
 document.addEventListener('DOMContentLoaded', async () => { 
-    // Carga inicial local y sincronización inmediata
     sincronizarPersistencia(); 
     cargarMercadosYOrderBook(); 
     await sincronizarConSupabase(); 
     verificarBloqueoUsuarioActual(); 
     cargarMercadosYOrderBook(); 
 
-    // Respaldo por sondeo (Polling) cada 5 segundos para garantizar frescura de datos
     setInterval(async () => { 
         await sincronizarConSupabase(); 
     }, 5000); 
 
-    // Relojes regresivos actualizándose cada segundo
     setInterval(actualizarRelojesRegresivos, 1000); 
 
-    // Configuración avanzada de Supabase Realtime para escucha multicanal instantánea
     if (supabaseClient) { 
         supabaseClient 
             .channel('p2ppredict_live_channel') 
             .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => { 
-                console.log("Cambio detectado en mercados:", payload);
                 await sincronizarConSupabase(); 
                 cargarMercadosYOrderBook(); 
             }) 
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => { 
-                console.log("Cambio detectado en Order Book:", payload);
                 await sincronizarConSupabase(); 
                 renderizarOrderBookVisible(); 
             }) 
@@ -994,11 +986,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await sincronizarConSupabase(); 
                 renderizarPosiciones(); 
             }) 
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log("Conectado al canal en tiempo real de Supabase.");
-                }
-            }); 
+            .subscribe(); 
     } 
 
     const btnCargarUsuarios = document.getElementById('btn-cargar-usuarios');
@@ -1023,25 +1011,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         `;
                         tbody.appendChild(tr);
                     });
-                } else {
-                    alert("Error al cargar los usuarios: " + data.error);
                 }
             } catch (error) {
                 console.error("Error de conexión:", error);
-                const tbody = document.getElementById('admin-users-tbody');
-                document.getElementById('total-count').innerText = kycSolicitudes.length || cuentasDirectorio.length;
-                tbody.innerHTML = '';
-                let listaRender = kycSolicitudes.length > 0 ? kycSolicitudes : cuentasDirectorio;
-                listaRender.forEach(u => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${u.handle || u.username}</td>
-                        <td>${u.balance !== undefined ? u.balance : '0.00'} Pi</td>
-                        <td><span class="badge">${u.estado || u.kyc_estado || 'aprobado'}</span></td>
-                        <td>-</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
             }
         });
     }
@@ -1050,20 +1022,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function sincronizarConSupabase() { 
     if (!supabaseClient) return; 
     try { 
-        let { data: mercs, error: errMerc } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (!errMerc && mercs) { 
-            mercadosDinamicos = mercs; 
-        } 
-        let { data: ordenes, error: errOrd } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (!errOrd && ordenes) { 
-            ordenesGlobales = ordenes; 
-        } 
-        let { data: txs, error: errTx } = await supabaseClient.from('historial_transacciones').select('*'); 
-        if (!errTx && txs) { 
-            historialTransacciones = txs; 
-        } 
-        let { data: pos, error: errPos } = await supabaseClient.from('posiciones_activas').select('*'); 
-        if (!errPos && pos) { 
+        let { data: mercs } = await supabaseClient.from('mercados_dinamicos').select('*'); 
+        if (mercs) mercadosDinamicos = mercs; 
+        let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
+        if (ordenes) ordenesGlobales = ordenes; 
+        let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
+        if (txs) historialTransacciones = txs; 
+        let { data: pos } = await supabaseClient.from('posiciones_activas').select('*'); 
+        if (pos) { 
             posicionesActivas = pos.map(p => ({ 
                 id: p.id, 
                 marketId: p.market_id, 
@@ -1076,12 +1042,8 @@ async function sincronizarConSupabase() {
                 estadoOrden: p.estado_orden || 'ACTIVO' 
             })); 
         } 
-        let { data: tcks, error: errTck } = await supabaseClient.from('tickets_soporte').select('*'); 
-        if (!errTck && tcks) { 
-            ticketsSoporte = tcks; 
-        } 
-        let { data: kycs, error: errKyc } = await supabaseClient.from('usuarios_p2p').select('*'); 
-        if (!errKyc && kycs) { 
+        let { data: kycs } = await supabaseClient.from('usuarios_p2p').select('*'); 
+        if (kycs) { 
             kycSolicitudes = kycs.map(k => ({ 
                 handle: k.username, 
                 nombre: k.nombre || '', 
@@ -1207,9 +1169,19 @@ function actualizarEstadoKycUI() {
     const text = document.getElementById('kyc-banner-text'); 
     const indicatorCircle = document.getElementById('kyc-indicator-circle'); 
     const indicatorText = document.getElementById('kyc-indicator-text'); 
+    const authSection = document.getElementById('auth-section-container');
+
     if (!banner) return; 
 
+    // Ocultar sección de autenticación/registro si ya inició sesión o está verificado
+    if (usuarioActual.handle !== "@invitado") {
+        if (authSection) authSection.style.display = 'none';
+    } else {
+        if (authSection) authSection.style.display = 'block';
+    }
+
     if (usuarioActual.handle === "@invitado") { 
+        banner.style.display = 'flex';
         banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
         banner.style.border = '1px solid #2563eb'; 
         title.style.color = '#60a5fa'; 
@@ -1223,46 +1195,46 @@ function actualizarEstadoKycUI() {
     } 
 
     if (usuarioActual.kyc_estado === 'aprobado') { 
-        banner.style.background = 'rgba(22, 163, 74, 0.15)'; 
-        banner.style.border = '1px solid #16a34a'; 
-        title.style.color = '#4ade80'; 
-        title.innerText = '✅ Verificación KYC Aprobada'; 
-        badge.style.background = '#16a34a'; 
-        badge.innerText = 'Aprobado'; 
-        text.innerText = 'Tu identidad ha sido verificada correctamente por el administrador. Tienes acceso total para depositar y apostar.'; 
+        // 1. Ocultar completamente el cuadro verde grande cuando el KYC esté aprobado
+        banner.style.display = 'none'; 
+
+        // 2. Mostrar indicador verde en la cabecera con el texto "KYC Aprobado"
         if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
         if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
-    } else if (usuarioActual.kyc_estado === 'rechazado') { 
-        banner.style.background = 'rgba(220, 38, 38, 0.15)'; 
-        banner.style.border = '1px solid #dc2626'; 
-        title.style.color = '#f87171'; 
-        title.innerText = '❌ Verificación KYC Rechazada'; 
-        badge.style.background = '#dc2626'; 
-        badge.innerText = 'Rechazado'; 
-        text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
-        if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
-        if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
-    } else if (usuarioActual.kyc_estado === 'pendiente') { 
-        banner.style.background = 'rgba(234, 179, 8, 0.15)'; 
-        banner.style.border = '1px solid #eab308'; 
-        title.style.color = '#facc15'; 
-        title.innerText = '⏳ Solicitud de KYC Pendiente'; 
-        badge.style.background = '#ca8a04'; 
-        badge.innerText = 'Pendiente'; 
-        text.innerText = 'Tus datos de identidad y habitación han sido enviados y se encuentran en revisión por el administrador.'; 
-        if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
-        if (indicatorText) indicatorText.innerText = 'KYC Solicitud Pendiente'; 
-    } else { 
-        banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
-        banner.style.border = '1px solid #2563eb'; 
-        title.style.color = '#60a5fa'; 
-        title.innerText = '🔒 Verificación KYC Requerida'; 
-        badge.style.background = '#2563eb'; 
-        badge.innerText = 'Pendiente KYC'; 
-        text.innerText = 'Tu cuenta está creada, pero debes completar tu solicitud de KYC para habilitar las apuestas.'; 
-        if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
-        if (indicatorText) indicatorText.innerText = 'KYC Requerido'; 
-    } 
+    } else {
+        banner.style.display = 'flex';
+        if (usuarioActual.kyc_estado === 'rechazado') { 
+            banner.style.background = 'rgba(220, 38, 38, 0.15)'; 
+            banner.style.border = '1px solid #dc2626'; 
+            title.style.color = '#f87171'; 
+            title.innerText = '❌ Verificación KYC Rechazada'; 
+            badge.style.background = '#dc2626'; 
+            badge.innerText = 'Rechazado'; 
+            text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
+            if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
+            if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
+        } else if (usuarioActual.kyc_estado === 'pendiente') { 
+            banner.style.background = 'rgba(234, 179, 8, 0.15)'; 
+            banner.style.border = '1px solid #eab308'; 
+            title.style.color = '#facc15'; 
+            title.innerText = '⏳ Solicitud de KYC Pendiente'; 
+            badge.style.background = '#ca8a04'; 
+            badge.innerText = 'Pendiente'; 
+            text.innerText = 'Tus datos de identidad y habitación han sido enviados y se encuentran en revisión por el administrador.'; 
+            if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
+            if (indicatorText) indicatorText.innerText = 'KYC Pendiente'; 
+        } else { 
+            banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
+            banner.style.border = '1px solid #2563eb'; 
+            title.style.color = '#60a5fa'; 
+            title.innerText = '🔒 Verificación KYC Requerida'; 
+            badge.style.background = '#2563eb'; 
+            badge.innerText = 'Pendiente KYC'; 
+            text.innerText = 'Tu cuenta está creada, pero debes completar tu solicitud de KYC para habilitar las apuestas.'; 
+            if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
+            if (indicatorText) indicatorText.innerText = 'KYC Requerido'; 
+        } 
+    }
 } 
 
 function abrirModalKyc() { 
@@ -1908,7 +1880,6 @@ function abrirTerminalTrading(idMercado, tituloMercado, opcion) {
     const amountInput = document.getElementById('modal-amount'); 
     const btnConfirmar = document.getElementById('btn-confirmar-compra'); 
     const successBanner = document.getElementById('modal-success-banner'); 
-    const btnClose = document.getElementById('btn-modal-close'); 
     orderTypeSelect.disabled = false; 
     orderTypeSelect.value = 'MARKET'; 
     document.getElementById('group-limit-price').style.display = 'none'; 
