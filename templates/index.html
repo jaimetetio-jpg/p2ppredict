@@ -1,3 +1,4 @@
+DIOS TE AMO MUCHÍSIMO 
 <!DOCTYPE html> 
 <html lang="es"> 
 <head> 
@@ -428,7 +429,7 @@ header {
 
 <!-- VISTA: MERCADOS --> 
 <div id="view-mercados" class="section-view active"> 
-    <!-- SECCIÓN DE REGISTRO Y AUTENTICACIÓN (Siempre visible) -->
+    <!-- SECCIÓN DE REGISTRO Y AUTENTICACIÓN -->
     <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
         <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Registro y Autenticación</div> 
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o recupera tus datos de acceso.</p> 
@@ -446,7 +447,7 @@ header {
         </div> 
     </div> 
 
-    <!-- BANNER ESTADO KYC (Oculto cuando el KYC está aprobado) -->
+    <!-- BANNER ESTADO KYC -->
     <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
         <div style="display: flex; justify-content: space-between; align-items: center;"> 
             <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
@@ -528,7 +529,7 @@ header {
     </div> 
 </div> 
 
-<!-- NUEVA VISTA: CREAR PREDICCIÓN --> 
+<!-- VISTA: CREAR PREDICCIÓN --> 
 <div id="view-crear" class="section-view"> 
     <div class="market-card"> 
         <div class="market-title">🚀 Crear Nuevo Mercado de Predicción</div> 
@@ -1049,6 +1050,7 @@ async function sincronizarConSupabase() {
         if (ordenes) ordenesGlobales = ordenes; 
         let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
         if (txs) historialTransacciones = txs; 
+        
         let { data: pos } = await supabaseClient.from('posiciones_activas').select('*'); 
         if (pos) { 
             posicionesActivas = pos.map(p => ({ 
@@ -1063,6 +1065,7 @@ async function sincronizarConSupabase() {
                 estadoOrden: p.estado_orden || 'ACTIVO' 
             })); 
         } 
+
         let { data: kycs } = await supabaseClient.from('usuarios_p2p').select('*'); 
         if (kycs) { 
             kycSolicitudes = kycs.map(k => ({ 
@@ -1999,7 +2002,9 @@ async function confirmarCompraRapida() {
         estadoOrden: 'ACTIVO' 
     }; 
     posicionesActivas.push(nuevaPosicion); 
-    guardarEnSupabaseTabla('posiciones_activas', { 
+    
+    // Guardar inmediatamente en Supabase con la estructura exacta de la tabla
+    await guardarEnSupabaseTabla('posiciones_activas', { 
         id: nuevaPosicion.id, 
         market_id: String(nuevaPosicion.marketId), 
         handle: usuarioActual.handle, 
@@ -2010,6 +2015,7 @@ async function confirmarCompraRapida() {
         payout: nuevaPosicion.payout, 
         estado_orden: nuevaPosicion.estadoOrden 
     }); 
+
     const nuevaOrdenGlobal = { 
         marketId: idM, 
         tipo: tipoOrden === 'limit' ? 'COMPRA LÍMITE (Bid)' : 'COMPRA MERCADO (Bid)', 
@@ -2020,6 +2026,7 @@ async function confirmarCompraRapida() {
     }; 
     ordenesGlobales.push(nuevaOrdenGlobal); 
     guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
+
     registrarTransaccionEnDB({ 
         id: 'TX-' + Date.now(), 
         titulo: 'Compra de Contratos', 
@@ -2027,6 +2034,7 @@ async function confirmarCompraRapida() {
         monto: -ordenActivaModal.totalConComision, 
         detalle: `Adquisición de ${cantidad} contratos de [${opM}]` 
     }); 
+
     guardarTodoInStorage(); 
     cerrarTerminalTrading(); 
     renderizarPosiciones(); 
@@ -2305,3 +2313,4 @@ function cargarDatosUsuarioAdminSeleccionado() {}
 </script> 
 </body> 
 </html>
+
