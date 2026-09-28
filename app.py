@@ -96,10 +96,10 @@ def obtener_conexion():
         )
         return conn
     else:
-        raise RuntimeError("DATABASE_URL no está configurada. Esta aplicación requiere una base de datos PostgreSQL activa.")
+        raise RuntimeError("DATABASE_URL no está configurada para PostgreSQL.")
 
 
-# Alias para mantener compatibilidad con el parche de administración solicitado
+# Alias para mantener compatibilidad con get_db_connection
 get_db_connection = obtener_conexion
 
 
