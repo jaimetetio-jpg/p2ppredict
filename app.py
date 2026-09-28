@@ -271,6 +271,13 @@ def inicializar_bd():
         foto_url TEXT,
         creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS compras (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        producto TEXT NOT NULL,
+        fecha_compra TEXT NOT NULL,
+        estado TEXT DEFAULT 'activa'
+    )""")
     c.execute("CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);")
 
     conn.commit()
@@ -1686,6 +1693,43 @@ def obtener_posiciones_activas(username):
     finally:
         c.close()
         conn.close()
+
+
+# ================= PARCHE COMPRAS ACTIVAS INTEGRADO =================
+def obtener_compras_activas_db(user_id):
+    connection = None
+    try:
+        connection = db_pool.getconn()
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """
+                SELECT id, producto, fecha_compra, estado 
+                FROM compras 
+                WHERE user_id = %s AND estado = 'activa'
+            """
+            cursor.execute(query, (user_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"Error consultando compras activas en PostgreSQL: {e}")
+        return None
+    finally:
+        if connection:
+            db_pool.putconn(connection)
+
+@app.route('/api/compras-activas', methods=['GET'])
+def api_compras_activas():
+    if 'user_id' not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    
+    user_id = session['user_id']
+    compras = obtener_compras_activas_db(user_id)
+    
+    if compras is None:
+        return jsonify({"error": "Error interno al procesar la base de datos"}), 500
+        
+    return jsonify({
+        "tiene_compras": len(compras) > 0,
+        "compras": compras
+    }), 200
 
 
 # ================= PARCHE KYC INTEGRADO Y AUTENTICACIÓN (BLUEPRINT) =================
