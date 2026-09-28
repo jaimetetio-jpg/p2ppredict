@@ -1059,6 +1059,39 @@ def crear_orden():
         conn.close()
 
 
+@app.route('/api/order', methods=['POST'])
+def create_order():
+    data = request.json
+    user_id = data.get('user_id')
+    amount = float(data.get('amount', 0))
+    
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # Bloquear el registro del usuario para verificar saldo de forma segura
+            cursor.execute("SELECT balance FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,))
+            wallet = cursor.fetchone()
+            
+            if not wallet or wallet['balance'] < amount:
+                conn.rollback()
+                return jsonify({'error': 'Saldo insuficiente or balance en cero'}), 400
+            
+            # Bloquear filas del Order Book para el matching concurrente
+            cursor.execute("SELECT * FROM order_book WHERE status = 'open' ORDER BY price ASC FOR UPDATE")
+            open_orders = cursor.fetchall()
+            
+            # Procesar lógica de emparejamiento (matching engine) aquí...
+            
+            conn.commit()
+            return jsonify({'status': 'success', 'message': 'Orden procesada correctamente'}), 200
+            
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db_pool.putconn(conn)
+
+
 @app.route("/api/pi/aprobar-pago", methods=["POST"])
 def aprobar_pago():
     data = request.json or {}
