@@ -5,6 +5,7 @@ requests
 werkzeug
 python-dotenv
 gunicorn
+Flask-Limiter
 
 
 
