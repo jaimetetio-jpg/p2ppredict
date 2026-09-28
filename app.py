@@ -747,6 +747,17 @@ def crear_orden_clob():
                     (username, titulo_ev, nombre_op, match_cant),
                 )
 
+                # ================= PARCHE 2 APLICADO AQUÍ =================
+                pos_id = f"pos_{username}_{evento_id}_{opcion_id}_{int(time.time())}_{random.randint(100,999)}"
+                fecha_str_pos = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                c.execute(
+                    """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (pos_id, str(evento_id), username, titulo_ev, nombre_op, int(match_cant), costo_match, costo_match * 2, fecha_str_pos)
+                )
+                # ========================================================
+
                 nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
                 c.execute(
@@ -1658,6 +1669,27 @@ def admin_get_users():
         return jsonify({"error": str(e)}), 500
 
 
+# ================= PARCHE 1 INTEGRADO =================
+@app.route("/api/posiciones-activas/<username>", methods=["GET"])
+def obtener_posiciones_activas(username):
+    conn = obtener_conexion()
+    c = conn.cursor()
+    try:
+        c.execute(
+            """SELECT id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at 
+               FROM posiciones_activas 
+               WHERE handle = %s ORDER BY created_at DESC""",
+            (username,)
+        )
+        posiciones = [dict(row) for row in c.fetchall()]
+        return jsonify({"success": True, "posiciones": posiciones}), 200
+    except Exception as e:
+        return jsonify({"success": True, "posiciones": []}), 200
+    finally:
+        c.close()
+        conn.close()
+
+
 # ================= PARCHE KYC INTEGRADO Y AUTENTICACIÓN (BLUEPRINT) =================
 kyc_bp = Blueprint('kyc_bp', __name__)
 
@@ -1848,4 +1880,3 @@ app.register_blueprint(kyc_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
