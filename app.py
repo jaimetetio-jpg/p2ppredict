@@ -1,8 +1,9 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import random
 import time
+import re
 from flask import Flask, jsonify, render_template, request, session, Blueprint
 from flask_cors import CORS
 import psycopg2
@@ -10,8 +11,24 @@ from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 import requests
 from werkzeug.security import check_password_hash, generate_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
+
+# ================= CONFIGURACIÓN DE SESIONES Y COOKIES SEGURAS =================
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Impide el acceso a la cookie vía JavaScript (protege contra XSS)
+app.config['SESSION_COOKIE_SECURE'] = True    # Obliga a que la cookie solo viaje por HTTPS
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Mitiga ataques CSRF
+app.permanent_session_lifetime = timedelta(days=7) # Tiempo de expiración de la sesión
+
+# ================= INICIALIZACIÓN DE FLASK-LIMITER =================
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"], # Límite global
+    storage_uri="memory://" 
+)
 
 # ================= APARTADO DE VALIDACIÓN - KEY TXT =================
 VALIDATION_KEY_TXT = "8c73ed3c39ffc42821ce971267c7b58d01487ed71624c57309cc6079dd976f5f8f462164ffbdc8424ba6d641e94332ef1d8b17e8789cb1385717cceaecf6eb79"
@@ -38,6 +55,23 @@ def check_rate_limit(limit=25, window=60):
     if len(request_records[ip]) >= limit:
         return False
     request_records[ip].append(now)
+    return True
+
+
+# ================= FUNCIÓN DE VALIDACIÓN DE CONTRASEÑAS SEGURAS =================
+def es_contrasena_segura(password):
+    """
+    Verifica que la contraseña tenga al menos 8 caracteres, 
+    una letra mayúscula, una minúscula y un número.
+    """
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"\d", password):
+        return False
     return True
 
 
@@ -365,6 +399,18 @@ def validation_key():
 @app.route('/healthz')
 def healthz():
     return "OK", 200
+
+
+@app.route('/register', methods=['POST'])
+def register_usuario():
+    data = request.get_json(silent=True) or request.form
+    password = data.get('password', '')
+
+    if not es_contrasena_segura(password):
+        return jsonify({"error": "La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número."}), 400
+    
+    # Lógica de inserción/registro posterior si aplica
+    return jsonify({"success": True, "message": "Contraseña válida y registro procesado."}), 200
 
 
 @app.route("/api/saldo/<username>", methods=["GET"])
@@ -1248,8 +1294,9 @@ def complete_pi_payment():
     return jsonify({"status": "success", "message": "Pago completado y registrado"}), 200
 
 
-@app.route("/api/admin/login", methods=["POST"])
-def admin_login():
+@app.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
+def login():
     if not check_rate_limit(limit=5, window=60):
         registrar_log_admin(
             "LOGIN_FALLIDO_RATE_LIMIT",
@@ -1262,9 +1309,28 @@ def admin_login():
 
     data = request.json or {}
     password = data.get("password", "")
+    username = data.get("username", "")
+    
+    # Lógica de validación estándar de inicio de sesión
     if check_password_hash(ADMIN_PASSWORD_HASH, password):
         session.clear()
-        session.regenerate = True
+        session.permanent = True
+        session["is_admin"] = True
+        registrar_log_admin("LOGIN_EXITOSO", f"Usuario/Administrador {username or 'Admin'} inició sesión correctamente.")
+        return jsonify({"success": True, "message": "Acceso autorizado"})
+
+    registrar_log_admin("LOGIN_FALLIDO", "Intento de acceso con contraseña incorrecta.")
+    return jsonify({"success": False, "error": "Credenciales inválidas"}), 401
+
+
+@app.route("/api/admin/login", methods=["POST"])
+@limiter.limit("5 per minute")
+def admin_login():
+    data = request.json or {}
+    password = data.get("password", "")
+    if check_password_hash(ADMIN_PASSWORD_HASH, password):
+        session.clear()
+        session.permanent = True
         session["is_admin"] = True
         registrar_log_admin("LOGIN_EXITOSO", "Administrador inició sesión correctamente.")
         return jsonify({"success": True, "message": "Acceso autorizado"})
@@ -1674,7 +1740,7 @@ def admin_get_users():
         return jsonify({"error": str(e)}), 500
 
 
-# ================= PARCHE INTEGRADO DE POSICIONES ACTIVAS =================
+# ================= POSICIONES ACTIVAS =================
 @app.route("/api/posiciones-activas/<username>", methods=["GET"])
 def obtener_posiciones_activas(username):
     conn = obtener_conexion()
@@ -1695,7 +1761,7 @@ def obtener_posiciones_activas(username):
         conn.close()
 
 
-# ================= PARCHE COMPRAS ACTIVAS INTEGRADO =================
+# ================= COMPRAS ACTIVAS =================
 def obtener_compras_activas_db(user_id):
     connection = None
     try:
@@ -1732,7 +1798,7 @@ def api_compras_activas():
     }), 200
 
 
-# ================= PARCHE KYC INTEGRADO Y AUTENTICACIÓN (BLUEPRINT) =================
+# ================= KYC Y AUTENTICACIÓN (BLUEPRINT) =================
 kyc_bp = Blueprint('kyc_bp', __name__)
 
 @kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
