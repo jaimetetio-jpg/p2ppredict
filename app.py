@@ -1068,7 +1068,6 @@ def create_order():
     conn = db_pool.getconn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # Bloquear el registro del usuario para verificar saldo de forma segura
             cursor.execute("SELECT balance FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,))
             wallet = cursor.fetchone()
             
@@ -1076,11 +1075,8 @@ def create_order():
                 conn.rollback()
                 return jsonify({'error': 'Saldo insuficiente or balance en cero'}), 400
             
-            # Bloquear filas del Order Book para el matching concurrente
             cursor.execute("SELECT * FROM order_book WHERE status = 'open' ORDER BY price ASC FOR UPDATE")
             open_orders = cursor.fetchall()
-            
-            # Procesar lógica de emparejamiento (matching engine) aquí...
             
             conn.commit()
             return jsonify({'status': 'success', 'message': 'Orden procesada correctamente'}), 200
@@ -1987,9 +1983,8 @@ def iniciar_sesion_usuario():
         if conn:
             conn.close()
 
-            @kyc_bp.route("/api/kyc/procesar", methods=["POST"])
+@kyc_bp.route("/api/kyc/procesar", methods=["POST"])
 def procesar_kyc():
-            
     if not check_rate_limit(limit=10, window=60):
         return jsonify({
             "success": False,
@@ -1997,7 +1992,6 @@ def procesar_kyc():
         }), 429
 
     data = request.form if request.form else (request.json or {})
-    # CORREGIDO: Usamos 'nickname' en lugar de 'username' según tu tabla de Supabase
     nickname = data.get("nickname") or data.get("username")
     tipo_documento = data.get("tipo_documento")
     numero_documento = data.get("numero_documento")
@@ -2024,7 +2018,6 @@ def procesar_kyc():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        # CORREGIDO: Buscamos por 'nickname'
         c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE nickname = %s", (nickname,))
         user_kyc = c.fetchone()
 
