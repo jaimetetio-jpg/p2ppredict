@@ -1987,7 +1987,7 @@ def iniciar_sesion_usuario():
         if conn:
             conn.close()
 
-            kyc_bp.route("/api/kyc/procesar", methods=["POST"])
+            @kyc_bp.route("/api/kyc/procesar", methods=["POST"])
 def procesar_kyc():
     if not check_rate_limit(limit=10, window=60):
         return jsonify({
