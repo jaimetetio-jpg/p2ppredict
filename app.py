@@ -747,7 +747,6 @@ def crear_orden_clob():
                     (username, titulo_ev, nombre_op, match_cant),
                 )
 
-                # ================= PARCHE 2 APLICADO AQUÍ =================
                 pos_id = f"pos_{username}_{evento_id}_{opcion_id}_{int(time.time())}_{random.randint(100,999)}"
                 fecha_str_pos = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -756,7 +755,6 @@ def crear_orden_clob():
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (pos_id, str(evento_id), username, titulo_ev, nombre_op, int(match_cant), costo_match, costo_match * 2, fecha_str_pos)
                 )
-                # ========================================================
 
                 nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
@@ -1669,7 +1667,7 @@ def admin_get_users():
         return jsonify({"error": str(e)}), 500
 
 
-# ================= PARCHE 1 INTEGRADO =================
+# ================= PARCHE INTEGRADO DE POSICIONES ACTIVAS =================
 @app.route("/api/posiciones-activas/<username>", methods=["GET"])
 def obtener_posiciones_activas(username):
     conn = obtener_conexion()
