@@ -41,7 +41,7 @@ def check_rate_limit(limit=25, window=60):
     return True
 
 
-# ================= CONFIGURACIÓN DE POOL DE CONEXIONES Y BASE DE DATOS =================
+# ================= CONFIGURACIÓN DE POOL DE CONEXIONES Y BASE DE DATOS (NATIVA POSTGRESQL) =================
 db_pool = None
 if DATABASE_URL:
     try:
@@ -96,12 +96,7 @@ def obtener_conexion():
         )
         return conn
     else:
-        import sqlite3
-
-        conn = sqlite3.connect("p2ppredict.db", timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL;")
-        return conn
+        raise RuntimeError("DATABASE_URL no está configurada. Esta aplicación requiere una base de datos PostgreSQL activa.")
 
 
 # Alias para mantener compatibilidad con el parche de administración solicitado
@@ -134,296 +129,149 @@ def inicializar_bd():
     actualizar_esquema_db()
     conn = obtener_conexion()
     c = conn.cursor()
-    if DATABASE_URL:
-        c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
-            username TEXT PRIMARY KEY, 
-            saldo_disponible DOUBLE PRECISION DEFAULT 0.0, 
-            is_frozen BOOLEAN DEFAULT FALSE
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            tipo TEXT, 
-            monto DOUBLE PRECISION, 
-            txid TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            titulo_evento TEXT, 
-            opcion_elegida TEXT, 
-            monto DOUBLE PRECISION, 
-            estado TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            evento_id TEXT, 
-            opcion_id INTEGER, 
-            tipo_orden TEXT, 
-            accion TEXT, 
-            precio DOUBLE PRECISION, 
-            cantidad DOUBLE PRECISION, 
-            estado TEXT DEFAULT 'activa', 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
-            id TEXT PRIMARY KEY, 
-            market_id TEXT NOT NULL, 
-            handle TEXT NOT NULL, 
-            titulo TEXT NOT NULL, 
-            opcion TEXT NOT NULL, 
-            contratos INTEGER NOT NULL, 
-            invertido NUMERIC NOT NULL, 
-            payout NUMERIC NOT NULL, 
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
-            id TEXT PRIMARY KEY, 
-            titulo TEXT NOT NULL, 
-            tipo TEXT NOT NULL, 
-            monto NUMERIC NOT NULL, 
-            detalle TEXT NOT NULL, 
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS eventos (
-            id SERIAL PRIMARY KEY, 
-            titulo TEXT, 
-            categoria TEXT, 
-            estado TEXT DEFAULT 'activo', 
-            fecha_cierre TEXT, 
-            ganador_id INTEGER
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
-            id SERIAL PRIMARY KEY, 
-            evento_id INTEGER, 
-            nombre TEXT, 
-            pozo DOUBLE PRECISION DEFAULT 0.0
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
-            id SERIAL PRIMARY KEY, 
-            ip TEXT, 
-            accion TEXT, 
-            detalles TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
-            id SERIAL PRIMARY KEY, 
-            admin_user TEXT, 
-            target_user TEXT, 
-            monto_anterior DOUBLE PRECISION, 
-            monto_nuevo DOUBLE PRECISION, 
-            razon TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
-            id SERIAL PRIMARY KEY, 
-            admin_id TEXT, 
-            action_type TEXT, 
-            target_id TEXT, 
-            ip_address TEXT, 
-            user_agent TEXT, 
-            payload_snapshot TEXT, 
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
-            id SERIAL PRIMARY KEY, 
-            admin_creator TEXT, 
-            action_type TEXT, 
-            target_id TEXT, 
-            payload TEXT, 
-            status TEXT DEFAULT 'PENDING', 
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
-            id SERIAL PRIMARY KEY, 
-            titulo TEXT NOT NULL, 
-            contenido TEXT NOT NULL, 
-            tipo TEXT DEFAULT 'info', 
-            activo BOOLEAN DEFAULT TRUE, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            evento_tipo TEXT, 
-            monto DOUBLE PRECISION, 
-            balance_total_plataforma DOUBLE PRECISION, 
-            txid TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            accion TEXT, 
-            detalle TEXT, 
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
-            id SERIAL PRIMARY KEY, 
-            username TEXT, 
-            mensaje TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(100) UNIQUE NOT NULL,
-            saldo NUMERIC(18, 2) DEFAULT 0.00,
-            kyc_estado VARCHAR(20) DEFAULT 'pendiente',
-            tipo_documento VARCHAR(20),
-            numero_documento VARCHAR(50) UNIQUE,
-            foto_url TEXT,
-            creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""")
-        c.execute(
-            "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
-        )
-    else:
-        c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
-            username TEXT PRIMARY KEY, 
-            saldo_disponible REAL DEFAULT 0.0, 
-            is_frozen INTEGER DEFAULT 0
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            tipo TEXT, 
-            monto REAL, 
-            txid TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            titulo_evento TEXT, 
-            opcion_elegida TEXT, 
-            monto REAL, 
-            estado TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            evento_id TEXT, 
-            opcion_id INTEGER, 
-            tipo_orden TEXT, 
-            accion TEXT, 
-            precio REAL, 
-            cantidad REAL, 
-            estado TEXT DEFAULT 'activa', 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
-            id TEXT PRIMARY KEY, 
-            market_id TEXT NOT NULL, 
-            handle TEXT NOT NULL, 
-            titulo TEXT NOT NULL, 
-            opcion TEXT NOT NULL, 
-            contratos INTEGER NOT NULL, 
-            invertido REAL NOT NULL, 
-            payout REAL NOT NULL, 
-            created_at TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
-            id TEXT PRIMARY KEY, 
-            titulo TEXT NOT NULL, 
-            tipo TEXT NOT NULL, 
-            monto REAL NOT NULL, 
-            detalle TEXT NOT NULL, 
-            created_at TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS eventos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            titulo TEXT, 
-            categoria TEXT, 
-            estado TEXT DEFAULT 'activo', 
-            fecha_cierre TEXT, 
-            ganador_id INTEGER
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            evento_id INTEGER, 
-            nombre TEXT, 
-            pozo REAL DEFAULT 0.0
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            ip TEXT, 
-            accion TEXT, 
-            detalles TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            admin_user TEXT, 
-            target_user TEXT, 
-            monto_anterior REAL, 
-            monto_nuevo REAL, 
-            razon TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            admin_id TEXT, 
-            action_type TEXT, 
-            target_id TEXT, 
-            ip_address TEXT, 
-            user_agent TEXT, 
-            payload_snapshot TEXT, 
-            created_at TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            admin_creator TEXT, 
-            action_type TEXT, 
-            target_id TEXT, 
-            payload TEXT, 
-            status TEXT DEFAULT 'PENDING', 
-            created_at TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            titulo TEXT NOT NULL, 
-            contenido TEXT NOT NULL, 
-            tipo TEXT DEFAULT 'info', 
-            activo INTEGER DEFAULT 1, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            evento_tipo TEXT, 
-            monto REAL, 
-            balance_total_plataforma REAL, 
-            txid TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            accion TEXT, 
-            detalle TEXT, 
-            created_at TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT, 
-            mensaje TEXT, 
-            fecha TEXT
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            saldo REAL DEFAULT 0.00,
-            kyc_estado TEXT DEFAULT 'pendiente',
-            tipo_documento TEXT,
-            numero_documento TEXT UNIQUE,
-            foto_url TEXT,
-            creado_at TEXT
-        )""")
-        c.execute(
-            "CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);"
-        )
+    
+    c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+        username TEXT PRIMARY KEY, 
+        saldo_disponible DOUBLE PRECISION DEFAULT 0.0, 
+        is_frozen BOOLEAN DEFAULT FALSE
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        tipo TEXT, 
+        monto DOUBLE PRECISION, 
+        txid TEXT, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        titulo_evento TEXT, 
+        opcion_elegida TEXT, 
+        monto DOUBLE PRECISION, 
+        estado TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        evento_id TEXT, 
+        opcion_id INTEGER, 
+        tipo_orden TEXT, 
+        accion TEXT, 
+        precio DOUBLE PRECISION, 
+        cantidad DOUBLE PRECISION, 
+        estado TEXT DEFAULT 'activa', 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
+        id TEXT PRIMARY KEY, 
+        market_id TEXT NOT NULL, 
+        handle TEXT NOT NULL, 
+        titulo TEXT NOT NULL, 
+        opcion TEXT NOT NULL, 
+        contratos INTEGER NOT NULL, 
+        invertido NUMERIC NOT NULL, 
+        payout NUMERIC NOT NULL, 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
+        id TEXT PRIMARY KEY, 
+        titulo TEXT NOT NULL, 
+        tipo TEXT NOT NULL, 
+        monto NUMERIC NOT NULL, 
+        detalle TEXT NOT NULL, 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS eventos (
+        id SERIAL PRIMARY KEY, 
+        titulo TEXT, 
+        categoria TEXT, 
+        estado TEXT DEFAULT 'activo', 
+        fecha_cierre TEXT, 
+        ganador_id INTEGER
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
+        id SERIAL PRIMARY KEY, 
+        evento_id INTEGER, 
+        nombre TEXT, 
+        pozo DOUBLE PRECISION DEFAULT 0.0
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
+        id SERIAL PRIMARY KEY, 
+        ip TEXT, 
+        accion TEXT, 
+        detalles TEXT, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
+        id SERIAL PRIMARY KEY, 
+        admin_user TEXT, 
+        target_user TEXT, 
+        monto_anterior DOUBLE PRECISION, 
+        monto_nuevo DOUBLE PRECISION, 
+        razon TEXT, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
+        id SERIAL PRIMARY KEY, 
+        admin_id TEXT, 
+        action_type TEXT, 
+        target_id TEXT, 
+        ip_address TEXT, 
+        user_agent TEXT, 
+        payload_snapshot TEXT, 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
+        id SERIAL PRIMARY KEY, 
+        admin_creator TEXT, 
+        action_type TEXT, 
+        target_id TEXT, 
+        payload TEXT, 
+        status TEXT DEFAULT 'PENDING', 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
+        id SERIAL PRIMARY KEY, 
+        titulo TEXT NOT NULL, 
+        contenido TEXT NOT NULL, 
+        tipo TEXT DEFAULT 'info', 
+        activo BOOLEAN DEFAULT TRUE, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        evento_tipo TEXT, 
+        monto DOUBLE PRECISION, 
+        balance_total_plataforma DOUBLE PRECISION, 
+        txid TEXT, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        accion TEXT, 
+        detalle TEXT, 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
+        id SERIAL PRIMARY KEY, 
+        username TEXT, 
+        mensaje TEXT, 
+        fecha TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        saldo NUMERIC(18, 2) DEFAULT 0.00,
+        kyc_estado VARCHAR(20) DEFAULT 'pendiente',
+        tipo_documento VARCHAR(20),
+        numero_documento VARCHAR(50) UNIQUE,
+        foto_url TEXT,
+        creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);")
 
     conn.commit()
     conn.close()
@@ -438,18 +286,10 @@ def registrar_log_admin(accion, detalles):
         c = conn.cursor()
         ip = request.remote_addr or "127.0.0.1"
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO admin_logs (ip, accion, detalles, fecha) VALUES"
-                " (%s, %s, %s, %s)",
-                (ip, accion, detalles, fecha),
-            )
-        else:
-            c.execute(
-                "INSERT INTO admin_logs (ip, accion, detalles, fecha) VALUES"
-                " (?, ?, ?, ?)",
-                (ip, accion, detalles, fecha),
-            )
+        c.execute(
+            "INSERT INTO admin_logs (ip, accion, detalles, fecha) VALUES (%s, %s, %s, %s)",
+            (ip, accion, detalles, fecha),
+        )
         conn.commit()
         conn.close()
     except Exception:
@@ -462,36 +302,10 @@ def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
         c = conn.cursor()
         ip = request.remote_addr or "127.0.0.1"
         ua = request.user_agent.string or "Desconocido"
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO admin_audit_logs (admin_id, action_type,"
-                " target_id, ip_address, user_agent, payload_snapshot) VALUES"
-                " (%s, %s, %s, %s, %s, %s)",
-                (
-                    admin_id,
-                    action_type,
-                    target_id,
-                    ip,
-                    ua,
-                    str(payload_snapshot),
-                ),
-            )
-        else:
-            fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            c.execute(
-                "INSERT INTO admin_audit_logs (admin_id, action_type,"
-                " target_id, ip_address, user_agent, payload_snapshot,"
-                " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    admin_id,
-                    action_type,
-                    target_id,
-                    ip,
-                    ua,
-                    str(payload_snapshot),
-                    fecha_str,
-                ),
-            )
+        c.execute(
+            "INSERT INTO admin_audit_logs (admin_id, action_type, target_id, ip_address, user_agent, payload_snapshot) VALUES (%s, %s, %s, %s, %s, %s)",
+            (admin_id, action_type, target_id, ip, ua, str(payload_snapshot)),
+        )
         conn.commit()
         conn.close()
     except Exception:
@@ -502,19 +316,10 @@ def registrar_global_audit(username, accion, detalle):
     try:
         conn = obtener_conexion()
         c = conn.cursor()
-        fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO global_audit_logs (username, accion, detalle)"
-                " VALUES (%s, %s, %s)",
-                (username, accion, detalle),
-            )
-        else:
-            c.execute(
-                "INSERT INTO global_audit_logs (username, accion, detalle,"
-                " created_at) VALUES (?, ?, ?, ?)",
-                (username, accion, detalle, fecha_str),
-            )
+        c.execute(
+            "INSERT INTO global_audit_logs (username, accion, detalle) VALUES (%s, %s, %s)",
+            (username, accion, detalle),
+        )
         conn.commit()
         conn.close()
     except Exception:
@@ -564,34 +369,18 @@ def obtener_saldo(username):
     conn = obtener_conexion()
     c = conn.cursor()
 
-    if DATABASE_URL:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username ="
-            " %s",
-            (username,),
-        )
-    else:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username ="
-            " ?",
-            (username,),
-        )
+    c.execute(
+        "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s",
+        (username,),
+    )
     row = c.fetchone()
 
     if not row:
         saldo_inicial = 0.0
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO usuarios (username, saldo_disponible, is_frozen)"
-                " VALUES (%s, %s, FALSE)",
-                (username, saldo_inicial),
-            )
-        else:
-            c.execute(
-                "INSERT INTO usuarios (username, saldo_disponible, is_frozen)"
-                " VALUES (?, ?, 0)",
-                (username, saldo_inicial),
-            )
+        c.execute(
+            "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
+            (username, saldo_inicial),
+        )
         conn.commit()
         saldo = saldo_inicial
         is_frozen = False
@@ -600,46 +389,22 @@ def obtener_saldo(username):
         saldo = row_dict.get("saldo_disponible", 0.0)
         is_frozen = bool(row_dict.get("is_frozen", 0))
 
-    if DATABASE_URL:
-        c.execute(
-            "SELECT * FROM historial_apuestas WHERE username = %s ORDER BY id"
-            " DESC LIMIT %s OFFSET %s",
-            (username, limite, offset),
-        )
-    else:
-        c.execute(
-            "SELECT * FROM historial_apuestas WHERE username = ? ORDER BY id"
-            " DESC LIMIT ? OFFSET ?",
-            (username, limite, offset),
-        )
+    c.execute(
+        "SELECT * FROM historial_apuestas WHERE username = %s ORDER BY id DESC LIMIT %s OFFSET %s",
+        (username, limite, offset),
+    )
     historial = [dict(row) for row in c.fetchall()]
 
     if filtro_tipo:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = %s AND tipo ILIKE"
-                " %s ORDER BY id DESC LIMIT %s OFFSET %s",
-                (username, f"%{filtro_tipo}%", limite, offset),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = ? AND tipo LIKE ?"
-                " ORDER BY id DESC LIMIT ? OFFSET ?",
-                (username, f"%{filtro_tipo}%", limite, offset),
-            )
+        c.execute(
+            "SELECT * FROM transacciones WHERE username = %s AND tipo ILIKE %s ORDER BY id DESC LIMIT %s OFFSET %s",
+            (username, f"%{filtro_tipo}%", limite, offset),
+        )
     else:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = %s ORDER BY id"
-                " DESC LIMIT %s OFFSET %s",
-                (username, limite, offset),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM transacciones WHERE username = ? ORDER BY id"
-                " DESC LIMIT ? OFFSET ?",
-                (username, limite, offset),
-            )
+        c.execute(
+            "SELECT * FROM transacciones WHERE username = %s ORDER BY id DESC LIMIT %s OFFSET %s",
+            (username, limite, offset),
+        )
     transacciones = [dict(row) for row in c.fetchall()]
     conn.close()
 
@@ -661,18 +426,10 @@ def obtener_eventos():
     lista_final = []
     for ev in eventos_db:
         ev_dict = dict(ev)
-        if DATABASE_URL:
-            c.execute(
-                "SELECT id, nombre, pozo FROM opciones_evento WHERE evento_id ="
-                " %s",
-                (ev_dict["id"],),
-            )
-        else:
-            c.execute(
-                "SELECT id, nombre, pozo FROM opciones_evento WHERE evento_id ="
-                " ?",
-                (ev_dict["id"],),
-            )
+        c.execute(
+            "SELECT id, nombre, pozo FROM opciones_evento WHERE evento_id = %s",
+            (ev_dict["id"],),
+        )
         opciones = [dict(op) for op in c.fetchall()]
         ev_dict["opciones"] = opciones
         lista_final.append(ev_dict)
@@ -703,16 +460,10 @@ def participar():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
-                (username,),
-            )
+        c.execute(
+            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
+            (username,),
+        )
         row = c.fetchone()
         row_dict = dict(row) if row else {}
         if row_dict and row_dict.get("is_frozen"):
@@ -733,10 +484,7 @@ def participar():
             ev_id_int = None
 
         if ev_id_int is not None:
-            if DATABASE_URL:
-                c.execute("SELECT * FROM eventos WHERE id = %s", (ev_id_int,))
-            else:
-                c.execute("SELECT * FROM eventos WHERE id = ?", (ev_id_int,))
+            c.execute("SELECT * FROM eventos WHERE id = %s", (ev_id_int,))
             evento = c.fetchone()
         else:
             evento = None
@@ -746,16 +494,10 @@ def participar():
             conn.rollback()
             return jsonify({"success": False, "error": "Mercado no disponible"}), 400
 
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM opciones_evento WHERE id = %s AND evento_id = %s",
-                (opcion_id, ev_id_int),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM opciones_evento WHERE id = ? AND evento_id = ?",
-                (opcion_id, ev_id_int),
-            )
+        c.execute(
+            "SELECT * FROM opciones_evento WHERE id = %s AND evento_id = %s",
+            (opcion_id, ev_id_int),
+        )
         opcion = c.fetchone()
         opcion_dict = dict(opcion) if opcion else {}
         if not opcion:
@@ -767,62 +509,33 @@ def participar():
         pos_id = f"pos_{username}_{ev_id_int}_{opcion_id}_{int(time.time())}"
         fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (nuevo_saldo, username),
-            )
-            c.execute(
-                "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
-                (monto, opcion_id),
-            )
-            c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-                (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
-            )
-            c.execute(
-                """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    username,
-                    "Apuesta",
-                    -monto,
-                    f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
-            )
-        else:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                (nuevo_saldo, username),
-            )
-            c.execute(
-                "UPDATE opciones_evento SET pozo = pozo + ? WHERE id = ?",
-                (monto, opcion_id),
-            )
-            c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-                (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
-            )
-            c.execute(
-                """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
-                (
-                    username,
-                    "Apuesta",
-                    -monto,
-                    f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
-            )
+        c.execute(
+            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+            (nuevo_saldo, username),
+        )
+        c.execute(
+            "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
+            (monto, opcion_id),
+        )
+        c.execute(
+            "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
+            (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
+        )
+        c.execute(
+            """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
+        )
+        c.execute(
+            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+            (
+                username,
+                "Apuesta",
+                -monto,
+                f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                datetime.now().strftime("%Y-%m-%d %H:%M"),
+            ),
+        )
         conn.commit()
         registrar_global_audit(
             username,
@@ -849,22 +562,13 @@ def obtener_ordenes_clob():
     conn = obtener_conexion()
     c = conn.cursor()
     if evento_id:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'"
-                " ORDER BY precio DESC",
-                (str(evento_id),),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'"
-                " ORDER BY precio DESC",
-                (str(evento_id),),
-            )
+        c.execute(
+            "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa' ORDER BY precio DESC",
+            (str(evento_id),),
+        )
     else:
         c.execute(
-            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY id DESC"
-            " LIMIT 50"
+            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY id DESC LIMIT 50"
         )
     ordenes = [dict(row) for row in c.fetchall()]
     conn.close()
@@ -876,50 +580,29 @@ def actualizar_ordenes_dinamico():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM()"
-                " LIMIT 1"
-            )
-        else:
-            c.execute(
-                "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM()"
-                " LIMIT 1"
-            )
+        c.execute(
+            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM() LIMIT 1"
+        )
         orden_azar = c.fetchone()
         orden_azar_dict = dict(orden_azar) if orden_azar else {}
         if orden_azar:
             variacion = round(random.uniform(-0.01, 0.01), 3)
             nuevo_precio = max(0.01, round(orden_azar_dict.get("precio", 0.0) + variacion, 3))
-            if DATABASE_URL:
-                c.execute(
-                    "UPDATE orders SET precio = %s WHERE id = %s",
-                    (nuevo_precio, orden_azar_dict.get("id")),
-                )
-            else:
-                c.execute(
-                    "UPDATE orders SET precio = ? WHERE id = ?",
-                    (nuevo_precio, orden_azar_dict.get("id")),
-                )
+            c.execute(
+                "UPDATE orders SET precio = %s WHERE id = %s",
+                (nuevo_precio, orden_azar_dict.get("id")),
+            )
             conn.commit()
 
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio"
-                " DESC LIMIT 50"
-            )
-        else:
-            c.execute(
-                "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio"
-                " DESC LIMIT 50"
-            )
+        c.execute(
+            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio DESC LIMIT 50"
+        )
         ordenes = [dict(row) for row in c.fetchall()]
         conn.close()
         return jsonify({"success": True, "ordenes": ordenes, "timestamp": time.time()})
     except Exception as e:
-        if DATABASE_URL and conn:
-            conn.rollback()
         if conn:
+            conn.rollback()
             conn.close()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -944,16 +627,10 @@ def crear_orden_clob():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
-                (username,),
-            )
+        c.execute(
+            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
+            (username,),
+        )
         row_user = c.fetchone()
         row_user_dict = dict(row_user) if row_user else {}
         if row_user_dict and row_user_dict.get("is_frozen"):
@@ -965,27 +642,15 @@ def crear_orden_clob():
 
         if not row_user:
             saldo_inicial = 0.0
-            if DATABASE_URL:
-                c.execute(
-                    "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
-                    (username, saldo_inicial),
-                )
-            else:
-                c.execute(
-                    "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (?, ?, 0)",
-                    (username, saldo_inicial),
-                )
+            c.execute(
+                "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
+                (username, saldo_inicial),
+            )
             conn.commit()
-            if DATABASE_URL:
-                c.execute(
-                    "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-                    (username,),
-                )
-            else:
-                c.execute(
-                    "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?",
-                    (username,),
-                )
+            c.execute(
+                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
+                (username,),
+            )
             row_user = c.fetchone()
             row_user_dict = dict(row_user) if row_user else {}
 
@@ -1007,10 +672,7 @@ def crear_orden_clob():
         titulo_ev = "Mercado P2P Dinámico"
         try:
             ev_id_int = int(evento_id)
-            if DATABASE_URL:
-                c.execute("SELECT titulo FROM eventos WHERE id = %s", (ev_id_int,))
-            else:
-                c.execute("SELECT titulo FROM eventos WHERE id = ?", (ev_id_int,))
+            c.execute("SELECT titulo FROM eventos WHERE id = %s", (ev_id_int,))
             ev_row = c.fetchone()
             if ev_row:
                 ev_row_dict = dict(ev_row)
@@ -1021,10 +683,7 @@ def crear_orden_clob():
         nombre_op = "Opción"
         try:
             op_id_int = int(opcion_id)
-            if DATABASE_URL:
-                c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (op_id_int,))
-            else:
-                c.execute("SELECT nombre FROM opciones_evento WHERE id = ?", (op_id_int,))
+            c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (op_id_int,))
             op_row = c.fetchone()
             if op_row:
                 op_row_dict = dict(op_row)
@@ -1036,28 +695,16 @@ def crear_orden_clob():
         precio_objetivo = precio_ingresado
 
         if accion == "comprar":
-            if DATABASE_URL:
-                if tipo_orden == "limit":
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s AND precio <= %s ORDER BY precio ASC, id ASC FOR UPDATE""",
-                        (evento_id, opcion_id, username, precio_ingresado),
-                    )
-                else:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s ORDER BY precio ASC, id ASC FOR UPDATE""",
-                        (evento_id, opcion_id, username),
-                    )
+            if tipo_orden == "limit":
+                c.execute(
+                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s AND precio <= %s ORDER BY precio ASC, id ASC FOR UPDATE""",
+                    (evento_id, opcion_id, username, precio_ingresado),
+                )
             else:
-                if tipo_orden == "limit":
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'vender' AND estado = 'activa' AND username != ? AND precio <= ? ORDER BY precio ASC, id ASC""",
-                        (evento_id, opcion_id, username, precio_ingresado),
-                    )
-                else:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'vender' AND estado = 'activa' AND username != ? ORDER BY precio ASC, id ASC""",
-                        (evento_id, opcion_id, username),
-                    )
+                c.execute(
+                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s ORDER BY precio ASC, id ASC FOR UPDATE""",
+                    (evento_id, opcion_id, username),
+                )
 
             contra_ordenes = c.fetchall()
 
@@ -1077,90 +724,48 @@ def crear_orden_clob():
                     costo_match = match_precio * match_cant
 
                 nuevo_saldo_creador -= costo_match
-                if DATABASE_URL:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_saldo_creador, username),
-                    )
-                else:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                        (nuevo_saldo_creador, username),
-                    )
+                c.execute(
+                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                    (nuevo_saldo_creador, username),
+                )
 
-                if DATABASE_URL:
-                    c.execute(
-                        "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                        (contra_dict.get("username"),),
-                    )
-                else:
-                    c.execute(
-                        "SELECT saldo_disponible FROM usuarios WHERE username = ?",
-                        (contra_dict.get("username"),),
-                    )
+                c.execute(
+                    "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
+                    (contra_dict.get("username"),),
+                )
                 v_row = c.fetchone()
                 v_row_dict = dict(v_row) if v_row else {}
                 if v_row:
                     nuevo_vendedor_saldo = v_row_dict.get("saldo_disponible", 0.0) + costo_match
-                    if DATABASE_URL:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                            (nuevo_vendedor_saldo, contra_dict.get("username")),
-                        )
-                    else:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                            (nuevo_vendedor_saldo, contra_dict.get("username")),
-                        )
+                    c.execute(
+                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                        (nuevo_vendedor_saldo, contra_dict.get("username")),
+                    )
 
-                if DATABASE_URL:
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-                        (username, titulo_ev, nombre_op, match_cant),
-                    )
-                else:
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
-                        (username, titulo_ev, nombre_op, match_cant),
-                    )
+                c.execute(
+                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
+                    (username, titulo_ev, nombre_op, match_cant),
+                )
 
                 nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
-                if DATABASE_URL:
-                    c.execute(
-                        "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                    )
-                else:
-                    c.execute(
-                        "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                    )
+                c.execute(
+                    "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
+                    (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
+                )
                 cantidad_restante -= match_cant
 
         else:
             if tipo_orden == "limit":
-                if DATABASE_URL:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE""",
-                        (evento_id, opcion_id, username, precio_ingresado),
-                    )
-                else:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' AND username != ? AND precio >= ? ORDER BY precio DESC, id ASC""",
-                        (evento_id, opcion_id, username, precio_ingresado),
-                    )
+                c.execute(
+                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE""",
+                    (evento_id, opcion_id, username, precio_ingresado),
+                )
             else:
-                if DATABASE_URL:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s ORDER BY precio DESC, id ASC FOR UPDATE""",
-                        (evento_id, opcion_id, username),
-                    )
-                else:
-                    c.execute(
-                        """SELECT * FROM orders WHERE evento_id = ? AND opcion_id = ? AND accion = 'comprar' AND estado = 'activa' AND username != ? ORDER BY precio DESC, id ASC""",
-                        (evento_id, opcion_id, username),
-                    )
+                c.execute(
+                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s ORDER BY precio DESC, id ASC FOR UPDATE""",
+                    (evento_id, opcion_id, username),
+                )
 
             contra_ordenes = c.fetchall()
 
@@ -1174,37 +779,21 @@ def crear_orden_clob():
 
                 monto_transaccion = match_precio * match_cant
                 nuevo_saldo_creador += monto_transaccion
-                if DATABASE_URL:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_saldo_creador, username),
-                    )
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-                        (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
-                    )
-                else:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                        (nuevo_saldo_creador, username),
-                    )
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Activo')",
-                        (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
-                    )
+                c.execute(
+                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                    (nuevo_saldo_creador, username),
+                )
+                c.execute(
+                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
+                    (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
+                )
 
                 nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
                 nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
-                if DATABASE_URL:
-                    c.execute(
-                        "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                    )
-                else:
-                    c.execute(
-                        "UPDATE orders SET cantidad = ?, estado = ? WHERE id = ?",
-                        (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                    )
+                c.execute(
+                    "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
+                    (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
+                )
                 cantidad_restante -= match_cant
 
         if cantidad_restante > 0:
@@ -1213,86 +802,46 @@ def crear_orden_clob():
                 costo_remanente = precio_para_libro * cantidad_restante
                 if nuevo_saldo_creador >= costo_remanente:
                     nuevo_saldo_creador -= costo_remanente
-                    if DATABASE_URL:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                            (nuevo_saldo_creador, username),
-                        )
-                    else:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                            (nuevo_saldo_creador, username),
-                        )
+                    c.execute(
+                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                        (nuevo_saldo_creador, username),
+                    )
                 else:
                     cantidad_restante = nuevo_saldo_creador / precio_para_libro
                     costo_remanente = nuevo_saldo_creador
                     nuevo_saldo_creador = 0.0
-                    if DATABASE_URL:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = 0.0 WHERE username = %s",
-                            (username,),
-                        )
-                    else:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = 0.0 WHERE username = ?",
-                            (username,),
-                        )
+                    c.execute(
+                        "UPDATE usuarios SET saldo_disponible = 0.0 WHERE username = %s",
+                        (username,),
+                    )
 
             if cantidad_restante > 0:
-                if DATABASE_URL:
-                    c.execute(
-                        "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (%s, %s, %s, 'limit', %s, %s, %s, 'activa', %s)",
-                        (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
-                    )
-                else:
-                    c.execute(
-                        "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (?, ?, ?, 'limit', ?, ?, ?, 'activa', ?)",
-                        (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
-                    )
+                c.execute(
+                    "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (%s, %s, %s, 'limit', %s, %s, %s, 'activa', %s)",
+                    (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
+                )
 
         monto_registrado = (precio_ingresado * cantidad if accion == "comprar" else cantidad)
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    username,
-                    titulo_ev,
-                    f"CLOB {accion.capitalize()} ({cantidad})",
-                    monto_registrado,
-                    ("Completada" if cantidad_restante == 0 else "Parcial / En Libro"),
-                ),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    username,
-                    f"CLOB Orden ({accion})",
-                    -(precio_ingresado * (cantidad - cantidad_restante) if accion == "comprar" else 0),
-                    f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    fecha_str,
-                ),
-            )
-        else:
-            c.execute(
-                "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, ?)",
-                (
-                    username,
-                    titulo_ev,
-                    f"CLOB {accion.capitalize()} ({cantidad})",
-                    monto_registrado,
-                    ("Completada" if cantidad_restante == 0 else "Parcial / En Libro"),
-                ),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
-                (
-                    username,
-                    f"CLOB Orden ({accion})",
-                    -(precio_ingresado * (cantidad - cantidad_restante) if accion == "comprar" else 0),
-                    f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    fecha_str,
-                ),
-            )
+        c.execute(
+            "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
+            (
+                username,
+                titulo_ev,
+                f"CLOB {accion.capitalize()} ({cantidad})",
+                monto_registrado,
+                ("Completada" if cantidad_restante == 0 else "Parcial / En Libro"),
+            ),
+        )
+        c.execute(
+            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+            (
+                username,
+                f"CLOB Orden ({accion})",
+                -(precio_ingresado * (cantidad - cantidad_restante) if accion == "comprar" else 0),
+                f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                fecha_str,
+            ),
+        )
 
         conn.commit()
         registrar_global_audit(
@@ -1372,22 +921,13 @@ def crear_orden():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        if DATABASE_URL:
-            c.execute(
-                """
-                INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'activa', %s)
-                """,
-                (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
-            )
-        else:
-            c.execute(
-                """
-                INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'activa', ?)
-                """,
-                (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
-            )
+        c.execute(
+            """
+            INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'activa', %s)
+            """,
+            (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
+        )
         
         conn.commit()
         return jsonify({"success": True, "message": "Orden creada exitosamente."}), 200
@@ -1404,8 +944,6 @@ def crear_orden():
 def aprobar_pago():
     data = request.json or {}
     payment_id = data.get("paymentId")
-    if DATABASE_URL and not PI_API_KEY:
-        pass
     if not PI_API_KEY:
         return jsonify({"success": False, "error": "PI_API_KEY no configurada"}), 500
     headers = {"Authorization": f"Key {PI_API_KEY}"}
@@ -1457,18 +995,10 @@ def completar_pago():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = ?",
-                (username,),
-            )
+        c.execute(
+            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
+            (username,),
+        )
         row = c.fetchone()
         row_dict = dict(row) if row else {}
         if row_dict and row_dict.get("is_frozen"):
@@ -1480,84 +1010,39 @@ def completar_pago():
 
         if not row:
             nuevo_saldo = monto
-            if DATABASE_URL:
-                c.execute(
-                    "INSERT INTO usuarios (username, saldo_disponible,"
-                    " is_frozen) VALUES (%s, %s, FALSE)",
-                    (username, nuevo_saldo),
-                )
-            else:
-                c.execute(
-                    "INSERT INTO usuarios (username, saldo_disponible,"
-                    " is_frozen) VALUES (?, ?, 0)",
-                    (username, nuevo_saldo),
-                )
+            c.execute(
+                "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
+                (username, nuevo_saldo),
+            )
         else:
             nuevo_saldo = row_dict.get("saldo_disponible", 0.0) + monto
-            if DATABASE_URL:
-                c.execute(
-                    "UPDATE usuarios SET saldo_disponible = %s WHERE username ="
-                    " %s",
-                    (nuevo_saldo, username),
-                )
-            else:
-                c.execute(
-                    "UPDATE usuarios SET saldo_disponible = ? WHERE username ="
-                    " ?",
-                    (nuevo_saldo, username),
-                )
+            c.execute(
+                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                (nuevo_saldo, username),
+            )
 
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (%s, %s, %s, %s, %s)",
-                (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
-            )
-            c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-            res_tot = c.fetchone()
-            res_tot_dict = dict(res_tot) if res_tot else {}
-            balance_total_plataforma = (
-                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-            )
-            c.execute(
-                "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-                " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s,"
-                " %s, %s)",
-                (
-                    username,
-                    "COMPLETAR_PAGO",
-                    monto,
-                    balance_total_plataforma,
-                    txid or payment_id,
-                    fecha,
-                ),
-            )
-        else:
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
-            )
-            c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-            res_tot = c.fetchone()
-            res_tot_dict = dict(res_tot) if res_tot else {}
-            balance_total_plataforma = (
-                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-            )
-            c.execute(
-                "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-                " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?,"
-                " ?)",
-                (
-                    username,
-                    "COMPLETAR_PAGO",
-                    monto,
-                    balance_total_plataforma,
-                    txid or payment_id,
-                    fecha,
-                ),
-            )
+        c.execute(
+            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+            (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
+        )
+        c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
+        res_tot = c.fetchone()
+        res_tot_dict = dict(res_tot) if res_tot else {}
+        balance_total_plataforma = (
+            res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
+        )
+        c.execute(
+            "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+            (
+                username,
+                "COMPLETAR_PAGO",
+                monto,
+                balance_total_plataforma,
+                txid or payment_id,
+                fecha,
+            ),
+        )
 
         conn.commit()
         registrar_global_audit(
@@ -1612,18 +1097,10 @@ def solicitar_retiro():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE"
-                " username = ?",
-                (username,),
-            )
+        c.execute(
+            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
+            (username,),
+        )
         row = c.fetchone()
         row_dict = dict(row) if row else {}
         if row_dict and row_dict.get("is_frozen"):
@@ -1642,16 +1119,10 @@ def solicitar_retiro():
             }), 400
 
         nuevo_saldo = saldo_actual - monto
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (nuevo_saldo, username),
-            )
-        else:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                (nuevo_saldo, username),
-            )
+        c.execute(
+            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+            (nuevo_saldo, username),
+        )
 
         headers = {
             "Authorization": f"Key {PI_API_KEY}",
@@ -1682,56 +1153,27 @@ def solicitar_retiro():
         )
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (%s, %s, %s, %s, %s)",
-                (username, "Retiro Pi Blockchain", -monto, txid, fecha),
-            )
-            c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-            res_tot = c.fetchone()
-            res_tot_dict = dict(res_tot) if res_tot else {}
-            balance_total_plataforma = (
-                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-            )
-            c.execute(
-                "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-                " balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s,"
-                " %s, %s)",
-                (
-                    username,
-                    "SOLICITAR_RETIRO",
-                    -monto,
-                    balance_total_plataforma,
-                    txid,
-                    fecha,
-                ),
-            )
-        else:
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (username, "Retiro Pi Blockchain", -monto, txid, fecha),
-            )
-            c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-            res_tot = c.fetchone()
-            res_tot_dict = dict(res_tot) if res_tot else {}
-            balance_total_plataforma = (
-                res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-            )
-            c.execute(
-                "INSERT INTO pi_wallet_events (username, evento_tipo, monto,"
-                " balance_total_plataforma, txid, fecha) VALUES (?, ?, ?, ?, ?,"
-                " ?)",
-                (
-                    username,
-                    "SOLICITAR_RETIRO",
-                    -monto,
-                    balance_total_plataforma,
-                    txid,
-                    fecha,
-                ),
-            )
+        c.execute(
+            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+            (username, "Retiro Pi Blockchain", -monto, txid, fecha),
+        )
+        c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
+        res_tot = c.fetchone()
+        res_tot_dict = dict(res_tot) if res_tot else {}
+        balance_total_plataforma = (
+            res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
+        )
+        c.execute(
+            "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
+            (
+                username,
+                "SOLICITAR_RETIRO",
+                -monto,
+                balance_total_plataforma,
+                txid,
+                fecha,
+            ),
+        )
 
         conn.commit()
         registrar_global_audit(
@@ -1760,19 +1202,13 @@ def obtener_balance_plataforma():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
-        else:
-            c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
+        c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
         row = c.fetchone()
         row_dict = dict(row) if row else {}
         total_circulante = (
             row_dict.get("total_circulante") if row_dict and row_dict.get("total_circulante") else 0.0
         )
-        if DATABASE_URL:
-            c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
-        else:
-            c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
+        c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
         eventos = [dict(r) for r in c.fetchall()]
         conn.close()
         return jsonify({
@@ -1788,16 +1224,11 @@ def obtener_balance_plataforma():
 
 @app.route("/api/pi/approve", methods=["POST"])
 def approve_pi_payment():
-    data = request.json or {}
-    payment_id = data.get("paymentId")
     return jsonify({"status": "success", "message": "Pago aprobado por el servidor"}), 200
 
 
 @app.route("/api/pi/complete", methods=["POST"])
 def complete_pi_payment():
-    data = request.json or {}
-    payment_id = data.get("paymentId")
-    txid = data.get("txid")
     return jsonify({"status": "success", "message": "Pago completado y registrado"}), 200
 
 
@@ -1837,16 +1268,9 @@ def admin_verificar_sesion():
 def obtener_ranking():
     conn = obtener_conexion()
     c = conn.cursor()
-    if DATABASE_URL:
-        c.execute(
-            "SELECT username, saldo_disponible FROM usuarios ORDER BY"
-            " saldo_disponible DESC LIMIT 10"
-        )
-    else:
-        c.execute(
-            "SELECT username, saldo_disponible FROM usuarios ORDER BY"
-            " saldo_disponible DESC LIMIT 10"
-        )
+    c.execute(
+        "SELECT username, saldo_disponible FROM usuarios ORDER BY saldo_disponible DESC LIMIT 10"
+    )
     ranking = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify({"success": True, "ranking": ranking})
@@ -1862,10 +1286,7 @@ def cobrar_prediccion(apuesta_id):
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
-        else:
-            c.execute("SELECT is_frozen FROM usuarios WHERE username = ?", (username,))
+        c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
         u_check = c.fetchone()
         u_check_dict = dict(u_check) if u_check else {}
         if u_check_dict and u_check_dict.get("is_frozen"):
@@ -1875,16 +1296,10 @@ def cobrar_prediccion(apuesta_id):
                 "error": "Tu cuenta se encuentra suspendida temporalmente.",
             }), 403
 
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE id = %s AND username = %s",
-                (apuesta_id, username),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE id = ? AND username = ?",
-                (apuesta_id, username),
-            )
+        c.execute(
+            "SELECT * FROM historial_apuestas WHERE id = %s AND username = %s",
+            (apuesta_id, username),
+        )
         apuesta = c.fetchone()
         apuesta_dict = dict(apuesta) if apuesta else {}
         if not apuesta:
@@ -1899,16 +1314,10 @@ def cobrar_prediccion(apuesta_id):
             }), 400
 
         premio = apuesta_dict.get("monto", 0.0) * 2.0
-        if DATABASE_URL:
-            c.execute(
-                "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                (username,),
-            )
-        else:
-            c.execute(
-                "SELECT saldo_disponible FROM usuarios WHERE username = ?",
-                (username,),
-            )
+        c.execute(
+            "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
+            (username,),
+        )
         u_row = c.fetchone()
         u_row_dict = dict(u_row) if u_row else {}
         if not u_row:
@@ -1916,46 +1325,24 @@ def cobrar_prediccion(apuesta_id):
             return jsonify({"success": False, "error": "Usuario no existe"}), 400
 
         nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (nuevo_saldo, username),
-            )
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = %s",
-                (apuesta_id,),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (%s, %s, %s, %s, %s)",
-                (
-                    username,
-                    "Cobro de Predicción",
-                    premio,
-                    f"COBRO_{apuesta_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
-            )
-        else:
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                (nuevo_saldo, username),
-            )
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = ?",
-                (apuesta_id,),
-            )
-            c.execute(
-                "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (
-                    username,
-                    "Cobro de Predicción",
-                    premio,
-                    f"COBRO_{apuesta_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                ),
-            )
+        c.execute(
+            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+            (nuevo_saldo, username),
+        )
+        c.execute(
+            "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = %s",
+            (apuesta_id,),
+        )
+        c.execute(
+            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+            (
+                username,
+                "Cobro de Predicción",
+                premio,
+                f"COBRO_{apuesta_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                datetime.now().strftime("%Y-%m-%d %H:%M"),
+            ),
+        )
         conn.commit()
         registrar_global_audit(
             username,
@@ -1994,34 +1381,18 @@ def admin_crear_evento():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
+        c.execute(
+            "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES (%s, %s, 'activo', %s) RETURNING id",
+            (titulo, categoria, fecha_cierre),
+        )
+        ev_row = c.fetchone()
+        ev_row_dict = dict(ev_row) if ev_row else {}
+        ev_id = ev_row_dict.get("id")
+        for opt in opciones:
             c.execute(
-                "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES"
-                " (%s, %s, 'activo', %s) RETURNING id",
-                (titulo, categoria, fecha_cierre),
+                "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (%s, %s, 0.0)",
+                (ev_id, opt),
             )
-            ev_row = c.fetchone()
-            ev_row_dict = dict(ev_row) if ev_row else {}
-            ev_id = ev_row_dict.get("id")
-            for opt in opciones:
-                c.execute(
-                    "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (%s,"
-                    " %s, 0.0)",
-                    (ev_id, opt),
-                )
-        else:
-            c.execute(
-                "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES"
-                " (?, ?, 'activo', ?)",
-                (titulo, categoria, fecha_cierre),
-            )
-            ev_id = c.lastrowid
-            for opt in opciones:
-                c.execute(
-                    "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (?,"
-                    " ?, 0.0)",
-                    (ev_id, opt),
-                )
         conn.commit()
         registrar_log_admin("CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}")
         registrar_audit_log(
@@ -2053,10 +1424,7 @@ def admin_cerrar_evento():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
-        else:
-            c.execute("SELECT * FROM eventos WHERE id = ?", (evento_id,))
+        c.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
         evento = c.fetchone()
         evento_dict = dict(evento) if evento else {}
         if not evento or evento_dict.get("estado") == "cerrado":
@@ -2066,10 +1434,7 @@ def admin_cerrar_evento():
                 "error": "El evento no existe o ya está cerrado",
             }), 400
 
-        if DATABASE_URL:
-            c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (ganador_id,))
-        else:
-            c.execute("SELECT * FROM opciones_evento WHERE id = ?", (ganador_id,))
+        c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (ganador_id,))
         opcion_ganadora = c.fetchone()
         opcion_ganadora_dict = dict(opcion_ganadora) if opcion_ganadora else {}
         if not opcion_ganadora:
@@ -2079,27 +1444,15 @@ def admin_cerrar_evento():
         nombre_ganador = opcion_ganadora_dict.get("nombre")
         titulo_evento = evento_dict.get("titulo")
 
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE eventos SET estado = 'cerrado', ganador_id = %s WHERE id = %s",
-                (ganador_id, evento_id),
-            )
-        else:
-            c.execute(
-                "UPDATE eventos SET estado = 'cerrado', ganador_id = ? WHERE id = ?",
-                (ganador_id, evento_id),
-            )
+        c.execute(
+            "UPDATE eventos SET estado = 'cerrado', ganador_id = %s WHERE id = %s",
+            (ganador_id, evento_id),
+        )
 
-        if DATABASE_URL:
-            c.execute(
-                "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'",
-                (str(evento_id),),
-            )
-        else:
-            c.execute(
-                "SELECT * FROM orders WHERE evento_id = ? AND estado = 'activa'",
-                (str(evento_id),),
-            )
+        c.execute(
+            "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'",
+            (str(evento_id),),
+        )
         ordenes_activas_residuales = c.fetchall()
 
         for orden in ordenes_activas_residuales:
@@ -2110,202 +1463,104 @@ def admin_cerrar_evento():
             precio_orden = orden_dict.get("precio", 0.0)
             op_id = orden_dict.get("opcion_id")
 
-            if DATABASE_URL:
-                c.execute(
-                    "SELECT nombre FROM opciones_evento WHERE id = %s", (op_id,)
-                )
-            else:
-                c.execute(
-                    "SELECT nombre FROM opciones_evento WHERE id = ?", (op_id,)
-                )
+            c.execute(
+                "SELECT nombre FROM opciones_evento WHERE id = %s", (op_id,)
+            )
             op_data = c.fetchone()
             op_data_dict = dict(op_data) if op_data else {}
             nombre_op_residual = op_data_dict.get("nombre", "Opción")
 
             if accion_orden == "comprar":
                 monto_a_devolver = precio_orden * cant_residual
-                if DATABASE_URL:
-                    c.execute(
-                        "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                        (usr,),
-                    )
-                else:
-                    c.execute(
-                        "SELECT saldo_disponible FROM usuarios WHERE username = ?",
-                        (usr,),
-                    )
+                c.execute(
+                    "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
+                    (usr,),
+                )
                 u_s = c.fetchone()
                 u_s_dict = dict(u_s) if u_s else {}
                 if u_s:
                     nuevo_s_compra = u_s_dict.get("saldo_disponible", 0.0) + monto_a_devolver
-                    if DATABASE_URL:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                            (nuevo_s_compra, usr),
-                        )
-                        c.execute(
-                            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                            (
-                                usr,
-                                "Devolución Orden No Ejecutada",
-                                monto_a_devolver,
-                                f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                                datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            ),
-                        )
-                    else:
-                        c.execute(
-                            "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                            (nuevo_s_compra, usr),
-                        )
-                        c.execute(
-                            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (?, ?, ?, ?, ?)",
-                            (
-                                usr,
-                                "Devolución Orden No Ejecutada",
-                                monto_a_devolver,
-                                f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                                datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            ),
-                        )
+                    c.execute(
+                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                        (nuevo_s_compra, usr),
+                    )
+                    c.execute(
+                        "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+                        (
+                            usr,
+                            "Devolución Orden No Ejecutada",
+                            monto_a_devolver,
+                            f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                            datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        ),
+                    )
             elif accion_orden == "vender":
-                if DATABASE_URL:
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Cancelada')",
-                        (
-                            usr,
-                            titulo_evento,
-                            nombre_op_residual,
-                            cant_residual,
-                        ),
-                    )
-                else:
-                    c.execute(
-                        "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (?, ?, ?, ?, 'Cancelada')",
-                        (
-                            usr,
-                            titulo_evento,
-                            nombre_op_residual,
-                            cant_residual,
-                        ),
-                    )
-
-            if DATABASE_URL:
                 c.execute(
-                    "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = %s",
-                    (orden_dict.get("id"),),
-                )
-            else:
-                c.execute(
-                    "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = ?",
-                    (orden_dict.get("id"),),
+                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Cancelada')",
+                    (
+                        usr,
+                        titulo_evento,
+                        nombre_op_residual,
+                        cant_residual,
+                    ),
                 )
 
-        if DATABASE_URL:
             c.execute(
-                "SELECT * FROM historial_apuestas WHERE titulo_evento = %s AND"
-                " opcion_elegida = %s AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
+                "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = %s",
+                (orden_dict.get("id"),),
             )
-        else:
-            c.execute(
-                "SELECT * FROM historial_apuestas WHERE titulo_evento = ? AND"
-                " opcion_elegida = ? AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
-            )
+
+        c.execute(
+            "SELECT * FROM historial_apuestas WHERE titulo_evento = %s AND opcion_elegida = %s AND estado = 'Activo'",
+            (titulo_evento, nombre_ganador),
+        )
         apuestas_ganadoras = c.fetchall()
 
         for ap in apuestas_ganadoras:
             ap_dict = dict(ap)
             usr = ap_dict.get("username")
             premio = ap_dict.get("monto", 0.0) * 2.0
-            if DATABASE_URL:
-                c.execute(
-                    "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR"
-                    " UPDATE",
-                    (usr,),
-                )
-            else:
-                c.execute(
-                    "SELECT saldo_disponible FROM usuarios WHERE username = ?", (usr,)
-                )
+            c.execute(
+                "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
+                (usr,),
+            )
             u_row = c.fetchone()
             u_row_dict = dict(u_row) if u_row else {}
             if u_row:
                 nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
-                if DATABASE_URL:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_saldo, usr),
-                    )
-                    c.execute(
-                        "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                        " VALUES (%s, %s, %s, %s, %s)",
-                        (
-                            usr,
-                            "Premio Automático",
-                            premio,
-                            (
-                                f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                            ),
-                            datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        ),
-                    )
-                else:
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = ? WHERE username = ?",
-                        (nuevo_saldo, usr),
-                    )
-                    c.execute(
-                        "INSERT INTO transacciones (username, tipo, monto, txid, fecha)"
-                        " VALUES (?, ?, ?, ?, ?)",
-                        (
-                            usr,
-                            "Premio Automático",
-                            premio,
-                            (
-                                f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                            ),
-                            datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        ),
-                    )
+                c.execute(
+                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
+                    (nuevo_saldo, usr),
+                )
+                c.execute(
+                    "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
+                    (
+                        usr,
+                        "Premio Automático",
+                        premio,
+                        f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    ),
+                )
 
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Ganada' WHERE titulo_evento ="
-                " %s AND opcion_elegida = %s AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
-            )
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Perdida' WHERE titulo_evento ="
-                " %s AND opcion_elegida != %s AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
-            )
-        else:
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Ganada' WHERE titulo_evento ="
-                " ? AND opcion_elegida = ? AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
-            )
-            c.execute(
-                "UPDATE historial_apuestas SET estado = 'Perdida' WHERE titulo_evento ="
-                " ? AND opcion_elegida != ? AND estado = 'Activo'",
-                (titulo_evento, nombre_ganador),
-            )
+        c.execute(
+            "UPDATE historial_apuestas SET estado = 'Ganada' WHERE titulo_evento = %s AND opcion_elegida = %s AND estado = 'Activo'",
+            (titulo_evento, nombre_ganador),
+        )
+        c.execute(
+            "UPDATE historial_apuestas SET estado = 'Perdida' WHERE titulo_evento = %s AND opcion_elegida != %s AND estado = 'Activo'",
+            (titulo_evento, nombre_ganador),
+        )
 
         conn.commit()
         registrar_log_admin(
             "CERRAR_EVENTO",
-            f"Cerrado evento ID {evento_id}. Ganador: {nombre_ganador}. Pagos"
-            " acreditados automáticamente y órdenes residuales gestionadas.",
+            f"Cerrado evento ID {evento_id}. Ganador: {nombre_ganador}. Pagos acreditados automáticamente y órdenes residuales gestionadas.",
         )
         registrar_audit_log("Admin", "CERRAR_EVENTO", str(evento_id), {"ganador": nombre_ganador})
         return jsonify({
             "success": True,
-            "mensaje": (
-                f"Evento cerrado, órdenes residuales procesadas y premios acreditados automáticamente. Ganador:"
-                f" {nombre_ganador}"
-            ),
+            "mensaje": f"Evento cerrado, órdenes residuales procesadas y premios acreditados automáticamente. Ganador: {nombre_ganador}",
         })
     except Exception as e:
         if conn:
@@ -2328,10 +1583,7 @@ def admin_toggle_freeze():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
-        else:
-            c.execute("SELECT is_frozen FROM usuarios WHERE username = ?", (username,))
+        c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
         row = c.fetchone()
         row_dict = dict(row) if row else {}
         if not row:
@@ -2339,16 +1591,10 @@ def admin_toggle_freeze():
             return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
 
         nuevo_estado = not bool(row_dict.get("is_frozen", 0))
-        if DATABASE_URL:
-            c.execute(
-                "UPDATE usuarios SET is_frozen = %s WHERE username = %s",
-                (nuevo_estado, username),
-            )
-        else:
-            c.execute(
-                "UPDATE usuarios SET is_frozen = ? WHERE username = ?",
-                (1 if nuevo_estado else 0, username),
-            )
+        c.execute(
+            "UPDATE usuarios SET is_frozen = %s WHERE username = %s",
+            (nuevo_estado, username),
+        )
         conn.commit()
         accion_desc = "Congelado" if nuevo_estado else "Descongelado"
         registrar_log_admin("TOGGLE_FREEZE", f"Usuario {username} ha sido {accion_desc}")
@@ -2430,42 +1676,26 @@ def registrar_kyc():
     c = conn.cursor()
     try:
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if DATABASE_URL:
-            c.execute(
-                """
-                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
-                VALUES (%s, 0.00, 'aprobado', %s, %s, %s, %s)
-                ON CONFLICT (username) DO UPDATE SET 
-                    kyc_estado = 'aprobado',
-                    tipo_documento = EXCLUDED.tipo_documento,
-                    numero_documento = EXCLUDED.numero_documento,
-                    foto_url = EXCLUDED.foto_url
-                """,
-                (username, tipo_doc, num_doc, foto_url, fecha_actual)
-            )
-            c.execute(
-                """
-                INSERT INTO usuarios (username, saldo_disponible, is_frozen)
-                VALUES (%s, 0.0, FALSE)
-                ON CONFLICT (username) DO NOTHING
-                """,
-                (username,)
-            )
-        else:
-            c.execute(
-                """
-                INSERT OR REPLACE INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
-                VALUES (?, 0.00, 'aprobado', ?, ?, ?, ?)
-                """,
-                (username, tipo_doc, num_doc, foto_url, fecha_actual)
-            )
-            c.execute(
-                """
-                INSERT OR IGNORE INTO usuarios (username, saldo_disponible, is_frozen)
-                VALUES (?, 0.0, 0)
-                """,
-                (username,)
-            )
+        c.execute(
+            """
+            INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
+            VALUES (%s, 0.00, 'aprobado', %s, %s, %s, %s)
+            ON CONFLICT (username) DO UPDATE SET 
+                kyc_estado = 'aprobado',
+                tipo_documento = EXCLUDED.tipo_documento,
+                numero_documento = EXCLUDED.numero_documento,
+                foto_url = EXCLUDED.foto_url
+            """,
+            (username, tipo_doc, num_doc, foto_url, fecha_actual)
+        )
+        c.execute(
+            """
+            INSERT INTO usuarios (username, saldo_disponible, is_frozen)
+            VALUES (%s, 0.0, FALSE)
+            ON CONFLICT (username) DO NOTHING
+            """,
+            (username,)
+        )
             
         conn.commit()
         registrar_global_audit(username, "REGISTRO_KYC", f"Usuario inscrito exitosamente con documento {num_doc}")
@@ -2495,10 +1725,7 @@ def iniciar_sesion_usuario():
     conn = obtener_conexion()
     c = conn.cursor()
     try:
-        if DATABASE_URL:
-            c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s", (username,))
-        else:
-            c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = ?", (username,))
+        c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s", (username,))
         
         row = c.fetchone()
         if not row:
@@ -2566,53 +1793,29 @@ def procesar_kyc():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        if DATABASE_URL:
-            c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (username,))
-            user_kyc = c.fetchone()
+        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (username,))
+        user_kyc = c.fetchone()
 
-            if user_kyc:
-                c.execute(
-                    """
-                    UPDATE usuarios_p2p 
-                    SET kyc_estado = 'en_revision', 
-                        tipo_documento = %s, 
-                        numero_documento = %s, 
-                        foto_url = %s 
-                    WHERE username = %s
-                    """,
-                    (tipo_documento, numero_documento, foto_url, username)
-                )
-            else:
-                c.execute(
-                    """
-                    INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
-                    VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
-                    """,
-                    (username, tipo_documento, numero_documento, foto_url, fecha_actual)
-                )
+        if user_kyc:
+            c.execute(
+                """
+                UPDATE usuarios_p2p 
+                SET kyc_estado = 'en_revision', 
+                    tipo_documento = %s, 
+                    numero_documento = %s, 
+                    foto_url = %s 
+                WHERE username = %s
+                """,
+                (tipo_documento, numero_documento, foto_url, username)
+            )
         else:
-            c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = ?", (username,))
-            user_kyc = c.fetchone()
-            if user_kyc:
-                c.execute(
-                    """
-                    UPDATE usuarios_p2p 
-                    SET kyc_estado = 'en_revision', 
-                        tipo_documento = ?, 
-                        numero_documento = ?, 
-                        foto_url = ? 
-                    WHERE username = ?
-                    """,
-                    (tipo_documento, numero_documento, foto_url, username)
-                )
-            else:
-                c.execute(
-                    """
-                    INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
-                    VALUES (?, 0.00, 'en_revision', ?, ?, ?, ?)
-                    """,
-                    (username, tipo_documento, numero_documento, foto_url, fecha_actual)
-                )
+            c.execute(
+                """
+                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
+                VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
+                """,
+                (username, tipo_documento, numero_documento, foto_url, fecha_actual)
+            )
 
         conn.commit()
         
