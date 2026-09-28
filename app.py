@@ -1989,6 +1989,7 @@ def iniciar_sesion_usuario():
 
             @kyc_bp.route("/api/kyc/procesar", methods=["POST"])
 def procesar_kyc():
+            
     if not check_rate_limit(limit=10, window=60):
         return jsonify({
             "success": False,
