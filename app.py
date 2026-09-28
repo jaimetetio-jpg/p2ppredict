@@ -4,6 +4,7 @@ import os
 import random
 import time
 import re
+from contextlib import contextmanager
 from flask import Flask, jsonify, render_template, request, session, Blueprint
 from flask_cors import CORS
 import psycopg2
@@ -75,13 +76,36 @@ def es_contrasena_segura(password):
     return True
 
 
-# ================= CONFIGURACIÓN DE POOL DE CONEXIONES Y BASE DE DATOS (NATIVA POSTGRESQL) =================
+# ================= CONFIGURACIÓN DE POOL DE CONEXIONES Y BASE DE DATOS (PARCHE 1) =================
 db_pool = None
-if DATABASE_URL:
+
+def init_db_pool(app):
+    global db_pool
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        try:
+            db_pool = pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=10,
+                dsn=database_url
+            )
+        except Exception:
+            db_pool = None
+
+# Context manager para inyectar y liberar conexiones de forma segura por cada request
+@contextmanager
+def get_db_connection():
+    if not db_pool:
+        raise RuntimeError("El pool de conexiones de la base de datos no está inicializado.")
+    connection = db_pool.getconn()
     try:
-        db_pool = pool.ThreadedConnectionPool(1, 25, DATABASE_URL)
-    except Exception:
-        db_pool = None
+        yield connection
+    finally:
+        db_pool.putconn(connection)
+
+
+# Inicializar el pool al arrancar si existe la variable
+init_db_pool(app)
 
 
 class PooledConnectionWrapper:
@@ -133,8 +157,42 @@ def obtener_conexion():
         raise RuntimeError("DATABASE_URL no está configurada para PostgreSQL.")
 
 
-# Alias para mantener compatibilidad con get_db_connection
-get_db_connection = obtener_conexion
+# ================= FUNCIÓN DE TRANSACCIÓN CRÍTICA (PARCHE 2) =================
+def ejecutar_transaccion_critica(origen_id, destino_id, monto):
+    with get_db_connection() as conn:
+        try:
+            # Desactivar autocommit para iniciar la transacción explícita
+            conn.autocommit = False
+            
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Debitar fondos del origen
+                cursor.execute(
+                    "UPDATE cuentas SET saldo = saldo - %s WHERE id = %s RETURNING saldo;",
+                    (monto, origen_id)
+                )
+                resultado = cursor.fetchone()
+                
+                if not resultado or resultado['saldo'] < 0:
+                    raise ValueError("Fondos insuficientes o cuenta origen no encontrada.")
+                
+                # 2. Acreditar fondos al destino
+                cursor.execute(
+                    "UPDATE cuentas SET saldo = saldo + %s WHERE id = %s;",
+                    (monto, destino_id)
+                )
+                
+                # 3. Confirmar cambios si todo sale bien
+                conn.commit()
+                return {"status": "success", "message": "Transacción completada exitosamente."}
+                
+        except Exception as e:
+            # Revertir todos los cambios si ocurre cualquier error
+            conn.rollback()
+            print(f"Error en la transacción, aplicando rollback: {e}")
+            raise e
+        finally:
+            # Restaurar el estado por defecto de la conexión
+            conn.autocommit = True
 
 
 def actualizar_esquema_db():
@@ -409,7 +467,6 @@ def register_usuario():
     if not es_contrasena_segura(password):
         return jsonify({"error": "La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número."}), 400
     
-    # Lógica de inserción/registro posterior si aplica
     return jsonify({"success": True, "message": "Contraseña válida y registro procesado."}), 200
 
 
@@ -1311,7 +1368,6 @@ def login():
     password = data.get("password", "")
     username = data.get("username", "")
     
-    # Lógica de validación estándar de inicio de sesión
     if check_password_hash(ADMIN_PASSWORD_HASH, password):
         session.clear()
         session.permanent = True
