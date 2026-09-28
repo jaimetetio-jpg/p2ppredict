@@ -1987,7 +1987,7 @@ def iniciar_sesion_usuario():
         if conn:
             conn.close()
 
-@kyc_bp.route("/api/kyc/procesar", methods=["POST"])
+            kyc_bp.route("/api/kyc/procesar", methods=["POST"])
 def procesar_kyc():
     if not check_rate_limit(limit=10, window=60):
         return jsonify({
@@ -1996,11 +1996,12 @@ def procesar_kyc():
         }), 429
 
     data = request.form if request.form else (request.json or {})
-    username = data.get("username")
+    # CORREGIDO: Usamos 'nickname' en lugar de 'username' según tu tabla de Supabase
+    nickname = data.get("nickname") or data.get("username")
     tipo_documento = data.get("tipo_documento")
     numero_documento = data.get("numero_documento")
     
-    if not username or not tipo_documento or not numero_documento:
+    if not nickname or not tipo_documento or not numero_documento:
         return jsonify({
             "success": False, 
             "error": "Faltan campos obligatorios para completar el KYC."
@@ -2010,7 +2011,7 @@ def procesar_kyc():
     if 'archivo' in request.files:
         file = request.files['archivo']
         if file and file.filename != '':
-            filename = f"kyc_{username}_{int(time.time())}_{file.filename}"
+            filename = f"kyc_{nickname}_{int(time.time())}_{file.filename}"
             upload_folder = os.path.join("static", "uploads", "kyc")
             os.makedirs(upload_folder, exist_ok=True)
             filepath = os.path.join(upload_folder, filename)
@@ -2022,7 +2023,8 @@ def procesar_kyc():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (username,))
+        # CORREGIDO: Buscamos por 'nickname'
+        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE nickname = %s", (nickname,))
         user_kyc = c.fetchone()
 
         if user_kyc:
@@ -2033,23 +2035,23 @@ def procesar_kyc():
                     tipo_documento = %s, 
                     numero_documento = %s, 
                     foto_url = %s 
-                WHERE username = %s
+                WHERE nickname = %s
                 """,
-                (tipo_documento, numero_documento, foto_url, username)
+                (tipo_documento, numero_documento, foto_url, nickname)
             )
         else:
             c.execute(
                 """
-                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
+                INSERT INTO usuarios_p2p (nickname, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
                 VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
                 """,
-                (username, tipo_documento, numero_documento, foto_url, fecha_actual)
+                (nickname, tipo_documento, numero_documento, foto_url, fecha_actual)
             )
 
         conn.commit()
         
         registrar_global_audit(
-            username, 
+            nickname, 
             "ENVIO_KYC", 
             f"Documento tipo {tipo_documento} enviado para verificación."
         )
