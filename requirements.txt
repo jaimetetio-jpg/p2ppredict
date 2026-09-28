@@ -5,6 +5,8 @@ requests
 werkzeug
 python-dotenv
 gunicorn 
+pip install Flask-Limiter
+
 
 
 
