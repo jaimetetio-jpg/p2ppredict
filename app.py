@@ -461,15 +461,16 @@ def healthz():
     @app.route('/env.js')
 def env_js():
     supabase_url = os.environ.get("SUPABASE_URL", "")
-    supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", "")
+    supabase_publishable_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
     
     script_content = f"""
     window.ENV = {{
         SUPABASE_URL: "{supabase_url}",
-        SUPABASE_ANON_KEY: "{supabase_anon_key}"
+        SUPABASE_ANON_KEY: "{supabase_publishable_key}"
     }};
     """
     return script_content, 200, {'Content-Type': 'application/javascript'}
+
 
 
 
