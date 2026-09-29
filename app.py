@@ -457,6 +457,20 @@ def validation_key():
 @app.route('/healthz')
 def healthz():
     return "OK", 200
+    
+    @app.route('/env.js')
+def env_js():
+    supabase_url = os.environ.get("SUPABASE_URL", "")
+    supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", "")
+    
+    script_content = f"""
+    window.ENV = {{
+        SUPABASE_URL: "{supabase_url}",
+        SUPABASE_ANON_KEY: "{supabase_anon_key}"
+    }};
+    """
+    return script_content, 200, {'Content-Type': 'application/javascript'}
+
 
 
 @app.route('/register', methods=['POST'])
