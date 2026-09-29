@@ -456,9 +456,11 @@ def validation_key():
 
 @app.route('/healthz')
 def healthz():
+@app.route('/healthz')
+def healthz():
     return "OK", 200
-    
-    @app.route('/env.js')
+
+@app.route('/env.js')
 def env_js():
     supabase_url = os.environ.get("SUPABASE_URL", "")
     supabase_publishable_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
@@ -470,6 +472,7 @@ def env_js():
     }};
     """
     return script_content, 200, {'Content-Type': 'application/javascript'}
+    
 
 
 
