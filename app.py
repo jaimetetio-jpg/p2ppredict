@@ -2013,7 +2013,7 @@ def procesar_kyc():
     if not nickname or not tipo_documento or not numero_documento:
         return jsonify({
             "success": False, 
-            "error": "Faltan campos obligatorios para completar el KYC."
+            "error": "Faltan campos obligatorios (usuario, tipo o número de documento)."
         }), 400
 
     foto_url = data.get("foto_url", "")
@@ -2032,7 +2032,16 @@ def procesar_kyc():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (nickname,))
+        # Validar que el número de documento no pertenezca a otro usuario
+        c.execute("SELECT username FROM usuarios_p2p WHERE numero_documento = %s AND username != %s", (numero_documento, nickname))
+        duplicado = c.fetchone()
+        if duplicado:
+            return jsonify({
+                "success": False,
+                "error": "Este número de documento ya se encuentra registrado por otra cuenta."
+            }), 400
+
+        c.execute("SELECT id FROM usuarios_p2p WHERE username = %s", (nickname,))
         user_kyc = c.fetchone()
 
         if user_kyc:
@@ -2066,7 +2075,7 @@ def procesar_kyc():
 
         return jsonify({
             "success": True,
-            "message": "Datos de KYC recibidos y guardados correctamente. Su cuenta se encuentra en revisión.",
+            "message": "Datos de KYC recibidos correctamente.",
             "kyc_status": "en_revision"
         }), 200
 
@@ -2075,7 +2084,7 @@ def procesar_kyc():
             conn.rollback()
         return jsonify({
             "success": False, 
-            "error": f"Error al procesar el registro KYC en la base de datos: {str(e)}"
+            "error": f"Error interno en la base de datos: {str(e)}"
         }), 500
     finally:
         if conn:
