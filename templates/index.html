@@ -864,19 +864,19 @@ header {
         </div> 
         <div class="form-group"> 
             <label>Nombre</label> 
-            <input type="text" id="kyc-nombre" class="form-control" placeholder="Ej. Jaime"> 
+            <input type="text" id="nombre" class="form-control" placeholder="Ej. Jaime"> 
         </div> 
         <div class="form-group"> 
             <label>Apellido</label> 
-            <input type="text" id="kyc-apellido" class="form-control" placeholder="Ej. Tétio"> 
+            <input type="text" id="apellido" class="form-control" placeholder="Ej. Tétio"> 
         </div> 
         <div class="form-group"> 
             <label>Correo Electrónico</label> 
-            <input type="email" id="kyc-correo" class="form-control" placeholder="ejemplo@correo.com"> 
+            <input type="email" id="correo" class="form-control" placeholder="ejemplo@correo.com"> 
         </div> 
         <div class="form-group"> 
             <label>Tipo de Documento</label> 
-            <select id="kyc-tipo-doc" class="form-control"> 
+            <select id="tipo_documento" class="form-control"> 
                 <option value="ID">Cédula / ID</option> 
                 <option value="Passport">Pasaporte</option> 
                 <option value="Licencia">Licencia de Conducir</option> 
@@ -884,11 +884,15 @@ header {
         </div> 
         <div class="form-group"> 
             <label>Número de Documento</label> 
-            <input type="text" id="kyc-num-doc" class="form-control" placeholder="Ej. V-12345678"> 
+            <input type="text" id="numero_documento" class="form-control" placeholder="Ej. V-12345678"> 
         </div> 
         <div class="form-group"> 
             <label>Dirección de Habitación</label> 
-            <textarea id="kyc-direccion" class="form-control" placeholder="Calle, número, ciudad, estado..." rows="2"></textarea> 
+            <textarea id="direccion" class="form-control" placeholder="Calle, número, ciudad, estado..." rows="2"></textarea> 
+        </div> 
+        <div class="form-group"> 
+            <label>Foto de Documento / Selfie (Opcional)</label> 
+            <input type="file" id="foto_documento" class="form-control" accept="image/*"> 
         </div> 
         <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Registrarse y Enviar KYC</button> 
     </div> 
@@ -1272,12 +1276,12 @@ function abrirModalKyc() {
     let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
     if (req) { 
         document.getElementById('kyc-username').value = req.handle || ''; 
-        document.getElementById('kyc-nombre').value = req.nombre || ''; 
-        document.getElementById('kyc-apellido').value = req.apellido || ''; 
-        document.getElementById('kyc-correo').value = req.correo || ''; 
-        document.getElementById('kyc-tipo-doc').value = req.tipo || 'ID'; 
-        document.getElementById('kyc-num-doc').value = req.numero || ''; 
-        document.getElementById('kyc-direccion').value = req.direccion || ''; 
+        document.getElementById('nombre').value = req.nombre || ''; 
+        document.getElementById('apellido').value = req.apellido || ''; 
+        document.getElementById('correo').value = req.correo || ''; 
+        document.getElementById('tipo_documento').value = req.tipo || 'ID'; 
+        document.getElementById('numero_documento').value = req.numero || ''; 
+        document.getElementById('direccion').value = req.direccion || ''; 
         if (req.clave) document.getElementById('kyc-clave').value = req.clave; 
     } else { 
         document.getElementById('kyc-username').value = usuarioActual.handle !== '@invitado' ? usuarioActual.handle : '@'; 
@@ -1322,12 +1326,12 @@ function irASoporteDesdeRecuperacion() {
 async function enviarSolicitudKyc() { 
     const username = document.getElementById('kyc-username').value.trim(); 
     const clave = document.getElementById('kyc-clave').value.trim(); 
-    const nombre = document.getElementById('kyc-nombre').value.trim(); 
-    const apellido = document.getElementById('kyc-apellido').value.trim(); 
-    const correo = document.getElementById('kyc-correo').value.trim(); 
-    const tipo = document.getElementById('kyc-tipo-doc').value; 
-    const numero = document.getElementById('kyc-num-doc').value.trim(); 
-    const direccion = document.getElementById('kyc-direccion').value.trim(); 
+    const nombre = document.getElementById('nombre').value.trim(); 
+    const apellido = document.getElementById('apellido').value.trim(); 
+    const correo = document.getElementById('correo').value.trim(); 
+    const tipo = document.getElementById('tipo_documento').value; 
+    const numero = document.getElementById('numero_documento').value.trim(); 
+    const direccion = document.getElementById('direccion').value.trim(); 
 
     if (!username || !clave || !nombre || !apellido || !correo || !numero || !direccion) { 
         mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
@@ -1337,6 +1341,38 @@ async function enviarSolicitudKyc() {
     establecerCarga('btn-enviar-kyc', true, 'Registrarse y Enviar KYC');
 
     let handleFinal = username.startsWith('@') ? username : '@' + username; 
+
+    // Parche integrado con FormData y llamada al backend
+    const formData = new FormData();
+    formData.append('username', handleFinal); // ¡Clave para que no falle!
+    formData.append('nombre', nombre);
+    formData.append('apellido', apellido);
+    formData.append('correo', correo);
+    formData.append('tipo_documento', tipo);
+    formData.append('numero_documento', numero);
+    formData.append('direccion', direccion);
+
+    // Si también subes foto:
+    const archivoInput = document.getElementById('foto_documento');
+    if (archivoInput && archivoInput.files[0]) {
+        formData.append('archivo', archivoInput.files[0]);
+    }
+
+    try {
+        // Petición al backend
+        const response = await fetch('/api/kyc/procesar', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if(data.success) {
+            mostrarToast("¡KYC enviado con éxito!", "success");
+        } else {
+            console.warn("Aviso backend KYC:", data.error || "Respuesta no exitosa");
+        }
+    } catch (e) {
+        console.warn("Aviso de red al enviar KYC al backend:", e);
+    }
 
     let req = kycSolicitudes.find(k => k.handle === handleFinal); 
     if (req) { 
@@ -1928,752 +1964,7 @@ function abrirTerminalTrading(marketId, titulo, opcion) {
         return; 
     } 
     ordenActivaModal = { marketId, titulo, opcion }; 
-    document.getElementById('modal-market-text').innerText = `Mercado: "${titulo}" | Opción seleccionada: ${opcion}`; 
-    document.getElementById('trading-modal').style.display = 'flex'; 
-    calcularModalTotal(); 
-}
-
-function cerrarTerminalTrading() {
-    document.getElementById('trading-modal').style.display = 'none';
-}
-
-function cambiarTipoOrdenModal() {
-    const tipo = document.getElementById('modal-order-type').value;
-    document.getElementById('group-limit-price').style.display = (tipo === 'LIMIT') ? 'block' : 'none';
-    calcularModalTotal();
-}
-
-function calcularModalTotal() {
-    if (!ordenActivaModal) return;
-    const tipoOrden = document.getElementById('modal-order-type').value;
-    const contratos = parseInt(document.getElementById('modal-amount').value) || 1;
-    let precioUnitario = 0.50;
-    
-    if (!preciosMercados[ordenActivaModal.marketId]) {
-        preciosMercados[ordenActivaModal.marketId] = { "SÍ": 0.50, "NO": 0.50 };
-    }
-    
-    if (tipoOrden === 'MARKET') {
-        precioUnitario = preciosMercados[ordenActivaModal.marketId][ordenActivaModal.opcion] || 0.50;
-    } else {
-        precioUnitario = parseFloat(document.getElementById('modal-limit-price').value) || 0.50;
-    }
-
-    const totalReq = contratos * precioUnitario;
-    const payout = contratos * 1.00;
-
-    document.getElementById('modal-price-unit').innerText = precioUnitario.toFixed(2);
-    document.getElementById('modal-total-req').innerText = totalReq.toFixed(2);
-    document.getElementById('modal-payout').innerText = payout.toFixed(2);
-}
-
-async function confirmarCompraRapida() {
-    if (!ordenActivaModal) return;
-    const contratos = parseInt(document.getElementById('modal-amount').value) || 1;
-    const totalReq = parseFloat(document.getElementById('modal-total-req').innerText);
-
-    if (usuarioActual.balance < totalReq) {
-        mostrarToast("Balance insuficiente para realizar esta orden.", "error");
-        return;
-    }
-
-    establecerCarga('btn-confirmar-compra', true, 'Confirmar Orden al Order Book');
-
-    usuarioActual.balance -= totalReq;
-    actualizarUIBalance();
-    sincronizarBalanceDirectorioLocal();
-
-    const nuevaPosicion = {
-        id: 'POS-' + Date.now(),
-        marketId: ordenActivaModal.marketId,
-        titulo: ordenActivaModal.titulo,
-        opcion: ordenActivaModal.opcion,
-        contratos: contratos,
-        invertido: totalReq,
-        payout: contratos * 1.00,
-        estadoOrden: 'ACTIVO'
-    };
-    posicionesActivas.push(nuevaPosicion);
-    await guardarEnSupabaseTabla('posiciones_activas', {
-        id: nuevaPosicion.id,
-        market_id: String(nuevaPosicion.marketId),
-        handle: usuarioActual.handle,
-        titulo: nuevaPosicion.titulo,
-        opcion: nuevaPosicion.opcion,
-        contratos: nuevaPosicion.contratos,
-        invertido: nuevaPosicion.invertido,
-        payout: nuevaPosicion.payout,
-        estado_orden: nuevaPosicion.estadoOrden
-    });
-
-    const nuevaOrden = {
-        marketId: ordenActivaModal.marketId,
-        tipo: 'COMPRA (Bid)',
-        opcion: ordenActivaModal.opcion,
-        contratos: contratos,
-        precio: parseFloat(document.getElementById('modal-price-unit').innerText),
-        trader: usuarioActual.handle
-    };
-    ordenesGlobales.push(nuevaOrden);
-    await guardarEnSupabaseTabla('ordenes_clob', nuevaOrden);
-
-    await registrarTransaccionEnDB({
-        id: 'TX-' + Date.now(),
-        titulo: 'Compra de Contratos',
-        tipo: 'Inversión',
-        monto: -totalReq,
-        detalle: `Compra de ${contratos} contratos (${ordenActivaModal.opcion}) en "${ordenActivaModal.titulo}"`
-    });
-
-    establecerCarga('btn-confirmar-compra', false, 'Confirmar Orden al Order Book');
-    cerrarTerminalTrading();
-    cargarHistorialDesdeDB();
-    renderizarOrderBookVisible();
-    mostrarToast("¡Orden ejecutada y agregada al Order Book con éxito!", "success");
-}
-
-function renderizarPosiciones() {
-    const container = document.getElementById('my-positions-content');
-    if (!container) return;
-    let misPos = posicionesActivas.filter(p => p.handle === usuarioActual.handle && p.estadoOrden === 'ACTIVO');
-    if (misPos.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p>';
-        return;
-    }
-    let html = '';
-    misPos.forEach(p => {
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;">
-            <div style="font-weight: bold; margin-bottom: 4px;">${p.titulo}</div>
-            <div>Opción: <b style="color: #38bdf8;">${p.opcion}</b> | Contratos: <b>${p.contratos}</b></div>
-            <div>Invertido: <b style="color: #f59e0b;">${p.invertido.toFixed(2)} Pi</b> | Payout: <b style="color: #4ade80;">${p.payout.toFixed(2)} Pi</b></div>
-            <div style="margin-top: 8px; display: flex; gap: 6px;">
-                <button class="action-btn" style="flex: 1; padding: 5px; font-size: 0.75rem;" onclick="abrirModalVenta('${p.id}')">💱 Vender Posición</button>
-            </div>
-        </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-function abrirModalVenta(posId) {
-    let p = posicionesActivas.find(item => item.id === posId);
-    if (!p) return;
-    ventaActivaModal = p;
-    document.getElementById('sell-modal-title').innerText = `Posición: "${p.titulo}" (${p.opcion})`;
-    document.getElementById('sell-max-contracts').innerText = p.contratos;
-    document.getElementById('sell-amount-contracts').value = p.contratos;
-    document.getElementById('sell-modal').style.display = 'flex';
-    calcularTotalVentaModal();
-}
-
-function cerrarModalVenta() {
-    document.getElementById('sell-modal').style.display = 'none';
-}
-
-function cambiarTipoVentaModal() {
-    const tipo = document.getElementById('sell-modal-type').value;
-    document.getElementById('group-sell-limit-price').style.display = (tipo === 'LIMIT') ? 'block' : 'none';
-    calcularTotalVentaModal();
-}
-
-function calcularTotalVentaModal() {
-    if (!ventaActivaModal) return;
-    const tipo = document.getElementById('sell-modal-type').value;
-    const contratosAVender = parseInt(document.getElementById('sell-amount-contracts').value) || 1;
-    let precioUnitario = 0.50;
-    if (tipo === 'MARKET') {
-        precioUnitario = (preciosMercados[ventaActivaModal.marketId] && preciosMercados[ventaActivaModal.marketId][ventaActivaModal.opcion]) ? preciosMercados[ventaActivaModal.marketId][ventaActivaModal.opcion] : 0.50;
-    } else {
-        precioUnitario = parseFloat(document.getElementById('sell-limit-price').value) || 0.50;
-    }
-    const retorno = contratosAVender * precioUnitario;
-    document.getElementById('sell-price-unit').innerText = precioUnitario.toFixed(2);
-    document.getElementById('sell-total-return').innerText = retorno.toFixed(2);
-}
-
-async function ejecutarVentaPosicion() {
-    if (!ventaActivaModal) return;
-    const contratosAVender = parseInt(document.getElementById('sell-amount-contracts').value) || 1;
-    if (contratosAVender > ventaActivaModal.contratos) {
-        mostrarToast("No puedes vender más contratos de los que posees.", "error");
-        return;
-    }
-    const retorno = parseFloat(document.getElementById('sell-total-return').innerText);
-
-    establecerCarga('btn-ejecutar-venta', true, 'Confirmar Venta');
-
-    usuarioActual.balance += retorno;
-    actualizarUIBalance();
-    sincronizarBalanceDirectorioLocal();
-
-    if (contratosAVender === ventaActivaModal.contratos) {
-        ventaActivaModal.estadoOrden = 'VENDIDO';
-        await eliminarDeSupabaseTabla('posiciones_activas', ventaActivaModal.id);
-    } else {
-        ventaActivaModal.contratos -= contratosAVender;
-        ventaActivaModal.invertido -= (ventaActivaModal.invertido / (ventaActivaModal.contratos + contratosAVender)) * contratosAVender;
-        ventaActivaModal.payout -= contratosAVender * 1.00;
-        await guardarEnSupabaseTabla('posiciones_activas', {
-            id: ventaActivaModal.id,
-            market_id: String(ventaActivaModal.marketId),
-            handle: usuarioActual.handle,
-            titulo: ventaActivaModal.titulo,
-            opcion: ventaActivaModal.opcion,
-            contratos: ventaActivaModal.contratos,
-            invertido: ventaActivaModal.invertido,
-            payout: ventaActivaModal.payout,
-            estado_orden: ventaActivaModal.estadoOrden
-        });
-    }
-
-    const nuevaOrden = {
-        marketId: ventaActivaModal.marketId,
-        tipo: 'VENTA (Ask)',
-        opcion: ventaActivaModal.opcion,
-        contratos: contratosAVender,
-        precio: parseFloat(document.getElementById('sell-price-unit').innerText),
-        trader: usuarioActual.handle
-    };
-    ordenesGlobales.push(nuevaOrden);
-    await guardarEnSupabaseTabla('ordenes_clob', nuevaOrden);
-
-    await registrarTransaccionEnDB({
-        id: 'TX-V-' + Date.now(),
-        titulo: 'Venta de Contratos',
-        tipo: 'Retorno',
-        monto: retorno,
-        detalle: `Venta de ${contratosAVender} contratos (${ventaActivaModal.opcion}) en "${ventaActivaModal.titulo}"`
-    });
-
-    establecerCarga('btn-ejecutar-venta', false, 'Confirmar Venta');
-    cerrarModalVenta();
-    cargarHistorialDesdeDB();
-    renderizarOrderBookVisible();
-    mostrarToast("¡Posición vendida con éxito!", "success");
-}
-
-function renderizarOrderBookVisible() {
-    const select = document.getElementById('orderbook-market-filter');
-    const tbody = document.getElementById('orderbook-table-body');
-    if (!select || !tbody) return;
-    const selectedMarketId = select.value;
-    if (!selectedMarketId) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Selecciona un mercado activo para ver su Order Book.</td></tr>';
-        return;
-    }
-    let filtradas = ordenesGlobales.filter(o => String(o.marketId) === String(selectedMarketId));
-    if (filtradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay órdenes registradas para este mercado.</td></tr>';
-        return;
-    }
-    let html = '';
-    filtradas.forEach(o => {
-        let colorTipo = o.tipo.includes('COMPRA') ? '#4ade80' : '#f87171';
-        html += `
-        <tr>
-            <td><span style="color: ${colorTipo}; font-weight: bold;">${o.tipo}</span></td>
-            <td><b>${o.opcion}</b></td>
-            <td>${o.contratos}</td>
-            <td>${Number(o.precio).toFixed(2)} Pi</td>
-            <td>${o.trader}</td>
-        </tr>
-        `;
-    });
-    tbody.innerHTML = html;
-}
-
-async function registrarTransaccionEnDB(tx) {
-    historialTransacciones.push(tx);
-    await guardarEnSupabaseTabla('historial_transacciones', {
-        id: tx.id,
-        handle: usuarioActual.handle,
-        titulo: tx.titulo,
-        tipo: tx.tipo,
-        monto: tx.monto,
-        detalle: tx.detalle
-    });
-    renderizarHistorial();
-}
-
-function renderizarHistorial() {
-    const container = document.getElementById('my-history-content');
-    if (!container) return;
-    let misTxs = historialTransacciones.filter(t => t.handle === usuarioActual.handle);
-    if (misTxs.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p>';
-        return;
-    }
-    let html = '';
-    misTxs.forEach(t => {
-        let colorMonto = Number(t.monto) >= 0 ? '#4ade80' : '#f87171';
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 0.75rem;">
-            <div style="display: flex; justify-content: space-between;">
-                <b>${t.titulo}</b>
-                <span style="color: ${colorMonto}; font-weight: bold;">${Number(t.monto) >= 0 ? '+' : ''}${Number(t.monto).toFixed(2)} Pi</span>
-            </div>
-            <div style="color: var(--text-muted); margin-top: 2px;">${t.detalle || t.tipo}</div>
-        </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-async function depositarConPiNetwork() {
-    if (usuarioActual.handle === "@invitado") {
-        mostrarToast("Inicia sesión para recargar.", "error");
-        abrirModalKyc();
-        return;
-    }
-    const montoInput = parseFloat(document.getElementById('wallet-amount').value);
-    if (!montoInput || montoInput <= 0) {
-        mostrarToast("Introduce un monto válido para recargar.", "error");
-        return;
-    }
-
-    establecerCarga('btn-recargar-pi', true, 'Recargar Pi');
-
-    try {
-        if (window.Pi) {
-            Pi.createPayment({
-                amount: montoInput,
-                memo: `Recarga P2Ppredict para ${usuarioActual.handle}`,
-                metadata: { handle: usuarioActual.handle }
-            }, {
-                onReadyForServerApproval: async (paymentId) => {
-                    usuarioActual.balance += montoInput;
-                    actualizarUIBalance();
-                    sincronizarBalanceDirectorioLocal();
-                    await registrarTransaccionEnDB({
-                        id: 'REC-' + Date.now(),
-                        titulo: 'Recarga Pi Network',
-                        tipo: 'Depósito',
-                        monto: montoInput,
-                        detalle: `Recarga exitosa mediante Pi SDK (ID: ${paymentId})`
-                    });
-                    establecerCarga('btn-recargar-pi', false, 'Recargar Pi');
-                    mostrarToast(`¡Recarga de ${montoInput} Pi procesada con éxito!`, "success");
-                },
-                onReadyForServerCompletion: (paymentId, txid) => {},
-                onCancel: (paymentId) => {
-                    establecerCarga('btn-recargar-pi', false, 'Recargar Pi');
-                    mostrarToast("Pago cancelado por el usuario.", "error");
-                },
-                onError: (error, payment) => {
-                    establecerCarga('btn-recargar-pi', false, 'Recargar Pi');
-                    mostrarToast("Error en la transacción con Pi SDK: " + error.message, "error");
-                }
-            });
-        } else {
-            usuarioActual.balance += montoInput;
-            actualizarUIBalance();
-            sincronizarBalanceDirectorioLocal();
-            await registrarTransaccionEnDB({
-                id: 'REC-' + Date.now(),
-                titulo: 'Recarga simulada (Sin SDK)',
-                tipo: 'Depósito',
-                monto: montoInput,
-                detalle: `Recarga manual simulada`
-            });
-            establecerCarga('btn-recargar-pi', false, 'Recargar Pi');
-            mostrarToast(`¡Recarga simulada de ${montoInput} Pi aplicada!`, "success");
-        }
-    } catch (e) {
-        establecerCarga('btn-recargar-pi', false, 'Recargar Pi');
-        mostrarToast("Error procesando el pago con Pi.", "error");
-    }
-}
-
-async function retirarBilletera() {
-    if (usuarioActual.handle === "@invitado") {
-        mostrarToast("Inicia sesión para retirar.", "error");
-        return;
-    }
-    const montoInput = parseFloat(document.getElementById('wallet-amount').value);
-    if (!montoInput || montoInput <= 0) {
-        mostrarToast("Introduce un monto válido para retirar.", "error");
-        return;
-    }
-    if (usuarioActual.balance < montoInput) {
-        mostrarToast("Balance insuficiente para retirar este monto.", "error");
-        return;
-    }
-
-    establecerCarga('btn-retirar-pi', true, 'Retirar Pi');
-
-    usuarioActual.balance -= montoInput;
-    actualizarUIBalance();
-    sincronizarBalanceDirectorioLocal();
-    await registrarTransaccionEnDB({
-        id: 'RET-' + Date.now(),
-        titulo: 'Retiro de Billetera',
-        tipo: 'Retiro',
-        monto: -montoInput,
-        detalle: `Solicitud de retiro de ${montoInput} Pi a monedero externo`
-    });
-    establecerCarga('btn-retirar-pi', false, 'Retirar Pi');
-    mostrarToast(`¡Retiro de ${montoInput} Pi procesado con éxito!`, "success");
-}
-
-function abrirSoporteChatUsuario() {
-    if (usuarioActual.handle === "@invitado") {
-        mostrarToast("Inicia sesión para usar el chat de soporte.", "error");
-        abrirModalKyc();
-        return;
-    }
-    renderizarMensajesChatUsuario();
-    document.getElementById('support-chat-modal').style.display = 'flex';
-}
-
-function cerrarChatSoporteUsuario() {
-    document.getElementById('support-chat-modal').style.display = 'none';
-}
-
-function renderizarMensajesChatUsuario() {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-    let t = ticketsSoporte.find(item => item.handle === usuarioActual.handle);
-    if (!t || !t.mensajes || t.mensajes.length === 0) {
-        container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; margin-top: 20px;">No hay mensajes previos. Escribe tu reclamo o duda aquí.</div>';
-        return;
-    }
-    let html = '';
-    t.mensajes.forEach(m => {
-        let clase = m.remitente === 'usuario' ? 'user' : 'admin';
-        html += `<div class="chat-msg ${clase}"><b>${m.remitente === 'usuario' ? 'Tú' : 'Admin'}:</b> ${m.texto}</div>`;
-    });
-    container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
-}
-
-async function enviarMensajeSoporteUsuario() {
-    const input = document.getElementById('chat-user-input');
-    const texto = input.value.trim();
-    if (!texto) return;
-
-    let t = ticketsSoporte.find(item => item.handle === usuarioActual.handle);
-    if (!t) {
-        t = { id: 'TICK-' + Date.now(), handle: usuarioActual.handle, mensajes: [], estado: 'abierto' };
-        ticketsSoporte.push(t);
-    }
-    t.mensajes.push({ remitente: 'usuario', texto, fecha: new Date().toISOString() });
-    input.value = '';
-    renderizarMensajesChatUsuario();
-    renderizarTicketsAdmin();
-    mostrarToast("Mensaje enviado a soporte.", "success");
-}
-
-function renderizarTicketsAdmin() {
-    const container = document.getElementById('admin-tickets-container');
-    if (!container) return;
-    if (!ticketsSoporte || ticketsSoporte.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p>';
-        return;
-    }
-    let html = '';
-    ticketsSoporte.forEach(t => {
-        let ultimoMsg = t.mensajes && t.mensajes.length > 0 ? t.mensajes[t.mensajes.length - 1].texto : 'Sin mensajes';
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div>Usuario: <b style="color: #38bdf8;">${t.handle}</b></div>
-                <div style="color: var(--text-muted); margin-top: 2px; font-size: 0.75rem;">Último: "${ultimoMsg}"</div>
-            </div>
-            <button class="action-btn" style="padding: 6px 10px; font-size: 0.75rem;" onclick="abrirChatAdminModal('${t.id}')">Responder</button>
-        </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-function abrirChatAdminModal(ticketId) {
-    ticketAdminActivoId = ticketId;
-    let t = ticketsSoporte.find(item => item.id === ticketId);
-    if (!t) return;
-    document.getElementById('admin-chat-title').innerText = `💬 Chat con ${t.handle}`;
-    renderizarMensajesChatAdmin();
-    document.getElementById('admin-chat-modal').style.display = 'flex';
-}
-
-function cerrarChatAdminModal() {
-    document.getElementById('admin-chat-modal').style.display = 'none';
-}
-
-function renderizarMensajesChatAdmin() {
-    const container = document.getElementById('admin-chat-messages-container');
-    if (!container || !ticketAdminActivoId) return;
-    let t = ticketsSoporte.find(item => item.id === ticketAdminActivoId);
-    if (!t || !t.mensajes) return;
-    let html = '';
-    t.mensajes.forEach(m => {
-        let clase = m.remitente === 'usuario' ? 'user' : 'admin';
-        html += `<div class="chat-msg ${clase}"><b>${m.remitente === 'usuario' ? t.handle : 'Admin'}:</b> ${m.texto}</div>`;
-    });
-    container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
-}
-
-async function enviarMensajeSoporteAdmin() {
-    const input = document.getElementById('chat-admin-input');
-    const texto = input.value.trim();
-    if (!texto || !ticketAdminActivoId) return;
-
-    let t = ticketsSoporte.find(item => item.id === ticketAdminActivoId);
-    if (!t) return;
-    t.mensajes.push({ remitente: 'admin', texto, fecha: new Date().toISOString() });
-    input.value = '';
-    renderizarMensajesChatAdmin();
-    renderizarTicketsAdmin();
-    mostrarToast("Respuesta enviada al usuario.", "success");
-}
-
-function renderizarHistorialGlobalAdmin() {
-    const container = document.getElementById('admin-global-transactions-container');
-    if (!container) return;
-    const userSearch = document.getElementById('admin-user-search').value.toLowerCase();
-    const txSearch = document.getElementById('admin-tx-search').value.toLowerCase();
-    const filtroDetalle = document.getElementById('filtroDetalle').value.toLowerCase();
-
-    let filtradas = historialTransacciones.filter(t => {
-        let matchUser = (t.handle || '').toLowerCase().includes(userSearch);
-        let matchDet = (t.detalle || t.titulo || '').toLowerCase().includes(txSearch);
-        let matchFiltro = !filtroDetalle || (t.titulo || t.tipo || '').toLowerCase().includes(filtroDetalle);
-        return matchUser && matchDet && matchFiltro;
-    });
-
-    if (filtradas.length === 0) {
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No se encontraron transacciones con los filtros aplicados.</p>';
-        return;
-    }
-
-    let html = '';
-    filtradas.forEach(t => {
-        let colorMonto = Number(t.monto) >= 0 ? '#4ade80' : '#f87171';
-        html += `
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 6px; font-size: 0.75rem;">
-            <div style="display: flex; justify-content: space-between;">
-                <b>${t.handle || '@invitado'} - ${t.titulo}</b>
-                <span style="color: ${colorMonto}; font-weight: bold;">${Number(t.monto) >= 0 ? '+' : ''}${Number(t.monto).toFixed(2)} Pi</span>
-            </div>
-            <div style="color: var(--text-muted); margin-top: 2px;">${t.detalle || t.tipo}</div>
-        </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-function calcularMetricasFinancierasAdmin() {
-    let supplyTotal = 0;
-    cuentasDirectorio.forEach(c => {
-        supplyTotal += Number(c.balance) || 0;
-    });
-    document.getElementById('admin-total-supply').innerText = supplyTotal.toFixed(2) + ' Pi';
-
-    let sortedUsers = [...cuentasDirectorio].sort((a, b) => b.balance - a.balance).slice(0, 5);
-    const topContainer = document.getElementById('admin-top-users-container');
-    if (!topContainer) return;
-    if (sortedUsers.length === 0) {
-        topContainer.innerHTML = '<p style="font-size: 0.75rem; color: var(--text-muted);">No hay cuentas registradas.</p>';
-        return;
-    }
-    let html = '';
-    sortedUsers.forEach((u, idx) => {
-        html += `<div style="display: flex; justify-content: space-between;"><span>${idx + 1}. ${u.handle}</span><b style="color: #4ade80;">${Number(u.balance).toFixed(2)} Pi</b></div>`;
-    });
-    topContainer.innerHTML = html;
-}
-
-function poblarSelectUsuariosAdmin() {
-    const select = document.getElementById('admin-user-select');
-    if (!select) return;
-    let html = '<option value="">-- Seleccionar Usuario --</option>';
-    cuentasDirectorio.forEach(c => {
-        html += `<option value="${c.handle}">${c.handle} (${Number(c.balance).toFixed(2)} Pi)</option>`;
-    });
-    select.innerHTML = html;
-}
-
-function cargarDatosUsuarioAdminSeleccionado() {
-    const select = document.getElementById('admin-user-select');
-    const card = document.getElementById('admin-user-details-card');
-    const btnBloqueo = document.getElementById('admin-btn-bloqueo');
-    if (!select || !card) return;
-    const handle = select.value;
-    usuarioAdminSeleccionadoHandle = handle;
-    if (!handle) {
-        card.style.display = 'none';
-        return;
-    }
-    let u = cuentasDirectorio.find(c => c.handle === handle);
-    if (!u) {
-        card.style.display = 'none';
-        return;
-    }
-    document.getElementById('adm-det-handle').innerText = u.handle;
-    document.getElementById('adm-det-balance').innerText = Number(u.balance).toFixed(2) + ' Pi';
-    let statusText = u.bloqueado ? 'Bloqueado 🔒' : 'Activo 🟢';
-    document.getElementById('adm-det-status').innerText = statusText;
-    btnBloqueo.innerText = u.bloqueado ? '🔓 Desbloquear Cuenta' : '🔒 Bloquear Cuenta';
-    card.style.display = 'block';
-}
-
-function abrirModalAjusteBalance() {
-    if (!usuarioAdminSeleccionadoHandle) {
-        mostrarToast("Selecciona una cuenta de usuario primero.", "error");
-        return;
-    }
-    document.getElementById('admin-balance-modal-subtitle').innerText = `Ajustar saldo para la cuenta: ${usuarioAdminSeleccionadoHandle}`;
-    document.getElementById('admin-adj-monto').value = '';
-    document.getElementById('admin-adj-nota').value = '';
-    document.getElementById('admin-balance-modal').style.display = 'flex';
-}
-
-function cerrarModalAjusteBalance() {
-    document.getElementById('admin-balance-modal').style.display = 'none';
-}
-
-async function ejecutarAjusteBalanceAdmin() {
-    if (!usuarioAdminSeleccionadoHandle) return;
-    const tipo = document.getElementById('admin-adj-tipo').value;
-    const monto = parseFloat(document.getElementById('admin-adj-monto').value);
-    const nota = document.getElementById('admin-adj-nota').value.trim();
-
-    if (!monto || monto <= 0) {
-        mostrarToast("Introduce un monto válido.", "error");
-        return;
-    }
-
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-    if (!u) return;
-
-    if (tipo === 'CREDITO') {
-        u.balance += monto;
-    } else {
-        if (u.balance < monto) {
-            mostrarToast("El usuario no tiene suficiente saldo para este débito.", "error");
-            return;
-        }
-        u.balance -= monto;
-    }
-
-    if (usuarioActual.handle === u.handle) {
-        usuarioActual.balance = u.balance;
-        actualizarUIBalance();
-    }
-
-    await registrarTransaccionEnDB({
-        id: 'ADJ-' + Date.now(),
-        handle: u.handle,
-        titulo: `Ajuste Manual (${tipo})`,
-        tipo: 'Auditoría',
-        monto: tipo === 'CREDITO' ? monto : -monto,
-        detalle: nota || 'Sin nota de auditoría'
-    });
-
-    cerrarModalAjusteBalance();
-    cargarDatosUsuarioAdminSeleccionado();
-    calcularMetricasFinancierasAdmin();
-    poblarSelectUsuariosAdmin();
-    mostrarToast("¡Ajuste manual aplicado con éxito!", "success");
-}
-
-async function toggleBloqueoCuentaActual() {
-    if (!usuarioAdminSeleccionadoHandle) return;
-    let u = cuentasDirectorio.find(c => c.handle === usuarioAdminSeleccionadoHandle);
-    if (!u) return;
-    u.bloqueado = !u.bloqueado;
-    cargarDatosUsuarioAdminSeleccionado();
-    mostrarToast(`Cuenta ${u.handle} ${u.bloqueado ? 'BLOQUEADA' : 'DESBLOQUEADA'}.`, "success");
-}
-
-async function declararGanadorAdmin() {
-    const select = document.getElementById('admin-market-id');
-    const resultSelect = document.getElementById('admin-result-select');
-    if (!select || !resultSelect) return;
-    const marketId = select.value;
-    const ganador = resultSelect.value;
-
-    if (!marketId) {
-        mostrarToast("Selecciona un mercado válido.", "error");
-        return;
-    }
-
-    estadosMercados[marketId] = ganador;
-    let mObj = mercadosDinamicos.find(m => String(m.id) === String(marketId));
-    let tituloMercado = mObj ? mObj.titulo : ('Mercado #' + marketId);
-
-    let posicionesDelMercado = posicionesActivas.filter(p => String(p.marketId) === String(marketId) && p.estadoOrden === 'ACTIVO');
-    for (let p of posicionesDelMercado) {
-        p.estadoOrden = 'LIQUIDADO';
-        await eliminarDeSupabaseTabla('posiciones_activas', p.id);
-        if (p.opcion === ganador) {
-            let u = cuentasDirectorio.find(c => c.handle === p.handle);
-            if (u) {
-                u.balance += p.payout;
-                if (usuarioActual.handle === u.handle) {
-                    usuarioActual.balance = u.balance;
-                    actualizarUIBalance();
-                }
-            }
-            await registrarTransaccionEnDB({
-                id: 'PREM-' + Date.now() + '-' + Math.floor(Math.random()*1000),
-                handle: p.handle,
-                titulo: 'Premio Ganador de Predicción',
-                tipo: 'Recompensa',
-                monto: p.payout,
-                detalle: `Ganador en el mercado: "${tituloMercado}" (Opción: ${ganador})`
-            });
-        }
-    }
-
-    renderizarMercadosDinamicos();
-    renderizarMercadosEsperaYHistorial();
-    actualizarSelectsMercadosActivos();
-    cargarHistorialDesdeDB();
-    mostrarToast(`¡Mercado resuelto con éxito! Ganador oficial: ${ganador}`, "success");
-}
-
-async function cancelarYReembolsarMercadoAdmin() {
-    const select = document.getElementById('admin-market-id');
-    if (!select) return;
-    const marketId = select.value;
-    if (!marketId) {
-        mostrarToast("Selecciona un mercado válido.", "error");
-        return;
-    }
-
-    estadosMercados[marketId] = 'CANCELADO';
-    let mObj = mercadosDinamicos.find(m => String(m.id) === String(marketId));
-    let tituloMercado = mObj ? mObj.titulo : ('Mercado #' + marketId);
-
-    let posicionesDelMercado = posicionesActivas.filter(p => String(p.marketId) === String(marketId) && p.estadoOrden === 'ACTIVO');
-    for (let p of posicionesDelMercado) {
-        p.estadoOrden = 'REEMBOLSADO';
-        await eliminarDeSupabaseTabla('posiciones_activas', p.id);
-        let u = cuentasDirectorio.find(c => c.handle === p.handle);
-        if (u) {
-            u.balance += p.invertido;
-            if (usuarioActual.handle === u.handle) {
-                usuarioActual.balance = u.balance;
-                actualizarUIBalance();
-            }
-        }
-        await registrarTransaccionEnDB({
-            id: 'REEM-' + Date.now() + '-' + Math.floor(Math.random()*1000),
-            handle: p.handle,
-            titulo: 'Reembolso por Cancelación',
-            tipo: 'Reembolso',
-            monto: p.invertido,
-            detalle: `Reembolso total sin comisión por cancelación del mercado: "${tituloMercado}"`
-        });
-    }
-
-    renderizarMercadosDinamicos();
-    renderizarMercadosEsperaYHistorial();
-    actualizarSelectsMercadosActivos();
-    cargarHistorialDesdeDB();
-    mostrarToast("¡Mercado cancelado y fondos reembolsados con éxito!", "success");
+    document.getElementById('modal-market-text').innerText = `Mercado: "${titulo}" | Opción seleccionada: ${opcion}`;
 }
 </script> 
 </body> 
