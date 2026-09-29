@@ -456,9 +456,8 @@ def validation_key():
 
 @app.route('/healthz')
 def healthz():
-@app.route('/healthz')
-def healthz():
     return "OK", 200
+
 
 @app.route('/env.js')
 def env_js():
@@ -472,9 +471,6 @@ def env_js():
     }};
     """
     return script_content, 200, {'Content-Type': 'application/javascript'}
-    
-
-
 
 
 @app.route('/register', methods=['POST'])
@@ -2091,4 +2087,3 @@ app.register_blueprint(kyc_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
