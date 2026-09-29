@@ -1992,7 +1992,7 @@ def procesar_kyc():
         }), 429
 
     data = request.form if request.form else (request.json or {})
-    nickname = data.get("nickname") or data.get("username")
+    nickname = data.get("username") or data.get("nickname")
     tipo_documento = data.get("tipo_documento")
     numero_documento = data.get("numero_documento")
     
@@ -2018,7 +2018,7 @@ def procesar_kyc():
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE nickname = %s", (nickname,))
+        c.execute("SELECT id, kyc_estado FROM usuarios_p2p WHERE username = %s", (nickname,))
         user_kyc = c.fetchone()
 
         if user_kyc:
@@ -2029,14 +2029,14 @@ def procesar_kyc():
                     tipo_documento = %s, 
                     numero_documento = %s, 
                     foto_url = %s 
-                WHERE nickname = %s
+                WHERE username = %s
                 """,
                 (tipo_documento, numero_documento, foto_url, nickname)
             )
         else:
             c.execute(
                 """
-                INSERT INTO usuarios_p2p (nickname, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
+                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
                 VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
                 """,
                 (nickname, tipo_documento, numero_documento, foto_url, fecha_actual)
@@ -2073,3 +2073,4 @@ app.register_blueprint(kyc_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
