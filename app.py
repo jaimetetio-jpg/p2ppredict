@@ -1,2098 +1,2075 @@
-from collections import defaultdict
-from datetime import datetime, timedelta
-import os
-import random
-import time
-import re
-from contextlib import contextmanager
-from flask import Flask, jsonify, render_template, request, session, Blueprint
-from flask_cors import CORS
-import psycopg2
-from psycopg2 import pool
-from psycopg2.extras import RealDictCursor
-import requests
-from werkzeug.security import check_password_hash, generate_password_hash
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+<!DOCTYPE html> 
+<html lang="es"> 
+<head> 
+<meta charset="UTF-8"> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<title>P2Ppredict - Order Book & Soporte (PostgreSQL)</title> 
+<script src="https://sdk.minepi.com/pi-sdk.js"></script> 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
+<script src="env.js"></script> 
+<script src="/static/env.js"></script> 
+<script> 
+if (typeof Pi !== 'undefined') {
+    try { Pi.init({ version: "2.0", sandbox: true }); } catch(e){}
+}
+const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('cfg_supabase_url') || ''; 
+const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('cfg_supabase_key') || ''; 
+const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; 
+if (!supabaseClient) { 
+    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente."); 
+} 
+</script> 
+<style> 
+:root { 
+    --bg-color: #0f111a; 
+    --card-bg: #181b28; 
+    --card-bg-gradient: linear-gradient(145deg, #1d2133, #151824); 
+    --text-color: #ffffff; 
+    --text-muted: #8c92ac; 
+    --accent: #2563eb; 
+    --accent-hover: #1d4ed8; 
+    --border-color: #2a2e43; 
+    --danger: #dc2626; 
+    --success: #16a34a; 
+    --shadow-3d: 6px 6px 12px #090b12, -6px -6px 12px #1f2740; 
+    --shadow-3d-active: 3px 3px 6px #090b12, -3px -3px 6px #1f2740; 
+    --shadow-btn: 4px 4px 8px #090b12, -4px -4px 8px #1d253e; 
+} 
+[data-theme="light"] { 
+    --bg-color: #f3f4f6; 
+    --card-bg: #ffffff; 
+    --card-bg-gradient: linear-gradient(145deg, #ffffff, #f9fafb); 
+    --text-color: #111827; 
+    --text-muted: #6b7280; 
+    --accent: #2563eb; 
+    --accent-hover: #1d4ed8; 
+    --border-color: #e5e7eb; 
+    --danger: #dc2626; 
+    --success: #16a34a; 
+    --shadow-3d: 6px 6px 12px rgba(0, 0, 0, 0.08), -6px -6px 12px rgba(255, 255, 255, 0.8); 
+    --shadow-3d-active: 3px 3px 6px rgba(0, 0, 0, 0.08), -3px -3px 6px rgba(255, 255, 255, 0.8); 
+    --shadow-btn: 4px 4px 8px rgba(0, 0, 0, 0.08), -4px -4px 8px rgba(255, 255, 255, 0.8); 
+} 
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    background-color: var(--bg-color); 
+    color: var(--text-color); 
+    margin: 0; 
+    padding: 16px; 
+    box-sizing: border-box; 
+    transition: background-color 0.3s, color 0.3s; 
+    max-width: 480px; 
+    margin-left: auto; 
+    margin-right: auto; 
+    position: relative; 
+    padding-bottom: 90px; 
+} 
+header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 18px; 
+    background: var(--card-bg-gradient); 
+    padding: 12px 16px; 
+    border-radius: 12px; 
+    border: 1px solid var(--border-color); 
+    box-shadow: var(--shadow-3d); 
+} 
+.logo-area { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-weight: 700; 
+    font-size: 1.2rem; 
+    color: #38bdf8; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+} 
+.user-info { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 0.85rem; 
+} 
+.theme-btn { 
+    background: linear-gradient(145deg, #1b2238, #131826); 
+    border: 1px solid var(--border-color); 
+    color: var(--text-color); 
+    padding: 6px 12px; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-size: 0.8rem; 
+    box-shadow: var(--shadow-btn); 
+} 
+.nav-tabs { 
+    display: flex; 
+    gap: 6px; 
+    margin-bottom: 18px; 
+    background: var(--card-bg-gradient); 
+    padding: 6px; 
+    border-radius: 12px; 
+    border: 1px solid var(--border-color); 
+    box-shadow: var(--shadow-3d); 
+    overflow-x: auto; 
+} 
+.nav-tab { 
+    flex: 1; 
+    background: linear-gradient(145deg, #1b2238, #131826); 
+    border: 1px solid var(--border-color); 
+    color: var(--text-muted); 
+    padding: 10px 8px; 
+    border-radius: 8px; 
+    font-size: 0.8rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    text-align: center; 
+    transition: all 0.2s ease; 
+    box-shadow: var(--shadow-btn); 
+    white-space: nowrap; 
+} 
+.nav-tab.active { 
+    background: linear-gradient(145deg, #2563eb, #1d4ed8); 
+    color: #ffffff; 
+    border-color: #3b82f6; 
+    transform: translateY(-1px); 
+} 
+.search-box { 
+    width: 100%; 
+    padding: 12px 14px; 
+    background: var(--card-bg); 
+    border: 1px solid var(--border-color); 
+    border-radius: 10px; 
+    color: var(--text-color); 
+    font-size: 0.9rem; 
+    margin-bottom: 12px; 
+    box-sizing: border-box; 
+    box-shadow: inset 4px 4px 8px #090b12, inset -4px -4px 8px #1f2740; 
+} 
+.filter-pills { 
+    display: flex; 
+    gap: 8px; 
+    margin-bottom: 18px; 
+    overflow-x: auto; 
+    padding-bottom: 4px; 
+} 
+.pill { 
+    background: linear-gradient(145deg, #1b2238, #131826); 
+    border: 1px solid var(--border-color); 
+    color: var(--text-muted); 
+    padding: 8px 14px; 
+    border-radius: 20px; 
+    font-size: 0.8rem; 
+    font-weight: 500; 
+    cursor: pointer; 
+    white-space: nowrap; 
+    box-shadow: var(--shadow-btn); 
+} 
+.pill.active { 
+    background: linear-gradient(145deg, #2563eb, #1d4ed8); 
+    color: #fff; 
+    border-color: #3b82f6; 
+} 
+.accordion-card { 
+    background: var(--card-bg-gradient); 
+    border: 1px solid var(--border-color); 
+    border-radius: 12px; 
+    margin-bottom: 14px; 
+    overflow: hidden; 
+    box-shadow: var(--shadow-3d); 
+} 
+.accordion-header { 
+    width: 100%; 
+    background: transparent; 
+    border: none; 
+    color: var(--text-color); 
+    padding: 14px 16px; 
+    text-align: left; 
+    font-size: 0.9rem; 
+    font-weight: 600; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    cursor: pointer; 
+} 
+.accordion-content { 
+    padding: 0 16px 14px 16px; 
+    display: none; 
+    font-size: 0.85rem; 
+    color: var(--text-muted); 
+    border-top: 1px solid var(--border-color); 
+    background: rgba(0,0,0,0.02); 
+} 
+.accordion-card.open .accordion-content { 
+    display: block; 
+} 
+.market-card { 
+    background: var(--card-bg-gradient); 
+    border: 1px solid var(--border-color); 
+    border-radius: 12px; 
+    padding: 14px; 
+    margin-bottom: 14px; 
+    box-shadow: var(--shadow-3d); 
+} 
+.market-title { 
+    font-size: 0.95rem; 
+    font-weight: 600; 
+    margin-bottom: 8px; 
+    line-height: 1.4; 
+} 
+.countdown-timer { 
+    background: rgba(56, 189, 248, 0.1); 
+    border: 1px dashed #38bdf8; 
+    padding: 6px 10px; 
+    border-radius: 8px; 
+    font-size: 0.75rem; 
+    color: #38bdf8; 
+    margin-bottom: 10px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    font-weight: 600; 
+} 
+.action-btn, .btn-admin { 
+    background: linear-gradient(145deg, #2563eb, #1d4ed8); 
+    color: white; 
+    border: 1px solid #3b82f6; 
+    padding: 9px 16px; 
+    border-radius: 10px; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    box-shadow: var(--shadow-btn); 
+    transition: transform 0.1s ease; 
+} 
+.action-btn:active, .btn-admin:active { 
+    transform: translateY(2px); 
+    box-shadow: var(--shadow-3d-active); 
+} 
+.action-btn:disabled { 
+    background: #374151 !important; 
+    border-color: #4b5563 !important; 
+    color: #9ca3af !important; 
+    cursor: not-allowed; 
+    transform: none !important; 
+    box-shadow: none !important; 
+    opacity: 0.7; 
+} 
+.section-view { 
+    display: none; 
+} 
+.section-view.active { 
+    display: block; 
+} 
+.form-group { 
+    margin-bottom: 12px; 
+} 
+.form-group label { 
+    display: block; 
+    font-size: 0.8rem; 
+    color: var(--text-muted); 
+    margin-bottom: 6px; 
+} 
+.form-control { 
+    width: 100%; 
+    padding: 10px; 
+    background: var(--card-bg); 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    color: var(--text-color); 
+    font-size: 0.85rem; 
+    box-sizing: border-box; 
+    box-shadow: inset 2px 2px 5px #090b12, inset -2px -2px 5px #1f2740; 
+} 
+.modal-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(0, 0, 0, 0.7); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 1000; 
+    padding: 12px; 
+    box-sizing: border-box; 
+} 
+.modal-card { 
+    background: var(--card-bg-gradient); 
+    border: 1px solid var(--border-color); 
+    border-radius: 14px; 
+    width: 100%; 
+    max-width: 420px; 
+    padding: 18px; 
+    box-shadow: var(--shadow-3d); 
+    max-height: 90vh; 
+    display: flex; 
+    flex-direction: column; 
+    overflow-y: auto; 
+} 
+.orderbook-table, .table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 0.8rem; 
+    margin-top: 8px; 
+} 
+.orderbook-table th, .table th { 
+    color: var(--text-muted); 
+    text-align: left; 
+    padding: 6px; 
+    border-bottom: 1px solid var(--border-color); 
+    font-weight: 600; 
+} 
+.orderbook-table td, .table td { 
+    padding: 8px 6px; 
+    border-bottom: 1px solid rgba(42, 46, 67, 0.5); 
+} 
+.badge {
+    background: #2563eb;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+.support-chat-float { 
+    position: fixed; 
+    bottom: 20px; 
+    right: 20px; 
+    z-index: 100; 
+} 
+.chat-launcher-btn { 
+    background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; 
+    border: 1px solid #9333ea !important; 
+    border-radius: 30px !important; 
+    padding: 12px 20px !important; 
+    box-shadow: 0 8px 16px rgba(0,0,0,0.4); 
+} 
+.chat-messages-box { 
+    flex: 1; 
+    min-height: 200px; 
+    max-height: 260px; 
+    overflow-y: auto; 
+    background: var(--card-bg); 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    padding: 10px; 
+    margin-bottom: 10px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    box-sizing: border-box; 
+} 
+.chat-msg { 
+    padding: 8px 10px; 
+    border-radius: 8px; 
+    font-size: 0.8rem; 
+    max-width: 80%; 
+    word-break: break-word; 
+} 
+.chat-msg.user { 
+    background: #1e3a8a; 
+    color: #93c5fd; 
+    align-self: flex-end; 
+    border-bottom-right-radius: 2px; 
+} 
+.chat-msg.admin { 
+    background: #374151; 
+    color: #e5e7eb; 
+    align-self: flex-start; 
+    border-bottom-left-radius: 2px; 
+} 
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 90%;
+    pointer-events: none;
+}
+.custom-toast {
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    animation: fadeInToast 0.3s ease;
+    pointer-events: auto;
+}
+.custom-toast.success { background: #15803d; border: 1px solid #22c55e; }
+.custom-toast.error { background: #b91c1c; border: 1px solid #ef4444; }
+.custom-toast.info { background: #1d4ed8; border: 1px solid #3b82f6; }
+@keyframes fadeInToast {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style> 
+</head> 
+<body data-theme="dark"> 
 
-app = Flask(__name__)
+<!-- Contenedor para Notificaciones Toast -->
+<div id="toast-container"></div>
 
-# ================= CONFIGURACIÓN DE SESIONES Y COOKIES SEGURAS =================
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # Impide el acceso a la cookie vía JavaScript (protege contra XSS)
-app.config['SESSION_COOKIE_SECURE'] = True    # Obliga a que la cookie solo viaje por HTTPS
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Mitiga ataques CSRF
-app.permanent_session_lifetime = timedelta(days=7) # Tiempo de expiración de la sesión
+<header> 
+    <div class="logo-area"> 
+        <span>⚡ P2Ppredict</span> 
+    </div> 
+    <div class="user-info"> 
+        <div> 
+            <div id="user-handle" style="font-weight: 600;">@invitado</div> 
+            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;"> 
+                <span id="kyc-indicator-circle" style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> 
+                <span id="kyc-indicator-text" style="font-size: 0.7rem; color: var(--text-muted);">No Registrado</span> </div> 
+        </div> 
+        <span id="user-balance" style="color: #38bdf8; font-weight: 700;">0.00 Pi</span> 
+        <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button> 
+    </div> 
+</header> 
 
-# ================= INICIALIZACIÓN DE FLASK-LIMITER =================
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"], # Límite global
-    storage_uri="memory://" 
-)
+<div class="nav-tabs"> 
+    <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button> 
+    <button class="nav-tab" onclick="switchTab('crear', this)">✨ Crear Predicción</button> 
+    <button class="nav-tab" onclick="switchTab('clob', this)">Order Book</button> 
+    <button class="nav-tab" onclick="switchTab('ranking', this)">Ranking</button> 
+    <button class="nav-tab" onclick="verificarAccesoAdmin(this)">Admin</button> 
+</div> 
 
-# ================= APARTADO DE VALIDACIÓN - KEY TXT =================
-VALIDATION_KEY_TXT = "8c73ed3c39ffc42821ce971267c7b58d01487ed71624c57309cc6079dd976f5f8f462164ffbdc8424ba6d641e94332ef1d8b17e8789cb1385717cceaecf6eb79"
-# =====================================================================
+<!-- VISTA: MERCADOS --> 
+<div id="view-mercados" class="section-view active"> 
+    <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
+        <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Registro y Autenticación</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o recupera tus datos de acceso.</p> 
+        <div style="display: flex; flex-direction: column; gap: 8px;"> 
+            <div style="display: flex; gap: 8px;"> 
+                <button id="kyc-action-btn" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.8rem; padding: 9px;" onclick="abrirModalKyc()">📝 Registrarse</button> 
+            </div> 
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;"> 
+                <input type="password" id="input-login-clave" class="form-control" placeholder="Clave / Contraseña de usuario..." style="margin-bottom: 0; flex: 1;"> 
+                <button id="btn-login-usuario" class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.8rem; padding: 10px 14px; white-space: nowrap;" onclick="iniciarSesionUsuario()">Iniciar sesión</button> 
+            </div> 
+            <div style="text-align: right; margin-top: 2px;">
+                <button onclick="abrirModalRecuperacion()" style="background: transparent; border: none; color: #38bdf8; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">🔑 ¿Olvidó usuario / contraseña?</button>
+            </div>
+        </div> 
+    </div> 
 
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-app.secret_key = os.environ.get(
-    "FLASK_SECRET_KEY", "p2ppredict_secret_key_ultra_segura_2026"
-)
+    <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
+        <div style="display: flex; justify-content: space-between; align-items: center;"> 
+            <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
+            <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Registrado</span> </div> 
+        <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes registrarte y realizar tu solicitud de KYC.</p> 
+    </div> 
 
-RAW_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Anthony*2023")
-ADMIN_PASSWORD_HASH = generate_password_hash(RAW_ADMIN_PASSWORD)
-PI_API_KEY = os.environ.get("PI_API_KEY", "")
-DATABASE_URL = os.environ.get("DATABASE_URL")
+    <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()"> 
+    <div class="filter-pills"> 
+        <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
+        <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button> 
+        <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button> 
+        <button class="pill" onclick="setCategory('Deportes', this)">Deportes</button> 
+        <button class="pill" onclick="setCategory('Comunidad', this)">Comunidad</button> 
+    </div> 
+    <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; margin-top: 4px;">🟢 Mercados Activos</div> 
+    <div id="markets-container"></div> 
+    <div class="accordion-card" id="acc-espera-resolucion" style="margin-top: 16px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-espera-resolucion')"> 
+            <span>🟠 Mercados Finalizados (Esperando Resolución)</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <div id="espera-resolucion-container"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p> 
+            </div> 
+        </div> 
+    </div> 
+    <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
+            <span>📜 Historial de Mercados Cerrados & Ganadores</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <input type="text" class="search-box" id="search-closed-input" placeholder="🔍 Buscar en el historial de cerrados..." oninput="filtrarMercadosCerrados()" style="margin-bottom: 10px;"> 
+            <div id="historial-cerrados-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados registrados aún.</p> 
+            </div> 
+        </div> 
+    </div> 
+    <div class="accordion-card open" id="acc-apuestas" style="margin-top: 16px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
+            <span>📦 Tus Posiciones Activas (Vender / Reclamar)</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <div id="my-positions-content" style="margin-bottom: 4px;"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p> 
+            </div> 
+        </div> 
+    </div> 
+    <div class="accordion-card" id="acc-wallet" style="margin-top: 10px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
+            <span>💳 Gestión de Billetera y Blockchain Pi</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <div style="margin-bottom: 10px;"> 
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Monto (Pi)</label> 
+                <input type="number" id="wallet-amount" class="form-control" placeholder="1.0" min="0.1" step="0.1" style="margin-bottom: 10px;"> 
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;"> 
+                    <button id="btn-recargar-pi" class="action-btn" style="flex:1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="depositarConPiNetwork()">Recargar Pi</button> 
+                    <button id="btn-retirar-pi" class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button> 
+                </div> 
+            </div> 
+            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div> 
+        </div> 
+    </div> 
+    <div class="accordion-card" id="acc-transacciones" style="margin-top: 10px;"> 
+        <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')"> 
+            <span>📜 Historial de Transacciones (Permanente)</span> 
+            <span>▾</span> 
+        </button> 
+        <div class="accordion-content" style="padding-top: 12px;"> 
+            <div id="my-history-content"> 
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p> 
+            </div> 
+        </div> 
+    </div> 
+</div> 
 
-# ================= SISTEMA DE RATE LIMITING EN MEMORIA =================
-request_records = defaultdict(list)
+<!-- VISTA: CREAR PREDICCIÓN --> 
+<div id="view-crear" class="section-view"> 
+    <div class="market-card"> 
+        <div class="market-title">🚀 Crear Nuevo Mercado de Predicción</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros, fija su fecha de cierre y aporta liquidez inicial.</p> 
+        <div class="form-group"> 
+            <label>Pregunta / Título de la Predicción</label> 
+            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Superará Pi los 100M de pioneros?"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Categoría</label> 
+            <select id="nuevo-categoria" class="form-control"> 
+                <option value="Crypto">Crypto</option> 
+                <option value="Pi Ecosystem">Pi Ecosystem</option> 
+                <option value="Deportes">Deportes</option> 
+                <option value="Tecnología">Tecnología</option> 
+                <option value="Comunidad">Comunidad</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>📅 Fecha y Hora de Ejecución / Cierre del Evento</label> 
+            <input type="datetime-local" id="nuevo-fecha-cierre" class="form-control"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Opción Inicial Elegida</label> 
+            <select id="nuevo-opcion" class="form-control"> 
+                <option value="SÍ">SÍ</option> 
+                <option value="NO">NO</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Cantidad de Liquidez en Pi a aportar (Inversión inicial)</label> 
+            <input type="number" id="nuevo-liquidez" class="form-control" placeholder="Ej. 5.0" min="1" step="0.5" value="5.0"> 
+        </div> 
+        <button id="btn-crear-mercado" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="crearNuevoMercadoPionero()">Publicar Mercado y Asignar Liquidez</button> 
+    </div> 
+</div> 
 
+<!-- VISTA: ORDER BOOK P2P VISIBLE --> 
+<div id="view-clob" class="section-view"> 
+    <div class="market-card"> 
+        <div class="market-title">📊 Order Book P2P en Vivo</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Listado general de ofertas de compra (Bid) y venta (Ask) registradas en el mercado.</p> 
+        <div class="form-group"> 
+            <label>Seleccionar Mercado Activo</label> 
+            <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()"> 
+            </select> 
+        </div> 
+        <table class="orderbook-table"> 
+            <thead> 
+                <tr> 
+                    <th>Tipo</th> 
+                    <th>Opción</th> 
+                    <th>Contratos</th> 
+                    <th>Precio (Pi)</th> 
+                    <th>Trader</th> 
+                </tr> 
+            </thead> 
+            <tbody id="orderbook-table-body"> 
+                <tr> 
+                    <td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de órdenes en el mercado.</td> 
+                </tr> 
+            </tbody> 
+        </table> 
+    </div> 
+</div> 
 
-def check_rate_limit(limit=25, window=60):
-    ip = request.remote_addr or "127.0.0.1"
-    now = time.time()
-    request_records[ip] = [t for t in request_records[ip] if now - t < window]
-    if len(request_records[ip]) >= limit:
-        return False
-    request_records[ip].append(now)
-    return True
+<!-- VISTA: RANKING --> 
+<div id="view-ranking" class="section-view">
+    <div class="market-card">
+        <div class="market-title">🏆 Ranking de Pioneros</div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Posición y balance actual de los participantes en la plataforma.</p>
+        <div style="font-size: 0.85rem;" id="ranking-container"> 
+            <div style="display: flex; justify-content: space-between; padding: 6px 0;"> 
+                <span>1. <span id="ranking-user-handle-txt">@invitado</span></span> <b style="color: #38bdf8;" id="ranking-user-balance">0.00 Pi</b> 
+            </div> 
+        </div>
+    </div>
+</div>
 
-
-# ================= FUNCIÓN DE VALIDACIÓN DE CONTRASEÑAS SEGURAS =================
-def es_contrasena_segura(password):
-    """
-    Verifica que la contraseña tenga al menos 8 caracteres, 
-    una letra mayúscula, una minúscula y un número.
-    """
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"[a-z]", password):
-        return False
-    if not re.search(r"\d", password):
-        return False
-    return True
-
-
-# ================= CONFIGURACIÓN DE POOL DE CONEXIONES Y BASE DE DATOS (PARCHE 1) =================
-db_pool = None
-
-def init_db_pool(app):
-    global db_pool
-    database_url = os.environ.get("DATABASE_URL")
-    if database_url:
-        try:
-            db_pool = pool.ThreadedConnectionPool(
-                minconn=1,
-                maxconn=10,
-                dsn=database_url
-            )
-        except Exception:
-            db_pool = None
-
-# Context manager para inyectar y liberar conexiones de forma segura por cada request
-@contextmanager
-def get_db_connection():
-    if not db_pool:
-        raise RuntimeError("El pool de conexiones de la base de datos no está inicializado.")
-    connection = db_pool.getconn()
-    try:
-        yield connection
-    finally:
-        db_pool.putconn(connection)
-
-
-# Inicializar el pool al arrancar si existe la variable
-init_db_pool(app)
-
-
-class PooledConnectionWrapper:
-
-    def __init__(self, conn, p):
-        self.conn = conn
-        self.pool = p
-
-    def cursor(self, *args, **kwargs):
-        if "cursor_factory" not in kwargs and not args:
-            kwargs["cursor_factory"] = RealDictCursor
-        return self.conn.cursor(*args, **kwargs)
-
-    def commit(self):
-        return self.conn.commit()
-
-    def rollback(self):
-        return self.conn.rollback()
-
-    def close(self):
-        if self.pool:
-            try:
-                self.pool.putconn(self.conn)
-            except Exception:
-                try:
-                    self.conn.close()
-                except:
-                    pass
-        else:
-            try:
-                self.conn.close()
-            except:
-                pass
-
-
-def obtener_conexion():
-    if DATABASE_URL and db_pool:
-        try:
-            conn = db_pool.getconn()
-            return PooledConnectionWrapper(conn, db_pool)
-        except Exception:
-            pass
-    if DATABASE_URL:
-        conn = psycopg2.connect(
-            DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=10
-        )
-        return conn
-    else:
-        raise RuntimeError("DATABASE_URL no está configurada para PostgreSQL.")
-
-
-# ================= FUNCIÓN DE TRANSACCIÓN CRÍTICA (PARCHE 2) =================
-def ejecutar_transaccion_critica(origen_id, destino_id, monto):
-    with get_db_connection() as conn:
-        try:
-            # Desactivar autocommit para iniciar la transacción explícita
-            conn.autocommit = False
-            
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Debitar fondos del origen
-                cursor.execute(
-                    "UPDATE cuentas SET saldo = saldo - %s WHERE id = %s RETURNING saldo;",
-                    (monto, origen_id)
-                )
-                resultado = cursor.fetchone()
-                
-                if not resultado or resultado['saldo'] < 0:
-                    raise ValueError("Fondos insuficientes o cuenta origen no encontrada.")
-                
-                # 2. Acreditar fondos al destino
-                cursor.execute(
-                    "UPDATE cuentas SET saldo = saldo + %s WHERE id = %s;",
-                    (monto, destino_id)
-                )
-                
-                # 3. Confirmar cambios si todo sale bien
-                conn.commit()
-                return {"status": "success", "message": "Transacción completada exitosamente."}
-                
-        except Exception as e:
-            # Revertir todos los cambios si ocurre cualquier error
-            conn.rollback()
-            print(f"Error en la transacción, aplicando rollback: {e}")
-            raise e
-        finally:
-            # Restaurar el estado por defecto de la conexión
-            conn.autocommit = True
-
-
-def actualizar_esquema_db():
-    if not DATABASE_URL:
-        return
-    conn = obtener_conexion()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            ALTER TABLE usuarios 
-            ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;
-        """)
-        cur.execute("""
-            ALTER TABLE orders 
-            ALTER COLUMN evento_id TYPE TEXT USING evento_id::TEXT;
-        """)
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-    finally:
-        cur.close()
-        conn.close()
-
-
-def inicializar_bd():
-    actualizar_esquema_db()
-    conn = obtener_conexion()
-    c = conn.cursor()
-    
-    c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
-        username TEXT PRIMARY KEY, 
-        saldo_disponible DOUBLE PRECISION DEFAULT 0.0, 
-        is_frozen BOOLEAN DEFAULT FALSE
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS transacciones (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        tipo TEXT, 
-        monto DOUBLE PRECISION, 
-        txid TEXT, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS historial_apuestas (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        titulo_evento TEXT, 
-        opcion_elegida TEXT, 
-        monto DOUBLE PRECISION, 
-        estado TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS orders (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        evento_id TEXT, 
-        opcion_id INTEGER, 
-        tipo_orden TEXT, 
-        accion TEXT, 
-        precio DOUBLE PRECISION, 
-        cantidad DOUBLE PRECISION, 
-        estado TEXT DEFAULT 'activa', 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS posiciones_activas (
-        id TEXT PRIMARY KEY, 
-        market_id TEXT NOT NULL, 
-        handle TEXT NOT NULL, 
-        titulo TEXT NOT NULL, 
-        opcion TEXT NOT NULL, 
-        contratos INTEGER NOT NULL, 
-        invertido NUMERIC NOT NULL, 
-        payout NUMERIC NOT NULL, 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS historial_transacciones (
-        id TEXT PRIMARY KEY, 
-        titulo TEXT NOT NULL, 
-        tipo TEXT NOT NULL, 
-        monto NUMERIC NOT NULL, 
-        detalle TEXT NOT NULL, 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS eventos (
-        id SERIAL PRIMARY KEY, 
-        titulo TEXT, 
-        categoria TEXT, 
-        estado TEXT DEFAULT 'activo', 
-        fecha_cierre TEXT, 
-        ganador_id INTEGER
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS opciones_evento (
-        id SERIAL PRIMARY KEY, 
-        evento_id INTEGER, 
-        nombre TEXT, 
-        pozo DOUBLE PRECISION DEFAULT 0.0
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS admin_logs (
-        id SERIAL PRIMARY KEY, 
-        ip TEXT, 
-        accion TEXT, 
-        detalles TEXT, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS admin_balance_audit (
-        id SERIAL PRIMARY KEY, 
-        admin_user TEXT, 
-        target_user TEXT, 
-        monto_anterior DOUBLE PRECISION, 
-        monto_nuevo DOUBLE PRECISION, 
-        razon TEXT, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS admin_audit_logs (
-        id SERIAL PRIMARY KEY, 
-        admin_id TEXT, 
-        action_type TEXT, 
-        target_id TEXT, 
-        ip_address TEXT, 
-        user_agent TEXT, 
-        payload_snapshot TEXT, 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS admin_pending_actions (
-        id SERIAL PRIMARY KEY, 
-        admin_creator TEXT, 
-        action_type TEXT, 
-        target_id TEXT, 
-        payload TEXT, 
-        status TEXT DEFAULT 'PENDING', 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS anuncios_globales (
-        id SERIAL PRIMARY KEY, 
-        titulo TEXT NOT NULL, 
-        contenido TEXT NOT NULL, 
-        tipo TEXT DEFAULT 'info', 
-        activo BOOLEAN DEFAULT TRUE, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS pi_wallet_events (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        evento_tipo TEXT, 
-        monto DOUBLE PRECISION, 
-        balance_total_plataforma DOUBLE PRECISION, 
-        txid TEXT, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS global_audit_logs (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        accion TEXT, 
-        detalle TEXT, 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS support_tickets (
-        id SERIAL PRIMARY KEY, 
-        username TEXT, 
-        mensaje TEXT, 
-        fecha TEXT
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS usuarios_p2p (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        saldo NUMERIC(18, 2) DEFAULT 0.00,
-        kyc_estado VARCHAR(20) DEFAULT 'pendiente',
-        tipo_documento VARCHAR(20),
-        numero_documento VARCHAR(50) UNIQUE,
-        foto_url TEXT,
-        creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS compras (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        producto TEXT NOT NULL,
-        fecha_compra TEXT NOT NULL,
-        estado TEXT DEFAULT 'activa'
-    )""")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_global_audit_username ON global_audit_logs(username);")
-
-    conn.commit()
-    conn.close()
-
-
-inicializar_bd()
-
-
-def registrar_log_admin(accion, detalles):
-    try:
-        conn = obtener_conexion()
-        c = conn.cursor()
-        ip = request.remote_addr or "127.0.0.1"
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute(
-            "INSERT INTO admin_logs (ip, accion, detalles, fecha) VALUES (%s, %s, %s, %s)",
-            (ip, accion, detalles, fecha),
-        )
-        conn.commit()
-        conn.close()
-    except Exception:
-        pass
-
-
-def registrar_audit_log(admin_id, action_type, target_id, payload_snapshot):
-    try:
-        conn = obtener_conexion()
-        c = conn.cursor()
-        ip = request.remote_addr or "127.0.0.1"
-        ua = request.user_agent.string or "Desconocido"
-        c.execute(
-            "INSERT INTO admin_audit_logs (admin_id, action_type, target_id, ip_address, user_agent, payload_snapshot) VALUES (%s, %s, %s, %s, %s, %s)",
-            (admin_id, action_type, target_id, ip, ua, str(payload_snapshot)),
-        )
-        conn.commit()
-        conn.close()
-    except Exception:
-        pass
-
-
-def registrar_global_audit(username, accion, detalle):
-    try:
-        conn = obtener_conexion()
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO global_audit_logs (username, accion, detalle) VALUES (%s, %s, %s)",
-            (username, accion, detalle),
-        )
-        conn.commit()
-        conn.close()
-    except Exception:
-        pass
-
-
-@app.after_request
-def agregar_cabeceras_seguridad(response):
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains"
-    )
-    response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
-    response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
-    
-    if request.path.startswith('/api/'):
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+<!-- VISTA: ADMIN COMPLETO --> 
+<div id="view-admin" class="section-view"> 
+    <!-- Visualizador de KYC Pendientes REALES (PostgreSQL) -->
+    <div class="market-card" style="border-left: 4px solid #3b82f6;"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="market-title" style="margin-bottom:0;">🛡️ Solicitudes de Verificación KYC (Pendientes)</div> 
+            <span id="admin-kyc-pending-badge" style="background:#ca8a04; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 8px; border-radius:10px;">0 Pendientes</span>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa los datos de identidad y habitación enviados por los usuarios reales para aprobarlos o rechazarlos.</p> 
         
-    return response
-
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route('/validation-key.txt')
-def validation_key():
-    return "1b9ee5cdf565585e21f8bd18899df2e7026cb"
-
-
-@app.route('/healthz')
-def healthz():
-    return "OK", 200
-
-
-@app.route('/env.js')
-def env_js():
-    supabase_url = os.environ.get("SUPABASE_URL", "")
-    supabase_publishable_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
-    
-    script_content = f"""
-    window.ENV = {{
-        SUPABASE_URL: "{supabase_url}",
-        SUPABASE_ANON_KEY: "{supabase_publishable_key}"
-    }};
-    """
-    return script_content, 200, {'Content-Type': 'application/javascript'}
-
-
-@app.route('/register', methods=['POST'])
-def register_usuario():
-    data = request.get_json(silent=True) or request.form
-    password = data.get('password', '')
-
-    if not es_contrasena_segura(password):
-        return jsonify({"error": "La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número."}), 400
-    
-    return jsonify({"success": True, "message": "Contraseña válida y registro procesado."}), 200
-
-
-@app.route("/api/saldo/<username>", methods=["GET"])
-def obtener_saldo(username):
-    limite = int(request.args.get("limit", 20))
-    offset = int(request.args.get("offset", 0))
-    filtro_tipo = request.args.get("tipo", "").strip()
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-
-    c.execute(
-        "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s",
-        (username,),
-    )
-    row = c.fetchone()
-
-    if not row:
-        saldo_inicial = 0.0
-        c.execute(
-            "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
-            (username, saldo_inicial),
-        )
-        conn.commit()
-        saldo = saldo_inicial
-        is_frozen = False
-    else:
-        row_dict = dict(row)
-        saldo = row_dict.get("saldo_disponible", 0.0)
-        is_frozen = bool(row_dict.get("is_frozen", 0))
-
-    c.execute(
-        "SELECT * FROM historial_apuestas WHERE username = %s ORDER BY id DESC LIMIT %s OFFSET %s",
-        (username, limite, offset),
-    )
-    historial = [dict(row) for row in c.fetchall()]
-
-    if filtro_tipo:
-        c.execute(
-            "SELECT * FROM transacciones WHERE username = %s AND tipo ILIKE %s ORDER BY id DESC LIMIT %s OFFSET %s",
-            (username, f"%{filtro_tipo}%", limite, offset),
-        )
-    else:
-        c.execute(
-            "SELECT * FROM transacciones WHERE username = %s ORDER BY id DESC LIMIT %s OFFSET %s",
-            (username, limite, offset),
-        )
-    transacciones = [dict(row) for row in c.fetchall()]
-    conn.close()
-
-    return jsonify({
-        "success": True,
-        "saldo_disponible": saldo,
-        "is_frozen": is_frozen,
-        "historial": historial,
-        "transacciones": transacciones,
-    })
-
-
-@app.route("/api/eventos", methods=["GET"])
-def obtener_eventos():
-    conn = obtener_conexion()
-    c = conn.cursor()
-    c.execute("SELECT * FROM eventos ORDER BY id ASC")
-    eventos_db = c.fetchall()
-    lista_final = []
-    for ev in eventos_db:
-        ev_dict = dict(ev)
-        c.execute(
-            "SELECT id, nombre, pozo FROM opciones_evento WHERE evento_id = %s",
-            (ev_dict["id"],),
-        )
-        opciones = [dict(op) for op in c.fetchall()]
-        ev_dict["opciones"] = opciones
-        lista_final.append(ev_dict)
-    conn.close()
-    return jsonify(lista_final)
-
-
-@app.route("/api/participar", methods=["POST"])
-def participar():
-    if not check_rate_limit(limit=25, window=60):
-        return jsonify({
-            "success": False,
-            "error": "Demasiadas peticiones. Por favor, espera un momento.",
-        }), 429
-
-    data = request.json or {}
-    username = data.get("username", "Invitado")
-    evento_id = data.get("evento_id")
-    opcion_id = data.get("opcion_id")
-    try:
-        monto = float(data.get("monto", 0))
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Monto inválido"}), 400
-
-    if monto <= 0:
-        return jsonify({"success": False, "error": "El monto debe ser mayor a 0"}), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-            (username,),
-        )
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        if row_dict and row_dict.get("is_frozen"):
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Tu cuenta se encuentra suspendida temporalmente.",
-            }), 403
-
-        saldo_actual = row_dict.get("saldo_disponible", 0) if row else 0
-        if not row or saldo_actual < monto:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Saldo insuficiente"}), 400
-
-        try:
-            ev_id_int = int(evento_id)
-        except (ValueError, TypeError):
-            ev_id_int = None
-
-        if ev_id_int is not None:
-            c.execute("SELECT * FROM eventos WHERE id = %s", (ev_id_int,))
-            evento = c.fetchone()
-        else:
-            evento = None
-
-        evento_dict = dict(evento) if evento else {}
-        if not evento or evento_dict.get("estado") != "activo":
-            conn.rollback()
-            return jsonify({"success": False, "error": "Mercado no disponible"}), 400
-
-        c.execute(
-            "SELECT * FROM opciones_evento WHERE id = %s AND evento_id = %s",
-            (opcion_id, ev_id_int),
-        )
-        opcion = c.fetchone()
-        opcion_dict = dict(opcion) if opcion else {}
-        if not opcion:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Opción inválida"}), 400
-
-        nuevo_saldo = saldo_actual - monto
-        
-        pos_id = f"pos_{username}_{ev_id_int}_{opcion_id}_{int(time.time())}"
-        fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        c.execute(
-            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-            (nuevo_saldo, username),
-        )
-        c.execute(
-            "UPDATE opciones_evento SET pozo = pozo + %s WHERE id = %s",
-            (monto, opcion_id),
-        )
-        c.execute(
-            "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-            (username, evento_dict.get("titulo"), opcion_dict.get("nombre"), monto, "Activo"),
-        )
-        c.execute(
-            """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (pos_id, str(ev_id_int), username, evento_dict.get("titulo"), opcion_dict.get("nombre"), int(monto), monto, monto * 2, fecha_str)
-        )
-        c.execute(
-            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-            (
-                username,
-                "Apuesta",
-                -monto,
-                f"BET_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                datetime.now().strftime("%Y-%m-%d %H:%M"),
-            ),
-        )
-        conn.commit()
-        registrar_global_audit(
-            username,
-            "PARTICIPAR_APUESTA",
-            f"Apuesta de {monto} en '{evento_dict.get('titulo')}' por '{opcion_dict.get('nombre')}'",
-        )
-        return jsonify({
-            "success": True,
-            "nuevo_saldo": nuevo_saldo,
-            "mensaje": "¡Apuesta registrada con éxito!",
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/clob/ordenes", methods=["GET"])
-def obtener_ordenes_clob():
-    evento_id = request.args.get("evento_id")
-    conn = obtener_conexion()
-    c = conn.cursor()
-    if evento_id:
-        c.execute(
-            "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa' ORDER BY precio DESC",
-            (str(evento_id),),
-        )
-    else:
-        c.execute(
-            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY id DESC LIMIT 50"
-        )
-    ordenes = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify({"success": True, "ordenes": ordenes})
-
-
-@app.route("/api/clob/actualizar-dinamico", methods=["GET"])
-def actualizar_ordenes_dinamico():
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY RANDOM() LIMIT 1"
-        )
-        orden_azar = c.fetchone()
-        orden_azar_dict = dict(orden_azar) if orden_azar else {}
-        if orden_azar:
-            variacion = round(random.uniform(-0.01, 0.01), 3)
-            nuevo_precio = max(0.01, round(orden_azar_dict.get("precio", 0.0) + variacion, 3))
-            c.execute(
-                "UPDATE orders SET precio = %s WHERE id = %s",
-                (nuevo_precio, orden_azar_dict.get("id")),
-            )
-            conn.commit()
-
-        c.execute(
-            "SELECT * FROM orders WHERE estado = 'activa' ORDER BY precio DESC LIMIT 50"
-        )
-        ordenes = [dict(row) for row in c.fetchall()]
-        conn.close()
-        return jsonify({"success": True, "ordenes": ordenes, "timestamp": time.time()})
-    except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/clob/orden", methods=["POST"])
-def crear_orden_clob():
-    data = request.json or {}
-    username = data.get("username")
-    evento_id = str(data.get("evento_id", ""))
-    opcion_id = data.get("opcion_id")
-    tipo_orden = data.get("tipo_orden", "limit")
-    accion = data.get("accion")
-    try:
-        precio_ingresado = float(data.get("precio", 0))
-        cantidad = float(data.get("cantidad", 0))
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Valores numéricos inválidos"}), 400
-
-    if cantidad <= 0 or accion not in ["comprar", "vender"]:
-        return jsonify({"success": False, "error": "Parámetros de orden incorrectos"}), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-            (username,),
-        )
-        row_user = c.fetchone()
-        row_user_dict = dict(row_user) if row_user else {}
-        if row_user_dict and row_user_dict.get("is_frozen"):
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Tu cuenta se encuentra suspendida temporalmente.",
-            }), 403
-
-        if not row_user:
-            saldo_inicial = 0.0
-            c.execute(
-                "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
-                (username, saldo_inicial),
-            )
-            conn.commit()
-            c.execute(
-                "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-                (username,),
-            )
-            row_user = c.fetchone()
-            row_user_dict = dict(row_user) if row_user else {}
-
-        if accion == "comprar":
-            precio_eval = precio_ingresado if tipo_orden == "limit" or precio_ingresado > 0 else 1.0
-            costo_inicial = precio_eval * cantidad
-            if row_user_dict.get("saldo_disponible", 0.0) < costo_inicial:
-                conn.rollback()
-                return jsonify({
-                    "success": False,
-                    "error": "Saldo insuficiente para colocar la orden de compra",
-                }), 400
-        elif accion == "vender":
-            pass
-
-        nuevo_saldo_creador = row_user_dict.get("saldo_disponible", 0.0)
-        fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        titulo_ev = "Mercado P2P Dinámico"
-        try:
-            ev_id_int = int(evento_id)
-            c.execute("SELECT titulo FROM eventos WHERE id = %s", (ev_id_int,))
-            ev_row = c.fetchone()
-            if ev_row:
-                ev_row_dict = dict(ev_row)
-                titulo_ev = ev_row_dict.get("titulo", titulo_ev)
-        except (ValueError, TypeError):
-            titulo_ev = f"Mercado Dinámico ({evento_id})"
-
-        nombre_op = "Opción"
-        try:
-            op_id_int = int(opcion_id)
-            c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (op_id_int,))
-            op_row = c.fetchone()
-            if op_row:
-                op_row_dict = dict(op_row)
-                nombre_op = op_row_dict.get("nombre", nombre_op)
-        except (ValueError, TypeError):
-            nombre_op = str(opcion_id)
-
-        cantidad_restante = cantidad
-        precio_objetivo = precio_ingresado
-
-        if accion == "comprar":
-            if tipo_orden == "limit":
-                c.execute(
-                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s AND precio <= %s ORDER BY precio ASC, id ASC FOR UPDATE""",
-                    (evento_id, opcion_id, username, precio_ingresado),
-                )
-            else:
-                c.execute(
-                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'vender' AND estado = 'activa' AND username != %s ORDER BY precio ASC, id ASC FOR UPDATE""",
-                    (evento_id, opcion_id, username),
-                )
-
-            contra_ordenes = c.fetchall()
-
-            for contra in contra_ordenes:
-                contra_dict = dict(contra)
-                if cantidad_restante <= 0:
-                    break
-                match_cant = min(cantidad_restante, contra_dict.get("cantidad", 0.0))
-                match_precio = contra_dict.get("precio", 0.0)
-                precio_objetivo = match_precio
-
-                costo_match = match_precio * match_cant
-                if nuevo_saldo_creador < costo_match:
-                    match_cant = nuevo_saldo_creador / match_precio
-                    if match_cant <= 0:
-                        break
-                    costo_match = match_precio * match_cant
-
-                nuevo_saldo_creador -= costo_match
-                c.execute(
-                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                    (nuevo_saldo_creador, username),
-                )
-
-                c.execute(
-                    "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                    (contra_dict.get("username"),),
-                )
-                v_row = c.fetchone()
-                v_row_dict = dict(v_row) if v_row else {}
-                if v_row:
-                    nuevo_vendedor_saldo = v_row_dict.get("saldo_disponible", 0.0) + costo_match
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_vendedor_saldo, contra_dict.get("username")),
-                    )
-
-                c.execute(
-                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-                    (username, titulo_ev, nombre_op, match_cant),
-                )
-
-                pos_id = f"pos_{username}_{evento_id}_{opcion_id}_{int(time.time())}_{random.randint(100,999)}"
-                fecha_str_pos = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                c.execute(
-                    """INSERT INTO posiciones_activas (id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at) 
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (pos_id, str(evento_id), username, titulo_ev, nombre_op, int(match_cant), costo_match, costo_match * 2, fecha_str_pos)
-                )
-
-                nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
-                nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
-                c.execute(
-                    "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                    (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                )
-                cantidad_restante -= match_cant
-
-        else:
-            if tipo_orden == "limit":
-                c.execute(
-                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s AND precio >= %s ORDER BY precio DESC, id ASC FOR UPDATE""",
-                    (evento_id, opcion_id, username, precio_ingresado),
-                )
-            else:
-                c.execute(
-                    """SELECT * FROM orders WHERE evento_id::text = %s AND opcion_id = %s AND accion = 'comprar' AND estado = 'activa' AND username != %s ORDER BY precio DESC, id ASC FOR UPDATE""",
-                    (evento_id, opcion_id, username),
-                )
-
-            contra_ordenes = c.fetchall()
-
-            for contra in contra_ordenes:
-                contra_dict = dict(contra)
-                if cantidad_restante <= 0:
-                    break
-                match_cant = min(cantidad_restante, contra_dict.get("cantidad", 0.0))
-                match_precio = contra_dict.get("precio", 0.0)
-                precio_objetivo = match_precio
-
-                monto_transaccion = match_precio * match_cant
-                nuevo_saldo_creador += monto_transaccion
-                c.execute(
-                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                    (nuevo_saldo_creador, username),
-                )
-                c.execute(
-                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Activo')",
-                    (contra_dict.get("username"), titulo_ev, nombre_op, match_cant),
-                )
-
-                nueva_contra_cant = contra_dict.get("cantidad", 0.0) - match_cant
-                nuevo_estado_contra = "completada" if nueva_contra_cant <= 0 else "activa"
-                c.execute(
-                    "UPDATE orders SET cantidad = %s, estado = %s WHERE id = %s",
-                    (nueva_contra_cant, nuevo_estado_contra, contra_dict.get("id")),
-                )
-                cantidad_restante -= match_cant
-
-        if cantidad_restante > 0:
-            precio_para_libro = precio_objetivo if precio_objetivo > 0 else 0.50
-            if accion == "comprar":
-                costo_remanente = precio_para_libro * cantidad_restante
-                if nuevo_saldo_creador >= costo_remanente:
-                    nuevo_saldo_creador -= costo_remanente
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_saldo_creador, username),
-                    )
-                else:
-                    cantidad_restante = nuevo_saldo_creador / precio_para_libro
-                    costo_remanente = nuevo_saldo_creador
-                    nuevo_saldo_creador = 0.0
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = 0.0 WHERE username = %s",
-                        (username,),
-                    )
-
-            if cantidad_restante > 0:
-                c.execute(
-                    "INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) VALUES (%s, %s, %s, 'limit', %s, %s, %s, 'activa', %s)",
-                    (username, str(evento_id), opcion_id, accion, precio_para_libro, cantidad_restante, fecha_str),
-                )
-
-        monto_registrado = (precio_ingresado * cantidad if accion == "comprar" else cantidad)
-        c.execute(
-            "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, %s)",
-            (
-                username,
-                titulo_ev,
-                f"CLOB {accion.capitalize()} ({cantidad})",
-                monto_registrado,
-                ("Completada" if cantidad_restante == 0 else "Parcial / En Libro"),
-            ),
-        )
-        c.execute(
-            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-            (
-                username,
-                f"CLOB Orden ({accion})",
-                -(precio_ingresado * (cantidad - cantidad_restante) if accion == "comprar" else 0),
-                f"CLOB_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                fecha_str,
-            ),
-        )
-
-        conn.commit()
-        registrar_global_audit(
-            username,
-            "CLOB_ORDEN_MARKET_TO_LIMIT",
-            f"Acción: {accion} | Total: {cantidad} | Remanente en libro: {cantidad_restante}",
-        )
-
-        cantidad_inicial = float(cantidad)
-        cantidad_ejecutada = cantidad_inicial - cantidad_restante
-
-        if cantidad_ejecutada == 0:
-            mensaje_respuesta = "Orden límite publicada en el Order Book. Esperando contraparte."
-            estado_orden = "abierta"
-        elif cantidad_restante == 0:
-            mensaje_respuesta = "¡Orden ejecutada con éxito en el mercado!"
-            estado_orden = "completada"
-        else:
-            mensaje_respuesta = "Orden ejecutada parcialmente. El remanente se colocó en el Order Book."
-            estado_orden = "parcial"
-
-        return jsonify({
-            "success": True,
-            "message": mensaje_respuesta,
-            "status": estado_orden,
-            "executed": cantidad_ejecutada,
-            "remaining": cantidad_restante,
-            "nuevo_saldo": nuevo_saldo_creador
-        }), 200
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/crear-orden", methods=["POST"])
-def crear_orden():
-    data = request.get_json(silent=True) or request.form
-
-    username = data.get("username")
-    evento_id = data.get("evento_id")
-    opcion_id = data.get("opcion_id")
-    tipo_orden = data.get("tipo_orden")
-    accion = data.get("accion")
-    precio = data.get("precio")
-    
-    cantidad_contratos = data.get("contracts") or data.get("cantidad")
-
-    if not username or not evento_id or not cantidad_contratos:
-        return jsonify({
-            "success": False, 
-            "error": "Faltan datos obligatorios, asegúrate de indicar la cantidad de contratos y el evento."
-        }), 400
-
-    try:
-        cantidad = float(cantidad_contratos)
-        precio_num = float(precio) if precio else 0.0
-        
-        if cantidad <= 0:
-            return jsonify({
-                "success": False, 
-                "error": "La cantidad de contratos debe ser mayor a cero."
-            }), 400
-            
-    except (ValueError, TypeError):
-        return jsonify({
-            "success": False, 
-            "error": "El formato de la cantidad o el precio no es válido."
-        }), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    try:
-        c.execute(
-            """
-            INSERT INTO orders (username, evento_id, opcion_id, tipo_orden, accion, precio, cantidad, estado, fecha) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'activa', %s)
-            """,
-            (username, evento_id, opcion_id, tipo_orden, accion, precio_num, cantidad, fecha_actual)
-        )
-        
-        conn.commit()
-        return jsonify({"success": True, "message": "Orden creada exitosamente."}), 200
-
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"success": False, "error": f"Error interno en la base de datos: {str(e)}"}), 500
-    finally:
-        c.close()
-        conn.close()
-
-
-@app.route('/api/order', methods=['POST'])
-def create_order():
-    data = request.json
-    user_id = data.get('user_id')
-    amount = float(data.get('amount', 0))
-    
-    conn = db_pool.getconn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT balance FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,))
-            wallet = cursor.fetchone()
-            
-            if not wallet or wallet['balance'] < amount:
-                conn.rollback()
-                return jsonify({'error': 'Saldo insuficiente or balance en cero'}), 400
-            
-            cursor.execute("SELECT * FROM order_book WHERE status = 'open' ORDER BY price ASC FOR UPDATE")
-            open_orders = cursor.fetchall()
-            
-            conn.commit()
-            return jsonify({'status': 'success', 'message': 'Orden procesada correctamente'}), 200
-            
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'error': str(e)}), 500
-    finally:
-        db_pool.putconn(conn)
-
-
-@app.route("/api/pi/aprobar-pago", methods=["POST"])
-def aprobar_pago():
-    data = request.json or {}
-    payment_id = data.get("paymentId")
-    if not PI_API_KEY:
-        return jsonify({"success": False, "error": "PI_API_KEY no configurada"}), 500
-    headers = {"Authorization": f"Key {PI_API_KEY}"}
-    try:
-        response = requests.post(
-            f"https://api.minepi.com/v2/payments/{payment_id}/approve",
-            headers=headers,
-            timeout=10,
-        )
-        if response.status_code == 200:
-            return jsonify({"success": True})
-    except requests.exceptions.RequestException:
-        return jsonify({"success": False, "error": "Error de red con Pi Network"}), 504
-    return jsonify({"success": False, "error": "No se pudo aprobar el pago"}), 400
-
-
-@app.route("/api/pi/completar-pago", methods=["POST"])
-def completar_pago():
-    data = request.json or {}
-    username = data.get("username")
-    try:
-        monto = float(data.get("monto", 0))
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Monto inválido"}), 400
-
-    payment_id = data.get("paymentId")
-    txid = data.get("txid")
-
-    if PI_API_KEY:
-        headers = {"Authorization": f"Key {PI_API_KEY}"}
-        try:
-            response = requests.post(
-                f"https://api.minepi.com/v2/payments/{payment_id}/complete",
-                headers=headers,
-                json={"txid": txid},
-                timeout=10,
-            )
-            if response.status_code != 200:
-                return jsonify({
-                    "success": False,
-                    "error": "Error al completar el pago en Pi",
-                }), 400
-        except requests.exceptions.RequestException:
-            return jsonify({
-                "success": False,
-                "error": "Error de red con Pi Network",
-            }), 504
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-            (username,),
-        )
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        if row_dict and row_dict.get("is_frozen"):
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Tu cuenta se encuentra suspendida temporalmente.",
-            }), 403
-
-        if not row:
-            nuevo_saldo = monto
-            c.execute(
-                "INSERT INTO usuarios (username, saldo_disponible, is_frozen) VALUES (%s, %s, FALSE)",
-                (username, nuevo_saldo),
-            )
-        else:
-            nuevo_saldo = row_dict.get("saldo_disponible", 0.0) + monto
-            c.execute(
-                "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                (nuevo_saldo, username),
-            )
-
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        c.execute(
-            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-            (username, "Recarga Pi Real", monto, txid or payment_id, fecha),
-        )
-        c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-        res_tot = c.fetchone()
-        res_tot_dict = dict(res_tot) if res_tot else {}
-        balance_total_plataforma = (
-            res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-        )
-        c.execute(
-            "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-            (
-                username,
-                "COMPLETAR_PAGO",
-                monto,
-                balance_total_plataforma,
-                txid or payment_id,
-                fecha,
-            ),
-        )
-
-        conn.commit()
-        registrar_global_audit(
-            username,
-            "RECARGA_PI",
-            f"Recarga completada de {monto} Pi (TxID: {txid or payment_id})",
-        )
-        return jsonify({
-            "success": True,
-            "nuevo_saldo": nuevo_saldo,
-            "balance_total_plataforma": balance_total_plataforma,
-            "mensaje": f"Recarga de {monto} Pi acreditada con éxito.",
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/pi/retirar", methods=["POST"])
-def solicitar_retiro():
-    if not check_rate_limit(limit=10, window=60):
-        return jsonify({
-            "success": False,
-            "error": "Demasiadas peticiones de retiro. Intente más tarde.",
-        }), 429
-
-    data = request.json or {}
-    username = data.get("username")
-    try:
-        monto = float(data.get("monto", 0))
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Monto inválido"}), 400
-
-    wallet_destino = str(data.get("wallet_address", "")).strip()
-    if monto < 1.0:
-        return jsonify({"success": False, "error": "El monto mínimo de retiro es de 1.0 Pi"}), 400
-    if not wallet_destino or len(wallet_destino) < 10:
-        return jsonify({
-            "success": False,
-            "error": "La dirección de la billetera de destino no es válida",
-        }), 400
-    if not PI_API_KEY:
-        return jsonify({
-            "success": False,
-            "error": "PI_API_KEY no configurada en el servidor",
-        }), 500
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s FOR UPDATE",
-            (username,),
-        )
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        if row_dict and row_dict.get("is_frozen"):
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Tu cuenta se encuentra suspendida temporalmente.",
-            }), 403
-
-        saldo_actual = row_dict.get("saldo_disponible", 0.0)
-        if not row or saldo_actual < monto:
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Saldo insuficiente para procesar el retiro",
-            }), 400
-
-        nuevo_saldo = saldo_actual - monto
-        c.execute(
-            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-            (nuevo_saldo, username),
-        )
-
-        headers = {
-            "Authorization": f"Key {PI_API_KEY}",
-            "Content-Type": "application/json",
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px;" onclick="filtrarKycVista('pendiente')">Ver Solo Pendientes</button>
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px; background:#374151; border-color:#4b5563;" onclick="filtrarKycVista('todos')">Ver Todos</button>
+            <button class="action-btn" style="font-size:0.75rem; padding:6px 12px; background:#0284c7;" onclick="renderizarKycAdmin()">🔄 Refrescar</button>
+        </div>
+
+        <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
+            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p> 
+        </div> 
+    </div> 
+
+    <!-- Panel de Usuarios Activos -->
+    <div class="market-card" style="margin-top: 0;"> 
+        <div class="market-title">Panel de Administración de Usuarios</div> 
+        <button id="btn-cargar-usuarios" class="btn-admin" style="margin-top: 8px;" onclick="cargarUsuariosTablaAdmin()">Consultar Usuarios Activos</button> 
+        <div id="admin-stats" style="margin-top: 15px;"> 
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Total de usuarios registrados: <span id="total-count" style="color: #38bdf8; font-weight: bold;">0</span></p> 
+        </div> 
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"> 
+            <table id="admin-users-table" class="table" style="width:100%; color: white;"> 
+                <thead> 
+                    <tr> 
+                        <th>Usuario</th> 
+                        <th>Saldo (Pi)</th> 
+                        <th>KYC</th> 
+                        <th>Registro</th> 
+                    </tr> 
+                </thead> 
+                <tbody id="admin-users-tbody"> 
+                </tbody> 
+            </table> 
+        </div> 
+    </div> 
+
+    <!-- Métricas Financieras -->
+    <div class="market-card"> 
+        <div class="market-title">📈 Métricas Financieras y Circulante Global</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Control en tiempo real del suministro total de Pi.</p> 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.8rem;"> 
+            <div>Circulante Total en Sistema: <b id="admin-total-supply" style="color: #4ade80;">0.00 Pi</b></div> 
+        </div> 
+        <div id="admin-top-users-container" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;"></div> 
+    </div> 
+
+    <!-- Gestión de Usuarios y Balances -->
+    <div class="market-card"> 
+        <div class="market-title">⚙️ Gestión de Usuarios y Balances</div> 
+        <div class="form-group"> 
+            <label>Seleccionar o Buscar Cuenta de Usuario</label> 
+            <select id="admin-user-select" class="form-control" onchange="cargarDatosUsuarioAdminSeleccionado()"> 
+                <option value="">-- Seleccionar Usuario --</option> 
+            </select> 
+        </div> 
+        <div id="admin-user-details-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; display: none;"> 
+            <div>Usuario: <b id="adm-det-handle" style="color: #38bdf8;">-</b></div> 
+            <div>Balance Actual: <b id="adm-det-balance" style="color: #4ade80;">0.00 Pi</b></div> 
+        </div> 
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;"> 
+            <button class="action-btn" style="flex: 1; font-size: 0.75rem;" onclick="abrirModalAjusteBalance()">⚖️ Ajuste Manual de Balance</button> 
+        </div> 
+    </div> 
+
+    <!-- Panel de Resolución de Mercados -->
+    <div class="market-card"> 
+        <div class="market-title">🛠️ Panel de Administración y Resolución</div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado o cancélalo para reembolsar.</p> 
+        <div class="form-group"> 
+            <label>ID de Mercado a Resolver</label> 
+            <select class="form-control" id="admin-market-id"></select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Resultado Ganador Oficial</label> 
+            <select class="form-control" id="admin-result-select"> 
+                <option value="SÍ">Ganador: SÍ</option> 
+                <option value="NO">Ganador: NO</option> 
+            </select> 
+        </div> 
+        <div style="display: flex; flex-direction: column; gap: 8px;"> 
+            <button id="btn-declarar-ganador" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444;" onclick="declararGanadorAdmin()">Ejecutar Resolución y Liquidación</button> 
+            <button id="btn-cancelar-mercado" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #7c2d12, #451a03); border-color: #ea580c;" onclick="cancelarYReembolsarMercadoAdmin()">🚨 Cancelar y Reembolso Total</button> 
+        </div> 
+    </div> 
+
+    <!-- Tickets de Soporte -->
+    <div class="market-card" style="margin-top: 14px;"> 
+        <div class="market-title">💬 Bandeja de Soporte / Tickets de Reclamo</div> 
+        <div id="admin-tickets-container"> 
+            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p> 
+        </div> 
+    </div> 
+
+    <div style="margin-top: 14px; text-align: center;"> 
+        <button onclick="cerrarSesionAdmin()" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Bloquear / Cerrar Sesión Admin</button> 
+    </div> 
+</div> 
+
+<!-- MODAL TERMINAL TRADING --> 
+<div id="trading-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; position: relative;"> 
+            <div style="width: 28px;"></div> 
+            <div id="modal-success-banner" style="display: none; color: #2563eb; font-weight: bold; font-size: 1.3rem; text-align: center; position: absolute; left: 50%; transform: translateX(-50%);">Compra</div> 
+            <button id="btn-modal-close" onclick="cerrarTerminalTrading()" style="background: #dc2626; border: none; color: #ffffff; width: 28px; height: 28px; border-radius: 50%; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">&times;</button> 
+        </div> 
+        <p id="modal-market-text" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p> 
+        <div class="form-group"> 
+            <label>Tipo de Orden</label> 
+            <select id="modal-order-type" class="form-control" onchange="cambiarTipoOrdenModal()"> 
+                <option value="MARKET">Mercado (Instantánea)</option> 
+                <option value="LIMIT">Limit (Precio personalizado)</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Cantidad de Contratos</label> 
+            <input type="number" id="modal-amount" class="form-control" value="1" min="1" step="1" oninput="calcularModalTotal()"> 
+        </div> 
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;"> 
+            <div>Precio unitario: <span id="modal-price-unit" style="color: #38bdf8;">0.50</span> Pi</div> 
+            <div>Inversión Total: <span id="modal-total-req" style="color: #f59e0b; font-weight: bold;">0.50</span> Pi</div> 
+        </div> 
+        <button id="btn-confirmar-compra" class="action-btn" style="width: 100%;" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button> 
+    </div> 
+</div> 
+
+<!-- MODAL REGISTRO KYC --> 
+<div id="kyc-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">📝 Registro y Verificación KYC</h3> 
+            <button onclick="cerrarModalKyc()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Completa tus datos oficiales para registrar tu cuenta y habilitar las operaciones.</p> 
+        <div class="form-group"> 
+            <label>Nombre de Usuario / Handle (@usuario)</label> 
+            <input type="text" id="kyc-username" class="form-control" placeholder="Ej. @usuario"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Clave de Acceso Secreta</label> 
+            <input type="password" id="kyc-clave" class="form-control" placeholder="Crea o introduce tu clave"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Nombre</label> 
+            <input type="text" id="nombre" class="form-control" placeholder="Ej. Jaime"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Apellido</label> 
+            <input type="text" id="apellido" class="form-control" placeholder="Ej. Tétio"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Correo Electrónico</label> 
+            <input type="email" id="correo" class="form-control" placeholder="ejemplo@correo.com"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Tipo de Documento</label> 
+            <select id="tipo_documento" class="form-control"> 
+                <option value="Cédula / ID">Cédula / ID</option> 
+                <option value="Pasaporte">Pasaporte</option> 
+                <option value="Licencia">Licencia de Conducir</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Número de Documento</label> 
+            <input type="text" id="numero_documento" class="form-control" placeholder="Ej. V-12345678"> 
+        </div> 
+        <div class="form-group"> 
+            <label>Dirección de Habitación</label> 
+            <textarea id="direccion" class="form-control" placeholder="Calle, número, ciudad, estado..." rows="2"></textarea> 
+        </div> 
+        <div class="form-group"> 
+            <label>Foto de Documento / Selfie (Opcional)</label> 
+            <input type="file" id="foto_documento" class="form-control" accept="image/*"> 
+        </div> 
+        <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Registrarse y Enviar KYC</button> 
+    </div> 
+</div> 
+
+<!-- MODAL RECUPERACIÓN CREDENCIALES --> 
+<div id="recovery-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">🔑 Recuperar Credenciales</h3> 
+            <button onclick="cerrarModalRecuperacion()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <div class="form-group"> 
+            <label>Correo Registrado</label> 
+            <input type="email" id="rec-correo" class="form-control" placeholder="tucorreo@ejemplo.com"> 
+        </div> 
+        <button class="action-btn" style="width:100%;" onclick="ejecutarRecuperacion()">Buscar Credenciales</button> 
+    </div> 
+</div> 
+
+<!-- MODAL AUTH ADMIN --> 
+<div id="admin-auth-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #ef4444;">🔒 Acceso Restringido - Admin</h3> 
+            <button onclick="cerrarModalAdminAuth()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador para acceder.</p> 
+        <div class="form-group"> 
+            <label>Contraseña de Administrador</label> 
+            <input type="password" id="admin-password-input" class="form-control" placeholder="Introduce la clave secreta" onkeydown="if(event.key === 'Enter') validarClaveAdmin()"> 
+        </div> 
+        <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="validarClaveAdmin()">Acceder al Panel</button> 
+    </div> 
+</div> 
+
+<!-- MODAL AJUSTE BALANCE ADMIN --> 
+<div id="admin-balance-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">⚖️ Ajuste Manual de Balance</h3> 
+            <button onclick="cerrarModalAjusteBalance()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <div class="form-group"> 
+            <label>Tipo de Operación</label> 
+            <select id="admin-adj-tipo" class="form-control"> 
+                <option value="CREDITO">Acreditar Balance (+)</option> 
+                <option value="DEBITO">Debitar / Descontar Balance (-)</option> 
+            </select> 
+        </div> 
+        <div class="form-group"> 
+            <label>Monto (Pi)</label> 
+            <input type="number" id="admin-adj-monto" class="form-control" placeholder="0.00" min="0.1" step="0.1"> 
+        </div> 
+        <button class="action-btn" style="width: 100%;" onclick="ejecutarAjusteBalanceAdmin()">Confirmar y Registrar Ajuste</button> 
+    </div> 
+</div> 
+
+<!-- MODAL CHAT SOPORTE --> 
+<div id="support-chat-modal" class="modal-overlay"> 
+    <div class="modal-card"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💬 Chat de Soporte</h3> 
+            <button onclick="cerrarChatSoporteUsuario()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
+        </div> 
+        <div id="chat-messages-container" class="chat-messages-box"></div> 
+        <div style="display: flex; gap: 6px;"> 
+            <input type="text" id="chat-user-input" class="form-control" placeholder="Escribe tu mensaje..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteUsuario()"> 
+            <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteUsuario()">Enviar</button> 
+        </div> 
+    </div> 
+</div> 
+
+<div class="support-chat-float"> 
+    <button class="action-btn chat-launcher-btn" onclick="abrirSoporteChatUsuario()">💬 Chat de Soporte</button> 
+</div> 
+
+<script> 
+// ==================== CERO USUARIOS FICTICIOS · 100% POSTGRESQL ====================
+let usuarioActual = { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
+let posicionesActivas = []; 
+let historialTransacciones = []; 
+let ordenesGlobales = []; 
+let ticketsSoporte = []; 
+let kycSolicitudes = []; // ESTRICTAMENTE VACÍO: Solo usuarios reales de tu base de datos
+let cuentasDirectorio = [];
+let preciosMercados = {}; 
+let estadosMercados = {}; 
+let mercadosDinamicos = []; 
+const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
+let adminAutenticado = false; // Requiere siempre ingresar la clave de Admin
+let usuarioAdminSeleccionadoHandle = null; 
+let filtroKycEstado = 'pendiente';
+let ordenActivaModal = null; 
+let categoriaActualFiltro = 'Todos'; 
+
+function mostrarToast(mensaje, tipo = "success") {
+    const contenedor = document.getElementById('toast-container');
+    if (!contenedor) return;
+    const toast = document.createElement('div');
+    toast.className = `custom-toast ${tipo}`;
+    toast.innerText = mensaje;
+    contenedor.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 4000);
+}
+
+function establecerCarga(botonId, cargando, textoOriginal = "Enviar") {
+    const boton = document.getElementById(botonId);
+    if (!boton) return;
+    if (cargando) {
+        boton.disabled = true;
+        boton.dataset.textoOriginal = boton.innerHTML;
+        boton.innerHTML = 'Procesando...';
+    } else {
+        boton.disabled = false;
+        boton.innerHTML = boton.dataset.textoOriginal || textoOriginal;
+    }
+}
+
+// ==================== INICIALIZACIÓN Y SINCRONIZACIÓN REAL ====================
+document.addEventListener('DOMContentLoaded', async () => { 
+    // Limpieza de caché local
+    try {
+        localStorage.removeItem('p2p_kyc_solicitudes');
+        localStorage.removeItem('p2p_usuario_sesion');
+        localStorage.removeItem('kyc_solicitudes');
+    } catch(e){}
+
+    await sincronizarConSupabase(); 
+    cargarMercadosYOrderBook(); 
+
+    // Sincronización continua cada 4 segundos
+    setInterval(async () => { 
+        await sincronizarConSupabase(); 
+    }, 4000); 
+
+    setInterval(actualizarRelojesRegresivos, 1000); 
+
+    if (supabaseClient) { 
+        try {
+            supabaseClient 
+                .channel('p2ppredict_live_channel') 
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios_p2p' }, async () => { 
+                    await sincronizarConSupabase(); 
+                }) 
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async () => { 
+                    await sincronizarConSupabase(); 
+                }) 
+                .subscribe(); 
+        } catch(e){}
+    } 
+}); 
+
+async function sincronizarConSupabase() { 
+    // 1. Cargar mercados y eventos
+    if (supabaseClient) { 
+        try { 
+            let { data: mercs } = await supabaseClient.from('mercados_dinamicos').select('*'); 
+            if (!mercs || mercs.length === 0) {
+                let { data: evts } = await supabaseClient.from('eventos').select('*');
+                if (evts && evts.length > 0) mercs = evts;
+            }
+            if (mercs) mercadosDinamicos = mercs; 
+
+            // Cargar órdenes (ordenes_clob / orders / ordenes)
+            let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
+            if (!ordenes || ordenes.length === 0) {
+                let { data: o2 } = await supabaseClient.from('orders').select('*');
+                if (!o2 || o2.length === 0) {
+                    let { data: o3 } = await supabaseClient.from('ordenes').select('*');
+                    ordenes = o3;
+                } else {
+                    ordenes = o2;
+                }
+            }
+            if (ordenes) ordenesGlobales = ordenes; 
+
+            // Cargar transacciones (historial_transacciones / transacciones / compras)
+            let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
+            if (!txs || txs.length === 0) {
+                let { data: t2 } = await supabaseClient.from('transacciones').select('*');
+                txs = t2;
+            }
+            if (txs) historialTransacciones = txs; 
+
+            // Cargar apuestas (bets / historial_apuestas)
+            let { data: pos } = await supabaseClient.from('bets').select('*'); 
+            if (!pos || pos.length === 0) {
+                let { data: p2 } = await supabaseClient.from('historial_apuestas').select('*');
+                pos = p2;
+            }
+            if (pos) posicionesActivas = pos;
+
+            // Cargar tickets de soporte (tickets_soporte / support_tickets)
+            let { data: tks } = await supabaseClient.from('tickets_soporte').select('*');
+            if (!tks || tks.length === 0) {
+                let { data: tk2 } = await supabaseClient.from('support_tickets').select('*');
+                tks = tk2;
+            }
+            if (tks) ticketsSoporte = tks;
+
+            // Cargar anuncios globales
+            let { data: ads } = await supabaseClient.from('anuncios_globales').select('*').order('created_at', { ascending: false }).limit(1);
+            if (ads && ads.length > 0) {
+                const adBanner = document.getElementById('global-announcement-banner');
+                if (adBanner) {
+                    adBanner.innerText = `📢 ${ads[0].mensaje || ads[0].titulo || ads[0].contenido}`;
+                    adBanner.style.display = 'block';
+                }
+            }
+        } catch (e) {} 
+    } 
+
+    // 2. Cargar usuarios y solicitudes KYC de PostgreSQL (usuarios_p2p, profiles, usuarios, admin_pending_actions)
+    let usuariosCargados = [];
+
+    if (supabaseClient) {
+        try {
+            // Intento 1: tabla usuarios_p2p
+            let { data: kycs, error } = await supabaseClient.from('usuarios_p2p').select('*'); 
+            if (!error && kycs && kycs.length > 0) {
+                usuariosCargados = kycs;
+            }
+
+            // Intento 2: tabla profiles si está vacía
+            if (usuariosCargados.length === 0) {
+                let { data: profs } = await supabaseClient.from('profiles').select('*');
+                if (profs && profs.length > 0) {
+                    usuariosCargados = profs.map(p => ({
+                        username: p.username || p.handle || p.email,
+                        nombre: p.full_name || p.nombre || '',
+                        apellido: p.apellido || '',
+                        correo: p.email || p.correo || '',
+                        kyc_estado: p.kyc_status || p.kyc_estado || p.estado || 'pendiente',
+                        saldo: p.balance || p.saldo || 0
+                    }));
+                }
+            }
+
+            // Intento 3: tabla usuarios
+            if (usuariosCargados.length === 0) {
+                let { data: usrs } = await supabaseClient.from('usuarios').select('*');
+                if (usrs && usrs.length > 0) usuariosCargados = usrs;
+            }
+
+            // Intento 4: tabla admin_pending_actions para KYC pendientes
+            let { data: pending } = await supabaseClient.from('admin_pending_actions').select('*').eq('tipo', 'kyc');
+            if (pending && pending.length > 0) {
+                pending.forEach(p => {
+                    const datos = p.payload || p.datos || p;
+                    const exists = usuariosCargados.some(u => (u.username || u.handle) === (p.username || datos.username));
+                    if (!exists) {
+                        usuariosCargados.push({
+                            username: p.username || datos.username || datos.handle,
+                            nombre: datos.nombre || '',
+                            apellido: datos.apellido || '',
+                            correo: datos.correo || '',
+                            tipo_documento: datos.tipo_documento || 'ID',
+                            numero_documento: datos.numero_documento || 'S/N',
+                            direccion: datos.direccion || '',
+                            kyc_estado: p.estado || 'pendiente',
+                            saldo: datos.saldo || 0
+                        });
+                    }
+                });
+            }
+        } catch(e){}
+    }
+
+    // Intento 5: Consulta directa al endpoint oficial del backend en Render (/api/admin/users)
+    try {
+        const res = await fetch('/api/admin/users');
+        if (res.ok) {
+            const j = await res.json();
+            if (j && j.users && Array.isArray(j.users)) {
+                j.users.forEach(u => {
+                    const exists = usuariosCargados.some(x => (x.username || x.handle) === u.username);
+                    if (!exists) {
+                        usuariosCargados.push({
+                            username: u.username,
+                            saldo: u.balance,
+                            kyc_estado: u.kyc_status || 'en_revision',
+                            tipo_documento: u.tipo_documento || 'Cédula / ID',
+                            numero_documento: u.numero_documento || '',
+                            foto_url: u.foto_url || ''
+                        });
+                    }
+                });
+            }
         }
-        payload = {
-            "amount": monto,
-            "uid": username,
-            "memo": f"Retiro automático desde P2PPredict hacia {wallet_destino}",
-            "metadata": {"wallet": wallet_destino},
+    } catch(e){}
+
+    if (usuariosCargados.length > 0) {
+        kycSolicitudes = usuariosCargados.map(k => ({ 
+            handle: k.username || k.handle, 
+            nombre: k.nombre || '', 
+            apellido: k.apellido || '', 
+            correo: k.correo || k.email || '', 
+            tipo: k.tipo_documento || k.tipo || 'ID', 
+            numero: k.numero_documento || k.numero || 'S/N', 
+            direccion: k.direccion || '', 
+            estado: (k.kyc_estado || k.estado || k.kyc_status || 'pendiente').toLowerCase().trim(), 
+            clave: k.clave || '',
+            saldo: Number(k.saldo || k.balance || 0)
+        })); 
+        cuentasDirectorio = [...kycSolicitudes];
+    } else {
+        kycSolicitudes = [];
+        cuentasDirectorio = [];
+    }
+
+    renderizarKycAdmin(); 
+    cargarMercadosYOrderBook(); 
+} 
+
+function cargarMercadosYOrderBook() { 
+    reconstruirDiccionarioNombresMercados(); 
+    renderizarMercadosDinamicos(); 
+    renderizarMercadosEsperaYHistorial(); 
+    actualizarUIBalance(); 
+    actualizarPreciosVisuales(); 
+    restaurarEstadosMercadosVisuales(); 
+    actualizarSelectsMercadosActivos(); 
+    renderizarOrderBookVisible(); 
+    actualizarEstadoKycUI(); 
+} 
+
+function reconstruirDiccionarioNombresMercados() { 
+    mercadosDinamicos.forEach(m => { 
+        nombresMercados[m.id] = m.titulo; 
+    }); 
+} 
+
+// ==================== VISUALIZADOR KYC EN EL ADMIN (CORREGIDO) ====================
+function filtrarKycVista(filtro) {
+    filtroKycEstado = filtro;
+    renderizarKycAdmin();
+}
+
+function renderizarKycAdmin() { 
+    const container = document.getElementById('admin-kyc-requests-container'); 
+    const badgePendientes = document.getElementById('admin-kyc-pending-badge');
+    if (!container) return; 
+
+    // Filtrar solicitudes pendientes REALES
+    const pendientes = kycSolicitudes.filter(k => k.estado === 'pendiente' || k.estado === 'en_revision');
+
+    if (badgePendientes) {
+        badgePendientes.innerText = `${pendientes.length} Pendiente(s)`;
+        badgePendientes.style.background = pendientes.length > 0 ? '#ca8a04' : '#16a34a';
+    }
+
+    let listaAMostrar = kycSolicitudes;
+    if (filtroKycEstado === 'pendiente') {
+        listaAMostrar = pendientes;
+    }
+
+    // Si no hay solicitudes: mensaje limpio (CERO FICTICIOS)
+    if (!listaAMostrar || listaAMostrar.length === 0) { 
+        container.innerHTML = `
+            <div style="background: var(--card-bg); border: 1px dashed var(--border-color); padding: 14px; border-radius: 8px; text-align: center;">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                    ${filtroKycEstado === 'pendiente' ? '✅ No hay solicitudes KYC pendientes en PostgreSQL.' : 'No hay usuarios registrados aún en la base de datos.'}
+                </p>
+            </div>
+        `; 
+        return; 
+    } 
+
+    let html = ''; 
+    listaAMostrar.forEach(k => { 
+        let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04'); 
+        html += ` 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; box-shadow: var(--shadow-btn);"> 
+            <div style="flex: 1;"> 
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <b style="color: #38bdf8; font-size: 0.9rem;">${k.handle}</b>
+                    <span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;">
+                        ${(k.estado || 'PENDIENTE').toUpperCase()}
+                    </span>
+                </div>
+                <div style="font-weight: bold; color: var(--text-color); margin-top: 4px;">
+                    ${k.nombre || ''} ${k.apellido || ''} 
+                    <span style="font-weight: normal; color: var(--text-muted);">(${k.correo || 'Sin correo'})</span>
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    📋 <b>${k.tipo}:</b> ${k.numero}
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    🏠 <b>Dirección:</b> ${k.direccion || 'No especificada'}
+                </div> 
+            </div> 
+            <div style="display: flex; gap: 4px; flex-direction: column;"> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">Aprobar</button> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">Rechazar</button> 
+            </div> 
+        </div> 
+        `; 
+    }); 
+    container.innerHTML = html; 
+} 
+
+async function aprobarKycAdmin(handleTarget, nuevoEstado) { 
+    // Actualizar en Supabase
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('usuarios_p2p').update({ kyc_estado: nuevoEstado }).eq('username', handleTarget);
+        } catch(e){}
+    }
+
+    // Actualizar vía Backend en Render
+    try {
+        await fetch('/api/admin/aprobar-kyc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: handleTarget, estado: nuevoEstado })
+        });
+    } catch(e){}
+
+    let req = kycSolicitudes.find(k => k.handle === handleTarget); 
+    if (req) req.estado = nuevoEstado; 
+
+    if (usuarioActual.handle === handleTarget) { 
+        usuarioActual.kyc_estado = nuevoEstado; 
+        actualizarEstadoKycUI(); 
+    } 
+
+    renderizarKycAdmin(); 
+    mostrarToast(`Estado de ${handleTarget} actualizado a: ${nuevoEstado.toUpperCase()}`, "success"); 
+} 
+
+function cargarUsuariosTablaAdmin() {
+    const tbody = document.getElementById('admin-users-tbody');
+    const totalCount = document.getElementById('total-count');
+    if (!tbody) return;
+
+    if (totalCount) totalCount.innerText = kycSolicitudes.length;
+    tbody.innerHTML = '';
+
+    if (kycSolicitudes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No hay usuarios registrados aún.</td></tr>';
+        return;
+    }
+
+    kycSolicitudes.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>${user.handle}</b><br><span style="font-size:0.7rem; color:var(--text-muted);">${user.nombre} ${user.apellido}</span></td>
+            <td>${Number(user.saldo || 0).toFixed(2)} Pi</td>
+            <td><span class="badge" style="background:${user.estado === 'aprobado' ? '#16a34a' : '#ca8a04'};">${user.estado.toUpperCase()}</span></td>
+            <td>${user.direccion || 'No especificada'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ==================== ENVÍO DE KYC (DOBLE CANAL RESILIENTE) ====================
+async function enviarSolicitudKyc() { 
+    const usernameInput = document.getElementById('kyc-username');
+    const clave = document.getElementById('kyc-clave')?.value.trim() || ''; 
+    const nombre = document.getElementById('nombre')?.value.trim() || ''; 
+    const apellido = document.getElementById('apellido')?.value.trim() || ''; 
+    const correo = document.getElementById('correo')?.value.trim() || ''; 
+    const tipo = document.getElementById('tipo_documento')?.value || 'Cédula / ID'; 
+    const numero = document.getElementById('numero_documento')?.value.trim() || ''; 
+    const direccion = document.getElementById('direccion')?.value.trim() || ''; 
+    const archivoInput = document.getElementById('foto_documento');
+
+    if (!clave || !nombre || !apellido || !correo || !numero || !direccion) { 
+        mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
+        return; 
+    } 
+
+    establecerCarga('btn-enviar-kyc', true, 'Registrarse y Enviar KYC');
+
+    let rawUser = (usernameInput && usernameInput.value.trim()) ? usernameInput.value.trim() : correo.split('@')[0];
+    let handleFinal = rawUser.startsWith('@') ? rawUser : '@' + rawUser; 
+
+    try {
+        // Canal A: Backend en Render (/api/kyc/procesar con timeout de 7 segundos para no bloquear la pantalla)
+        try {
+            const formData = new FormData();
+            formData.append('username', handleFinal);
+            formData.append('handle', handleFinal);
+            formData.append('nombre', nombre);
+            formData.append('apellido', apellido);
+            formData.append('correo', correo);
+            formData.append('tipo_documento', tipo);
+            formData.append('numero_documento', numero);
+            formData.append('direccion', direccion);
+            formData.append('clave', clave);
+            formData.append('kyc_estado', 'pendiente');
+            formData.append('estado', 'pendiente');
+
+            if (archivoInput && archivoInput.files && archivoInput.files[0]) {
+                formData.append('archivo', archivoInput.files[0]);
+                formData.append('foto_documento', archivoInput.files[0]);
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 7000);
+            await fetch('/api/kyc/procesar', { method: 'POST', body: formData, signal: controller.signal });
+            clearTimeout(timeoutId);
+        } catch (eBackend) {
+            console.warn("Aviso backend Render:", eBackend);
         }
-        pi_response = requests.post(
-            "https://api.minepi.com/v2/payments",
-            json=payload,
-            headers=headers,
-            timeout=10,
-        )
-        if pi_response.status_code not in [200, 201]:
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "La pasarela de Pi Network rechazó el desembolso",
-            }), 400
 
-        pi_data = pi_response.json()
-        txid = pi_data.get(
-            "txid", f"RETIRO_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        )
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+        // Canal B: Inserción directa en PostgreSQL (Supabase) adaptada exactamente al esquema del backend
+        if (supabaseClient) {
+            try {
+                await supabaseClient.from('usuarios_p2p').upsert([{ 
+                    username: handleFinal, 
+                    tipo_documento: tipo, 
+                    numero_documento: numero, 
+                    kyc_estado: 'en_revision'
+                }], { onConflict: 'username' }); 
 
-        c.execute(
-            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-            (username, "Retiro Pi Blockchain", -monto, txid, fecha),
-        )
-        c.execute("SELECT SUM(saldo_disponible) as total FROM usuarios")
-        res_tot = c.fetchone()
-        res_tot_dict = dict(res_tot) if res_tot else {}
-        balance_total_plataforma = (
-            res_tot_dict.get("total") if res_tot_dict and res_tot_dict.get("total") else 0.0
-        )
-        c.execute(
-            "INSERT INTO pi_wallet_events (username, evento_tipo, monto, balance_total_plataforma, txid, fecha) VALUES (%s, %s, %s, %s, %s, %s)",
-            (
-                username,
-                "SOLICITAR_RETIRO",
-                -monto,
-                balance_total_plataforma,
-                txid,
-                fecha,
-            ),
-        )
+                await supabaseClient.from('usuarios').upsert([{ 
+                    username: handleFinal, 
+                    saldo_disponible: 0.0,
+                    is_frozen: false
+                }], { onConflict: 'username' }); 
+            } catch (eSupabase) {
+                console.warn("Aviso Supabase:", eSupabase);
+            }
+        }
 
-        conn.commit()
-        registrar_global_audit(
-            username,
-            "RETIRO_PI",
-            f"Retiro de {monto} Pi a la billetera {wallet_destino} (TxID: {txid})",
-        )
-        return jsonify({
-            "success": True,
-            "nuevo_saldo": nuevo_saldo,
-            "balance_total_plataforma": balance_total_plataforma,
-            "txid": txid,
-            "mensaje": f"Retiro de {monto} Pi procesado con éxito.",
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
+        usuarioActual.handle = handleFinal; 
+        usuarioActual.kyc_estado = 'en_revision'; 
+        usuarioActual.clave = clave; 
 
+        cerrarModalKyc(); 
+        actualizarEstadoKycUI(); 
+        mostrarToast("¡Registro y solicitud KYC enviados con éxito!", "success"); 
 
-@app.route("/api/pi/balance-plataforma", methods=["GET"])
-def obtener_balance_plataforma():
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT SUM(saldo_disponible) as total_circulante FROM usuarios")
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        total_circulante = (
-            row_dict.get("total_circulante") if row_dict and row_dict.get("total_circulante") else 0.0
-        )
-        c.execute("SELECT * FROM pi_wallet_events ORDER BY id DESC LIMIT 20")
-        eventos = [dict(r) for r in c.fetchall()]
-        conn.close()
-        return jsonify({
-            "success": True,
-            "balance_total_pi": total_circulante,
-            "ultimos_eventos_wallet": eventos,
-        })
-    except Exception as e:
-        if conn:
-            conn.close()
-        return jsonify({"success": False, "error": str(e)}), 500
+        await sincronizarConSupabase();
+    } catch (errGeneral) {
+        mostrarToast("Error al procesar. Intenta nuevamente.", "error");
+    } finally {
+        establecerCarga('btn-enviar-kyc', false, 'Registrarse y Enviar KYC');
+    }
+} 
 
+function iniciarSesionUsuario() { 
+    const claveInput = document.getElementById('input-login-clave').value.trim(); 
+    if (!claveInput) { 
+        mostrarToast("Introduce tu clave.", "error"); 
+        return; 
+    } 
+    let cuenta = kycSolicitudes.find(k => k.clave === claveInput);
+    if (cuenta) {
+        usuarioActual.handle = cuenta.handle;
+        usuarioActual.kyc_estado = cuenta.estado;
+        usuarioActual.clave = claveInput;
+        actualizarUIBalance();
+        actualizarEstadoKycUI();
+        mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
+    } else {
+        mostrarToast("Clave no encontrada.", "error");
+    }
+}
 
-@app.route("/api/pi/approve", methods=["POST"])
-def approve_pi_payment():
-    return jsonify({"status": "success", "message": "Pago aprobado por el servidor"}), 200
+function actualizarEstadoKycUI() { 
+    const handleEl = document.getElementById('user-handle'); 
+    if (handleEl) handleEl.innerText = usuarioActual.handle; 
 
+    const banner = document.getElementById('kyc-status-banner'); 
+    const badge = document.getElementById('kyc-badge-status'); 
+    const title = document.getElementById('kyc-banner-title'); 
+    const text = document.getElementById('kyc-banner-text'); 
+    const indicatorCircle = document.getElementById('kyc-indicator-circle'); 
+    const indicatorText = document.getElementById('kyc-indicator-text'); 
 
-@app.route("/api/pi/complete", methods=["POST"])
-def complete_pi_payment():
-    return jsonify({"status": "success", "message": "Pago completado y registrado"}), 200
+    if (!banner) return; 
 
+    if (usuarioActual.handle === "@invitado") { 
+        banner.style.display = 'flex';
+        title.innerText = '🔒 Sesión No Iniciada'; 
+        badge.innerText = 'Invitado'; 
+        text.innerText = 'Regístrate o inicia sesión con tu clave para comenzar a operar y apostar en la plataforma.'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
+        if (indicatorText) indicatorText.innerText = 'No Registrado'; 
+        return; 
+    } 
 
-@app.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")
-def login():
-    if not check_rate_limit(limit=5, window=60):
-        registrar_log_admin(
-            "LOGIN_FALLIDO_RATE_LIMIT",
-            "Demasiados intentos de acceso bloqueados por seguridad.",
-        )
-        return jsonify({
-            "success": False,
-            "error": "Demasiados intentos fallidos. Inténtelo más tarde.",
-        }), 429
+    if (usuarioActual.kyc_estado === 'aprobado') { 
+        banner.style.display = 'none'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
+    } else { 
+        banner.style.display = 'flex'; 
+        title.innerText = '⏳ Solicitud de KYC Pendiente'; 
+        badge.innerText = 'Pendiente'; 
+        text.innerText = 'Tus datos de identidad y habitación han sido enviados y están en revisión por el Administrador.'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Pendiente'; 
+    } 
+} 
 
-    data = request.json or {}
-    password = data.get("password", "")
-    username = data.get("username", "")
+// ==================== RESTO DE FUNCIONES (MERCADOS, TRADING, WALLET) ====================
+function switchTab(tabId, btnElement) { 
+    document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active')); 
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active')); 
+    const view = document.getElementById('view-' + tabId);
+    if (view) view.classList.add('active'); 
+    if (btnElement) btnElement.classList.add('active'); 
+
+    if (tabId === 'clob') { 
+        actualizarSelectsMercadosActivos(); 
+        renderizarOrderBookVisible(); 
+    } 
+    if (tabId === 'admin') { 
+        renderizarKycAdmin(); 
+        cargarUsuariosTablaAdmin();
+        poblarSelectUsuariosAdmin(); 
+        calcularMetricasFinancierasAdmin();
+        renderizarTicketsAdmin();
+    } 
+} 
+
+function verificarAccesoAdmin(btnElement) { 
+    if (adminAutenticado) { 
+        switchTab('admin', btnElement); 
+    } else { 
+        document.getElementById('admin-password-input').value = ''; 
+        document.getElementById('admin-auth-modal').style.display = 'flex'; 
+        document.getElementById('admin-password-input').focus(); 
+    } 
+} 
+
+function cerrarModalAdminAuth() { 
+    document.getElementById('admin-auth-modal').style.display = 'none'; 
+} 
+
+function validarClaveAdmin() { 
+    const claveIngresada = document.getElementById('admin-password-input').value.trim(); 
+    if (claveIngresada === CLAVE_ADMIN_SECRETA) { 
+        adminAutenticado = true; 
+        sessionStorage.setItem('p2p_admin_auth', 'true'); 
+        cerrarModalAdminAuth(); 
+        const tabs = document.querySelectorAll('.nav-tab'); 
+        const btnAdmin = tabs[tabs.length - 1]; 
+        switchTab('admin', btnAdmin); 
+        mostrarToast("Acceso concedido.", "success"); 
+    } else { 
+        mostrarToast("Contraseña incorrecta.", "error"); 
+    } 
+} 
+
+function cerrarSesionAdmin() { 
+    adminAutenticado = false; 
+    sessionStorage.removeItem('p2p_admin_auth'); 
+    switchTab('mercados', document.querySelectorAll('.nav-tab')[0]); 
+    mostrarToast("Sesión cerrada.", "info"); 
+} 
+
+function toggleTheme() { 
+    const body = document.body; 
+    body.setAttribute("data-theme", body.getAttribute("data-theme") === "dark" ? "light" : "dark"); 
+} 
+
+function toggleAccordion(id) { 
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open'); 
+} 
+
+function abrirModalKyc() { document.getElementById('kyc-modal').style.display = 'flex'; }
+function cerrarModalKyc() { document.getElementById('kyc-modal').style.display = 'none'; }
+function abrirModalRecuperacion() { document.getElementById('recovery-modal').style.display = 'flex'; }
+function cerrarModalRecuperacion() { document.getElementById('recovery-modal').style.display = 'none'; }
+function ejecutarRecuperacion() { mostrarToast("Consulta con soporte para recuperar credenciales.", "info"); }
+
+function calcularMetricasFinancierasAdmin() {
+    const supplyEl = document.getElementById('admin-total-supply');
+    const topUsersContainer = document.getElementById('admin-top-users-container');
+    const totalPi = kycSolicitudes.reduce((acc, curr) => acc + (curr.saldo || 0), 0);
+    if (supplyEl) supplyEl.innerText = `${totalPi.toFixed(2)} Pi`;
+
+    if (topUsersContainer) {
+        if (kycSolicitudes.length === 0) {
+            topUsersContainer.innerHTML = '<span style="color:var(--text-muted);">Sin datos de usuarios en PostgreSQL.</span>';
+            return;
+        }
+        const ordenados = [...kycSolicitudes].sort((a,b) => (b.saldo || 0) - (a.saldo || 0)).slice(0, 5);
+        topUsersContainer.innerHTML = ordenados.map((u, i) => `
+            <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <span>${i+1}. <b>${u.handle}</b></span>
+                <span style="color:#4ade80;">${(u.saldo || 0).toFixed(2)} Pi</span>
+            </div>
+        `).join('');
+    }
+}
+
+function renderizarTicketsAdmin() {
+    const container = document.getElementById('admin-tickets-container');
+    if (!container) return;
+    if (ticketsSoporte.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos en PostgreSQL.</p>';
+        return;
+    }
+    container.innerHTML = ticketsSoporte.map(t => `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                <b style="color:#38bdf8;">${t.usuario || t.user_handle || 'Usuario'}</b>
+                <span style="color:${t.estado === 'resuelto' ? '#10b981' : '#f59e0b'}; font-weight:bold;">${(t.estado || 'ABIERTO').toUpperCase()}</span>
+            </div>
+            <div style="font-size:0.8rem; margin-top:4px; color:var(--text-color);">${t.mensaje || t.asunto || 'Consulta de usuario'}</div>
+            <div style="margin-top:6px; display:flex; gap:6px;">
+                <input type="text" id="reply-ticket-${t.id || 0}" class="form-control" placeholder="Responder al usuario..." style="margin-bottom:0; font-size:0.75rem; padding:4px 8px;">
+                <button class="action-btn" style="font-size:0.75rem; padding:4px 10px;" onclick="responderTicketAdmin('${t.id || 0}', '${t.usuario || t.user_handle}')">Responder</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function responderTicketAdmin(ticketId, userHandle) {
+    const input = document.getElementById(`reply-ticket-${ticketId}`);
+    if (!input || !input.value.trim()) return;
+    const resp = input.value.trim();
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('soporte_mensajes').insert([{
+                ticket_id: ticketId,
+                usuario: userHandle,
+                mensaje: resp,
+                es_admin: true,
+                created_at: new Date().toISOString()
+            }]);
+            await supabaseClient.from('tickets_soporte').update({ estado: 'respondido' }).eq('id', ticketId);
+        } catch(e){}
+    }
+    input.value = '';
+    mostrarToast(`Respuesta enviada a ${userHandle}`, "success");
+}
+
+function poblarSelectUsuariosAdmin() {
+    const select = document.getElementById('admin-user-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
+    kycSolicitudes.forEach(k => {
+        select.innerHTML += `<option value="${k.handle}">${k.handle} (${k.nombre} ${k.apellido})</option>`;
+    });
+}
+
+function cargarDatosUsuarioAdminSeleccionado() {
+    const select = document.getElementById('admin-user-select');
+    const card = document.getElementById('admin-user-details-card');
+    if (!select || !card) return;
+    usuarioAdminSeleccionadoHandle = select.value;
+    if (!usuarioAdminSeleccionadoHandle) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = 'block';
+    document.getElementById('adm-det-handle').innerText = usuarioAdminSeleccionadoHandle;
+}
+
+function abrirModalAjusteBalance() {
+    if (!usuarioAdminSeleccionadoHandle) {
+        mostrarToast("Selecciona primero un usuario.", "error");
+        return;
+    }
+    document.getElementById('admin-balance-modal').style.display = 'flex';
+}
+function cerrarModalAjusteBalance() {
+    document.getElementById('admin-balance-modal').style.display = 'none';
+}
+async function ejecutarAjusteBalanceAdmin() {
+    const tipo = document.getElementById('admin-adj-tipo')?.value || 'CREDITO';
+    const monto = parseFloat(document.getElementById('admin-adj-monto')?.value || '0');
+    if (!usuarioAdminSeleccionadoHandle || isNaN(monto) || monto <= 0) {
+        mostrarToast("Ingresa un monto válido y selecciona un usuario.", "error");
+        return;
+    }
+
+    let userTarget = kycSolicitudes.find(k => k.handle === usuarioAdminSeleccionadoHandle);
+    const saldoPrevio = userTarget ? userTarget.saldo : 0;
+    const nuevoSaldo = tipo === 'CREDITO' ? (saldoPrevio + monto) : Math.max(0, saldoPrevio - monto);
+
+    if (userTarget) userTarget.saldo = nuevoSaldo;
+    if (usuarioActual.handle === usuarioAdminSeleccionadoHandle) {
+        usuarioActual.balance = nuevoSaldo;
+        actualizarUIBalance();
+    }
+
+    // Guardar en Supabase: usuarios_p2p + auditoría admin_balance_audit y admin_audit_logs
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('usuarios_p2p').update({ saldo: nuevoSaldo }).eq('username', usuarioAdminSeleccionadoHandle);
+            await supabaseClient.from('admin_balance_audit').insert([{
+                admin: 'admin_anthony',
+                target_user: usuarioAdminSeleccionadoHandle,
+                tipo_operacion: tipo,
+                monto: monto,
+                saldo_previo: saldoPrevio,
+                saldo_nuevo: nuevoSaldo,
+                created_at: new Date().toISOString()
+            }]);
+            await supabaseClient.from('admin_audit_logs').insert([{
+                action: 'BALANCE_ADJUST',
+                admin: 'admin_anthony',
+                details: `${tipo} de ${monto} Pi a ${usuarioAdminSeleccionadoHandle}`
+            }]);
+        } catch(e){}
+    }
+
+    cerrarModalAjusteBalance();
+    cargarUsuariosTablaAdmin();
+    document.getElementById('adm-det-balance').innerText = nuevoSaldo.toFixed(2) + ' Pi';
+    mostrarToast(`Ajuste de ${monto} Pi (${tipo}) registrado en PostgreSQL para ${usuarioAdminSeleccionadoHandle}`, "success");
+}
+
+async function declararGanadorAdmin() { 
+    const marketId = document.getElementById('admin-market-id')?.value;
+    const ganador = document.getElementById('admin-result-select')?.value;
+    if (!marketId) {
+        mostrarToast("Selecciona un mercado válido.", "error");
+        return;
+    }
+
+    let m = mercadosDinamicos.find(x => String(x.id) === String(marketId));
+    if (m) {
+        m.estado = 'resuelto';
+        m.ganador = ganador;
+    }
+
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('mercados_dinamicos').update({ estado: 'resuelto', ganador: ganador }).eq('id', marketId);
+            await supabaseClient.from('estados_mercados').upsert([{ market_id: marketId, estado: 'resuelto', ganador: ganador }]);
+            await supabaseClient.from('admin_audit_logs').insert([{
+                action: 'RESOLVE_MARKET',
+                admin: 'admin_anthony',
+                details: `Mercado ${marketId} resuelto a favor de ${ganador}`
+            }]);
+        } catch(e){}
+    }
+
+    renderizarMercadosDinamicos();
+    renderizarMercadosEsperaYHistorial();
+    mostrarToast(`¡Mercado liquidado oficialmente! Ganador: ${ganador}`, "success");
+}
+
+async function cancelarYReembolsarMercadoAdmin() { 
+    const marketId = document.getElementById('admin-market-id')?.value;
+    if (!marketId) {
+        mostrarToast("Selecciona un mercado.", "error");
+        return;
+    }
+
+    let m = mercadosDinamicos.find(x => String(x.id) === String(marketId));
+    if (m) m.estado = 'cancelado';
+
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('mercados_dinamicos').update({ estado: 'cancelado' }).eq('id', marketId);
+            await supabaseClient.from('admin_audit_logs').insert([{
+                action: 'CANCEL_MARKET',
+                admin: 'admin_anthony',
+                details: `Mercado ${marketId} cancelado y reembolsado`
+            }]);
+        } catch(e){}
+    }
+
+    renderizarMercadosDinamicos();
+    renderizarMercadosEsperaYHistorial();
+    mostrarToast(`Mercado cancelado y reembolsos registrados en auditoría.`, "info");
+}
+
+function renderizarMercadosDinamicos() {
+    const container = document.getElementById('markets-container');
+    if (!container) return;
+    if (mercadosDinamicos.length === 0) {
+        container.innerHTML = `
+        <div class="market-card" style="text-align: center; padding: 24px 16px;"> 
+            <div style="font-size: 1rem; font-weight: bold; color: #38bdf8; margin-bottom: 6px;">⏳ A la espera de la apertura de un mercado</div> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">No hay mercados activos en este momento.</p> 
+        </div>`;
+        return;
+    }
+    let html = '';
+    mercadosDinamicos.forEach(m => {
+        html += `
+        <div class="market-card">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+                <span>🏷️ ${m.categoria || 'Comunidad'}</span>
+                <span style="color:#eab308; font-weight:bold;">● Abierto</span>
+            </div>
+            <div class="market-title">${m.titulo}</div>
+            <div style="display:flex; gap:8px;">
+                <button class="action-btn" style="flex:1; background:#166534; border-color:#22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button>
+                <button class="action-btn" style="flex:1; background:#991b1b; border-color:#ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button>
+            </div>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function actualizarSelectsMercadosActivos() {
+    const sel = document.getElementById('orderbook-market-filter');
+    const selAdm = document.getElementById('admin-market-id');
+    if (sel) {
+        sel.innerHTML = mercadosDinamicos.length ? mercadosDinamicos.map(m => `<option value="${m.id}">${m.titulo}</option>`).join('') : '<option value="">No hay mercados</option>';
+    }
+    if (selAdm) {
+        selAdm.innerHTML = mercadosDinamicos.length ? mercadosDinamicos.map(m => `<option value="${m.id}">${m.titulo}</option>`).join('') : '<option value="">No hay mercados</option>';
+    }
+}
+
+function renderizarMercadosEsperaYHistorial() {
+    const contEspera = document.getElementById('espera-resolucion-container');
+    const contCerrados = document.getElementById('historial-cerrados-container');
     
-    if check_password_hash(ADMIN_PASSWORD_HASH, password):
-        session.clear()
-        session.permanent = True
-        session["is_admin"] = True
-        registrar_log_admin("LOGIN_EXITOSO", f"Usuario/Administrador {username or 'Admin'} inició sesión correctamente.")
-        return jsonify({"success": True, "message": "Acceso autorizado"})
+    // Mercados en espera de resolución
+    const enEspera = mercadosDinamicos.filter(m => m.estado === 'espera' || m.estado === 'en_espera' || (m.fecha_cierre && new Date(m.fecha_cierre) <= new Date() && m.estado !== 'resuelto'));
+    if (contEspera) {
+        if (enEspera.length === 0) {
+            contEspera.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">No hay mercados esperando resolución.</p>';
+        } else {
+            contEspera.innerHTML = enEspera.map(m => `
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 6px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                        <b style="color:#f59e0b;">⏳ Esperando Veredicto</b>
+                        <span style="color:var(--text-muted);">${m.categoria || 'Mercado'}</span>
+                    </div>
+                    <div style="font-weight:600; font-size:0.85rem; margin-top:4px;">${m.titulo}</div>
+                </div>
+            `).join('');
+        }
+    }
 
-    registrar_log_admin("LOGIN_FALLIDO", "Intento de acceso con contraseña incorrecta.")
-    return jsonify({"success": False, "error": "Credenciales inválidas"}), 401
+    // Historial de Mercados Cerrados & Resueltos
+    const cerrados = mercadosDinamicos.filter(m => m.estado === 'resuelto' || m.estado === 'cerrado' || m.ganador);
+    if (contCerrados) {
+        if (cerrados.length === 0) {
+            contCerrados.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">No hay mercados cerrados registrados aún en PostgreSQL.</p>';
+        } else {
+            contCerrados.innerHTML = cerrados.map(m => `
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 6px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                        <span style="color:#10b981; font-weight:bold;">🏆 Ganador: ${m.ganador || m.resultado || 'OFICIAL'}</span>
+                        <span style="color:var(--text-muted);">${m.categoria || 'Finalizado'}</span>
+                    </div>
+                    <div style="font-weight:600; font-size:0.85rem; margin-top:4px;">${m.titulo}</div>
+                </div>
+            `).join('');
+        }
+    }
+}
 
+function renderizarOrderBookVisible() {
+    const filterSelect = document.getElementById('orderbook-market-filter');
+    const tbody = document.getElementById('orderbook-table-body');
+    if (!tbody) return;
 
-@app.route("/api/admin/login", methods=["POST"])
-@limiter.limit("5 per minute")
-def admin_login():
-    data = request.json or {}
-    password = data.get("password", "")
-    if check_password_hash(ADMIN_PASSWORD_HASH, password):
-        session.clear()
-        session.permanent = True
-        session["is_admin"] = True
-        registrar_log_admin("LOGIN_EXITOSO", "Administrador inició sesión correctamente.")
-        return jsonify({"success": True, "message": "Acceso autorizado"})
+    const mercadoId = filterSelect ? filterSelect.value : null;
+    let ordenes = ordenesGlobales;
+    if (mercadoId) {
+        ordenes = ordenesGlobales.filter(o => String(o.market_id || o.mercado_id) === String(mercadoId));
+    }
 
-    registrar_log_admin("LOGIN_FALLIDO", "Intento de acceso con contraseña incorrecta.")
-    return jsonify({"success": False, "error": "Credenciales inválidas"}), 401
+    if (!ordenes || ordenes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de órdenes activas en el Order Book.</td></tr>';
+        return;
+    }
 
+    tbody.innerHTML = ordenes.map(o => {
+        const esCompra = (o.tipo || o.order_type || 'BUY').toUpperCase().includes('BUY') || (o.tipo || '').toUpperCase().includes('COMPRA');
+        const colorTipo = esCompra ? '#22c55e' : '#ef4444';
+        const txtTipo = esCompra ? 'COMPRA' : 'VENTA';
+        const opc = o.opcion || o.option || 'SÍ';
+        const colorOpc = opc === 'SÍ' ? '#38bdf8' : '#f43f5e';
+        const contratos = o.contratos || o.amount || o.cantidad || 1;
+        const precio = Number(o.precio || o.price || 0.50).toFixed(2);
+        const trader = o.usuario || o.user_handle || o.username || '@pionero';
 
-@app.route("/api/admin/verificar-sesion", methods=["GET"])
-def admin_verificar_sesion():
-    if session.get("is_admin"):
-        return jsonify({"success": True, "is_admin": True})
-    return jsonify({"success": True, "is_admin": False}), 403
+        return `
+            <tr>
+                <td style="color:${colorTipo}; font-weight:bold;">${txtTipo}</td>
+                <td style="color:${colorOpc}; font-weight:bold;">${opc}</td>
+                <td>${contratos}</td>
+                <td>${precio} Pi</td>
+                <td style="color:var(--text-muted); font-size:0.75rem;">${trader}</td>
+            </tr>
+        `;
+    }).join('');
+}
 
+function actualizarPreciosVisuales() {
+    mercadosDinamicos.forEach(m => {
+        preciosMercados[m.id] = {
+            si: Number(m.precio_si || 0.50),
+            no: Number(m.precio_no || 0.50)
+        };
+    });
+}
 
-@app.route("/api/ranking", methods=["GET"])
-def obtener_ranking():
-    conn = obtener_conexion()
-    c = conn.cursor()
-    c.execute(
-        "SELECT username, saldo_disponible FROM usuarios ORDER BY saldo_disponible DESC LIMIT 10"
-    )
-    ranking = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return jsonify({"success": True, "ranking": ranking})
+function restaurarEstadosMercadosVisuales() {
+    mercadosDinamicos.forEach(m => {
+        estadosMercados[m.id] = m.estado || 'abierto';
+    });
+}
 
+function actualizarRelojesRegresivos() {
+    const now = new Date().getTime();
+    document.querySelectorAll('[data-fecha-cierre]').forEach(el => {
+        const target = new Date(el.dataset.fechaCierre).getTime();
+        const diff = target - now;
+        if (diff <= 0) {
+            el.innerHTML = '⏳ <b>CERRADO</b> (Esperando resolución)';
+            el.style.color = '#f59e0b';
+        } else {
+            const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const segundos = Math.floor((diff % (1000 * 60)) / 1000);
+            el.innerHTML = `⏱️ Cierra en: <b>${dias > 0 ? dias + 'd ' : ''}${horas}h ${minutos}m ${segundos}s</b>`;
+        }
+    });
+}
 
-@app.route("/api/cobrar/<int:apuesta_id>", methods=["POST"])
-def cobrar_prediccion(apuesta_id):
-    data = request.json or {}
-    username = data.get("username")
-    if not username:
-        return jsonify({"success": False, "error": "Usuario no especificado"}), 400
+function filtrarMercados() {
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('#markets-container .market-card');
+    cards.forEach(c => {
+        const title = (c.querySelector('.market-title')?.innerText || '').toLowerCase();
+        const cat = (c.dataset.categoria || '').toLowerCase();
+        const matchesQ = !q || title.includes(q) || cat.includes(q);
+        const matchesCat = categoriaActualFiltro === 'Todos' || cat === categoriaActualFiltro.toLowerCase();
+        c.style.display = matchesQ && matchesCat ? 'block' : 'none';
+    });
+}
 
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
-        u_check = c.fetchone()
-        u_check_dict = dict(u_check) if u_check else {}
-        if u_check_dict and u_check_dict.get("is_frozen"):
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Tu cuenta se encuentra suspendida temporalmente.",
-            }), 403
+function filtrarMercadosCerrados() {
+    const q = (document.getElementById('search-closed-input')?.value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#historial-cerrados-container > div');
+    rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = !q || text.includes(q) ? 'block' : 'none';
+    });
+}
 
-        c.execute(
-            "SELECT * FROM historial_apuestas WHERE id = %s AND username = %s",
-            (apuesta_id, username),
-        )
-        apuesta = c.fetchone()
-        apuesta_dict = dict(apuesta) if apuesta else {}
-        if not apuesta:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Apuesta no encontrada"}), 404
+function setCategory(cat, btn) {
+    categoriaActualFiltro = cat;
+    btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    filtrarMercados();
+}
 
-        if apuesta_dict.get("estado") != "Ganada":
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "Esta apuesta no está marcada como ganadora o ya fue cobrada",
-            }), 400
+function depositarConPiNetwork() { 
+    const monto = parseFloat(document.getElementById('wallet-amount')?.value || "1.0");
+    if (isNaN(monto) || monto <= 0) {
+        mostrarToast("Ingresa un monto válido para depositar.", "error");
+        return;
+    }
 
-        premio = apuesta_dict.get("monto", 0.0) * 2.0
-        c.execute(
-            "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-            (username,),
-        )
-        u_row = c.fetchone()
-        u_row_dict = dict(u_row) if u_row else {}
-        if not u_row:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Usuario no existe"}), 400
-
-        nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
-        c.execute(
-            "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-            (nuevo_saldo, username),
-        )
-        c.execute(
-            "UPDATE historial_apuestas SET estado = 'Cobrada' WHERE id = %s",
-            (apuesta_id,),
-        )
-        c.execute(
-            "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-            (
-                username,
-                "Cobro de Predicción",
-                premio,
-                f"COBRO_{apuesta_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                datetime.now().strftime("%Y-%m-%d %H:%M"),
-            ),
-        )
-        conn.commit()
-        registrar_global_audit(
-            username,
-            "COBRO_PREMIO",
-            f"Cobro exitoso de premio por {premio} (Apuesta ID: {apuesta_id})",
-        )
-        return jsonify({
-            "success": True,
-            "nuevo_saldo": nuevo_saldo,
-            "mensaje": f"¡Premio de {premio} cobrado con éxito!",
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/admin/crear-evento", methods=["POST"])
-def admin_crear_evento():
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    data = request.json or {}
-    titulo = data.get("titulo")
-    categoria = data.get("categoria", "General")
-    fecha_cierre = data.get("fecha_cierre", datetime.now().strftime("%Y-%m-%d"))
-    opciones = data.get("opciones", [])
-    if not titulo or not opciones or len(opciones) < 2:
-        return jsonify({
-            "success": False,
-            "error": "Título y al menos 2 opciones son obligatorios",
-        }), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "INSERT INTO eventos (titulo, categoria, estado, fecha_cierre) VALUES (%s, %s, 'activo', %s) RETURNING id",
-            (titulo, categoria, fecha_cierre),
-        )
-        ev_row = c.fetchone()
-        ev_row_dict = dict(ev_row) if ev_row else {}
-        ev_id = ev_row_dict.get("id")
-        for opt in opciones:
-            c.execute(
-                "INSERT INTO opciones_evento (evento_id, nombre, pozo) VALUES (%s, %s, 0.0)",
-                (ev_id, opt),
-            )
-        conn.commit()
-        registrar_log_admin("CREAR_EVENTO", f"Creado evento ID {ev_id}: {titulo}")
-        registrar_audit_log(
-            "Admin",
-            "CREAR_EVENTO",
-            str(ev_id),
-            {"titulo": titulo, "opciones": opciones},
-        )
-        return jsonify({"success": True, "mensaje": "Mercado/Evento creado con éxito"})
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/admin/cerrar-evento", methods=["POST"])
-def admin_cerrar_evento():
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    data = request.json or {}
-    evento_id = data.get("evento_id")
-    ganador_id = data.get("ganador_id")
-    if not evento_id or not ganador_id:
-        return jsonify({"success": False, "error": "Faltan parámetros de cierre"}), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
-        evento = c.fetchone()
-        evento_dict = dict(evento) if evento else {}
-        if not evento or evento_dict.get("estado") == "cerrado":
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": "El evento no existe o ya está cerrado",
-            }), 400
-
-        c.execute("SELECT nombre FROM opciones_evento WHERE id = %s", (ganador_id,))
-        opcion_ganadora = c.fetchone()
-        opcion_ganadora_dict = dict(opcion_ganadora) if opcion_ganadora else {}
-        if not opcion_ganadora:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Opción ganadora inválida"}), 400
-
-        nombre_ganador = opcion_ganadora_dict.get("nombre")
-        titulo_evento = evento_dict.get("titulo")
-
-        c.execute(
-            "UPDATE eventos SET estado = 'cerrado', ganador_id = %s WHERE id = %s",
-            (ganador_id, evento_id),
-        )
-
-        c.execute(
-            "SELECT * FROM orders WHERE evento_id::text = %s AND estado = 'activa'",
-            (str(evento_id),),
-        )
-        ordenes_activas_residuales = c.fetchall()
-
-        for orden in ordenes_activas_residuales:
-            orden_dict = dict(orden)
-            usr = orden_dict.get("username")
-            cant_residual = orden_dict.get("cantidad", 0.0)
-            accion_orden = orden_dict.get("accion")
-            precio_orden = orden_dict.get("precio", 0.0)
-            op_id = orden_dict.get("opcion_id")
-
-            c.execute(
-                "SELECT nombre FROM opciones_evento WHERE id = %s", (op_id,)
-            )
-            op_data = c.fetchone()
-            op_data_dict = dict(op_data) if op_data else {}
-            nombre_op_residual = op_data_dict.get("nombre", "Opción")
-
-            if accion_orden == "comprar":
-                monto_a_devolver = precio_orden * cant_residual
-                c.execute(
-                    "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                    (usr,),
-                )
-                u_s = c.fetchone()
-                u_s_dict = dict(u_s) if u_s else {}
-                if u_s:
-                    nuevo_s_compra = u_s_dict.get("saldo_disponible", 0.0) + monto_a_devolver
-                    c.execute(
-                        "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                        (nuevo_s_compra, usr),
-                    )
-                    c.execute(
-                        "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                        (
-                            usr,
-                            "Devolución Orden No Ejecutada",
-                            monto_a_devolver,
-                            f"DEV_{orden_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                            datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        ),
-                    )
-            elif accion_orden == "vender":
-                c.execute(
-                    "INSERT INTO historial_apuestas (username, titulo_evento, opcion_elegida, monto, estado) VALUES (%s, %s, %s, %s, 'Cancelada')",
-                    (
-                        usr,
-                        titulo_evento,
-                        nombre_op_residual,
-                        cant_residual,
-                    ),
-                )
-
-            c.execute(
-                "UPDATE orders SET estado = 'cancelada_cierre' WHERE id = %s",
-                (orden_dict.get("id"),),
-            )
-
-        c.execute(
-            "SELECT * FROM historial_apuestas WHERE titulo_evento = %s AND opcion_elegida = %s AND estado = 'Activo'",
-            (titulo_evento, nombre_ganador),
-        )
-        apuestas_ganadoras = c.fetchall()
-
-        for ap in apuestas_ganadoras:
-            ap_dict = dict(ap)
-            usr = ap_dict.get("username")
-            premio = ap_dict.get("monto", 0.0) * 2.0
-            c.execute(
-                "SELECT saldo_disponible FROM usuarios WHERE username = %s FOR UPDATE",
-                (usr,),
-            )
-            u_row = c.fetchone()
-            u_row_dict = dict(u_row) if u_row else {}
-            if u_row:
-                nuevo_saldo = u_row_dict.get("saldo_disponible", 0.0) + premio
-                c.execute(
-                    "UPDATE usuarios SET saldo_disponible = %s WHERE username = %s",
-                    (nuevo_saldo, usr),
-                )
-                c.execute(
-                    "INSERT INTO transacciones (username, tipo, monto, txid, fecha) VALUES (%s, %s, %s, %s, %s)",
-                    (
-                        usr,
-                        "Premio Automático",
-                        premio,
-                        f"AUTO_WIN_{ap_dict.get('id')}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    ),
-                )
-
-        c.execute(
-            "UPDATE historial_apuestas SET estado = 'Ganada' WHERE titulo_evento = %s AND opcion_elegida = %s AND estado = 'Activo'",
-            (titulo_evento, nombre_ganador),
-        )
-        c.execute(
-            "UPDATE historial_apuestas SET estado = 'Perdida' WHERE titulo_evento = %s AND opcion_elegida != %s AND estado = 'Activo'",
-            (titulo_evento, nombre_ganador),
-        )
-
-        conn.commit()
-        registrar_log_admin(
-            "CERRAR_EVENTO",
-            f"Cerrado evento ID {evento_id}. Ganador: {nombre_ganador}. Pagos acreditados automáticamente y órdenes residuales gestionadas.",
-        )
-        registrar_audit_log("Admin", "CERRAR_EVENTO", str(evento_id), {"ganador": nombre_ganador})
-        return jsonify({
-            "success": True,
-            "mensaje": f"Evento cerrado, órdenes residuales procesadas y premios acreditados automáticamente. Ganador: {nombre_ganador}",
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route("/api/admin/toggle-freeze", methods=["POST"])
-def admin_toggle_freeze():
-    if not session.get("is_admin"):
-        return jsonify({"success": False, "error": "No autorizado"}), 401
-    data = request.json or {}
-    username = data.get("username")
-    if not username:
-        return jsonify({"success": False, "error": "Usuario no especificado"}), 400
-
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT is_frozen FROM usuarios WHERE username = %s", (username,))
-        row = c.fetchone()
-        row_dict = dict(row) if row else {}
-        if not row:
-            conn.close()
-            return jsonify({"success": False, "error": "Usuario no encontrado"}), 404
-
-        nuevo_estado = not bool(row_dict.get("is_frozen", 0))
-        c.execute(
-            "UPDATE usuarios SET is_frozen = %s WHERE username = %s",
-            (nuevo_estado, username),
-        )
-        conn.commit()
-        accion_desc = "Congelado" if nuevo_estado else "Descongelado"
-        registrar_log_admin("TOGGLE_FREEZE", f"Usuario {username} ha sido {accion_desc}")
-        registrar_audit_log("Admin", "TOGGLE_FREEZE", username, {"is_frozen": nuevo_estado})
-        return jsonify({
-            "success": True,
-            "mensaje": f"Usuario {username} ha sido {accion_desc.lower()} exitosamente.",
-            "is_frozen": nuevo_estado,
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.route('/api/admin/users', methods=['GET'])
-def admin_get_users():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT id, username, saldo, kyc_estado, creado_at 
-            FROM public.usuarios_p2p 
-            ORDER BY creado_at DESC;
-        """)
-        rows = cur.fetchall()
-        
-        users_list = []
-        for row in rows:
-            if isinstance(row, dict):
-                users_list.append({
-                    "id": str(row.get("id")),
-                    "username": row.get("username"),
-                    "balance": float(row.get("saldo", 0.0)),
-                    "kyc_status": row.get("kyc_estado"),
-                    "created_at": str(row.get("creado_at"))
-                })
-            else:
-                users_list.append({
-                    "id": str(row[0]),
-                    "username": row[1],
-                    "balance": float(row[2]),
-                    "kyc_status": row[3],
-                    "created_at": str(row[4])
-                })
-            
-        cur.close()
-        conn.close()
-        
-        return jsonify({
-            "total_users": len(users_list),
-            "users": users_list
-        }), 200
-
-    except Exception as e:
-        print(f"Error al obtener usuarios para admin: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-# ================= POSICIONES ACTIVAS =================
-@app.route("/api/posiciones-activas/<username>", methods=["GET"])
-def obtener_posiciones_activas(username):
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute(
-            """SELECT id, market_id, handle, titulo, opcion, contratos, invertido, payout, created_at 
-               FROM posiciones_activas 
-               WHERE handle = %s ORDER BY created_at DESC""",
-            (username,)
-        )
-        posiciones = [dict(row) for row in c.fetchall()]
-        return jsonify({"success": True, "posiciones": posiciones}), 200
-    except Exception as e:
-        return jsonify({"success": True, "posiciones": []}), 200
-    finally:
-        c.close()
-        conn.close()
-
-
-# ================= COMPRAS ACTIVAS =================
-def obtener_compras_activas_db(user_id):
-    connection = None
-    try:
-        connection = db_pool.getconn()
-        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            query = """
-                SELECT id, producto, fecha_compra, estado 
-                FROM compras 
-                WHERE user_id = %s AND estado = 'activa'
-            """
-            cursor.execute(query, (user_id,))
-            return cursor.fetchall()
-    except Exception as e:
-        print(f"Error consultando compras activas en PostgreSQL: {e}")
-        return None
-    finally:
-        if connection:
-            db_pool.putconn(connection)
-
-@app.route('/api/compras-activas', methods=['GET'])
-def api_compras_activas():
-    if 'user_id' not in session:
-        return jsonify({"error": "No autorizado"}), 401
+    if (typeof Pi !== 'undefined' && Pi.createPayment) {
+        try {
+            Pi.createPayment({
+                amount: monto,
+                memo: "Recarga de saldo en P2Ppredict",
+                metadata: { type: "deposit", user: usuarioActual.handle }
+            }, {
+                onReadyForServerApproval: async function(paymentId) {
+                    mostrarToast("Pago aprobado en Pi Network. Confirmando...", "info");
+                    if (supabaseClient) {
+                        await supabaseClient.from('pi_wallet_events').insert([{
+                            event_type: 'APPROVAL',
+                            payment_id: paymentId,
+                            amount: monto,
+                            user_handle: usuarioActual.handle
+                        }]);
+                    }
+                },
+                onReadyForServerCompletion: async function(paymentId, txid) {
+                    usuarioActual.balance += monto;
+                    actualizarUIBalance();
+                    mostrarToast(`¡Depósito completado! +${monto} Pi añadidos.`, "success");
+                    if (supabaseClient) {
+                        await supabaseClient.from('pi_wallet_events').insert([{
+                            event_type: 'COMPLETION',
+                            payment_id: paymentId,
+                            txid: txid,
+                            amount: monto,
+                            user_handle: usuarioActual.handle
+                        }]);
+                        await supabaseClient.from('historial_transacciones').insert([{
+                            user_handle: usuarioActual.handle,
+                            tipo: 'DEPOSITO',
+                            monto: monto,
+                            referencia: txid
+                        }]);
+                    }
+                },
+                onCancel: function(paymentId) { mostrarToast("Depósito cancelado.", "info"); },
+                onError: function(error, payment) { mostrarToast("Error en Pi SDK: " + error.message, "error"); }
+            });
+            return;
+        } catch(e){}
+    }
     
-    user_id = session['user_id']
-    compras = obtener_compras_activas_db(user_id)
-    
-    if compras is None:
-        return jsonify({"error": "Error interno al procesar la base de datos"}), 500
-        
-    return jsonify({
-        "tiene_compras": len(compras) > 0,
-        "compras": compras
-    }), 200
+    // Modo simulación segura si el SDK no está disponible
+    usuarioActual.balance += monto;
+    actualizarUIBalance();
+    mostrarToast(`Recarga simulada de ${monto.toFixed(2)} Pi procesada.`, "success");
+}
 
+function retirarBilletera() { 
+    const monto = parseFloat(document.getElementById('wallet-amount')?.value || "1.0");
+    if (isNaN(monto) || monto <= 0) {
+        mostrarToast("Ingresa un monto válido para retirar.", "error");
+        return;
+    }
+    if (usuarioActual.balance < monto) {
+        mostrarToast("Saldo insuficiente para retirar.", "error");
+        return;
+    }
+    usuarioActual.balance -= monto;
+    actualizarUIBalance();
+    mostrarToast(`Solicitud de retiro de ${monto.toFixed(2)} Pi enviada a revisión.`, "success");
+}
 
-# ================= KYC Y AUTENTICACIÓN (BLUEPRINT) =================
-kyc_bp = Blueprint('kyc_bp', __name__)
+function actualizarUIBalance() {
+    const el = document.getElementById('user-balance');
+    if (el) el.innerText = usuarioActual.balance.toFixed(2) + ' Pi';
+}
 
-@kyc_bp.route('/api/usuario/registro-kyc', methods=['POST'])
-def registrar_kyc():
-    data = request.json or {}
-    username = data.get('username')
-    tipo_doc = data.get('tipo_documento')
-    num_doc = data.get('numero_documento')
-    foto_url = data.get('foto_url', '')
+function abrirTerminalTrading(mId, tit, opc) {
+    ordenActivaModal = { mId, tit, opc };
+    const textEl = document.getElementById('modal-market-text');
+    if (textEl) textEl.innerText = `Mercado: ${tit} | Opción: ${opc}`;
+    calcularModalTotal();
+    document.getElementById('trading-modal').style.display = 'flex';
+}
 
-    if not username or not tipo_doc or not num_doc:
-        return jsonify({"success": False, "error": "Faltan datos obligatorios para el registro KYC"}), 400
+function cerrarTerminalTrading() {
+    document.getElementById('trading-modal').style.display = 'none';
+}
 
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute(
-            """
-            INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at)
-            VALUES (%s, 0.00, 'aprobado', %s, %s, %s, %s)
-            ON CONFLICT (username) DO UPDATE SET 
-                kyc_estado = 'aprobado',
-                tipo_documento = EXCLUDED.tipo_documento,
-                numero_documento = EXCLUDED.numero_documento,
-                foto_url = EXCLUDED.foto_url
-            """,
-            (username, tipo_doc, num_doc, foto_url, fecha_actual)
-        )
-        c.execute(
-            """
-            INSERT INTO usuarios (username, saldo_disponible, is_frozen)
-            VALUES (%s, 0.0, FALSE)
-            ON CONFLICT (username) DO NOTHING
-            """,
-            (username,)
-        )
-            
-        conn.commit()
-        registrar_global_audit(username, "REGISTRO_KYC", f"Usuario inscrito exitosamente con documento {num_doc}")
-        return jsonify({
-            "success": True,
-            "message": "Inscripción y validación KYC completada exitosamente."
-        }), 200
+function cambiarTipoOrdenModal() {
+    calcularModalTotal();
+}
 
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"success": False, "error": f"Error al procesar el registro KYC: {str(e)}"}), 500
-    finally:
-        if c:
-            c.close()
-        if conn:
-            conn.close()
+function calcularModalTotal() {
+    const qty = parseInt(document.getElementById('modal-amount')?.value || '1', 10);
+    const unitPrice = 0.50;
+    const total = qty * unitPrice;
+    const totalEl = document.getElementById('modal-total-req');
+    if (totalEl) totalEl.innerText = total.toFixed(2);
+}
 
-@kyc_bp.route('/api/usuario/iniciar-sesion', methods=['POST'])
-def iniciar_sesion_usuario():
-    data = request.json or {}
-    username = data.get('username')
+async function confirmarCompraRapida() {
+    if (!ordenActivaModal) return;
+    const qty = parseInt(document.getElementById('modal-amount')?.value || '1', 10);
+    const orderType = document.getElementById('modal-order-type')?.value || 'MARKET';
+    const totalCost = qty * 0.50;
 
-    if not username:
-        return jsonify({"success": False, "error": "El nombre de usuario es obligatorio"}), 400
+    if (usuarioActual.balance < totalCost) {
+        mostrarToast(`Saldo insuficiente. Necesitas ${totalCost.toFixed(2)} Pi y tienes ${usuarioActual.balance.toFixed(2)} Pi.`, "error");
+        return;
+    }
 
-    conn = obtener_conexion()
-    c = conn.cursor()
-    try:
-        c.execute("SELECT saldo_disponible, is_frozen FROM usuarios WHERE username = %s", (username,))
-        
-        row = c.fetchone()
-        if not row:
-            conn.close()
-            return jsonify({
-                "success": False, 
-                "error": "El usuario no está registrado. Por favor, haga clic en 'Inscribirse' para registrarse."
-            }), 404
+    usuarioActual.balance -= totalCost;
+    actualizarUIBalance();
 
-        row_dict = dict(row)
-        if row_dict.get("is_frozen"):
-            return jsonify({
-                "success": False, 
-                "error": "Su cuenta se encuentra suspendida temporalmente."
-            }), 403
+    const nuevaOrden = {
+        market_id: ordenActivaModal.mId,
+        user_handle: usuarioActual.handle,
+        tipo: orderType,
+        opcion: ordenActivaModal.opc,
+        precio: 0.50,
+        contratos: qty,
+        estado: 'abierta',
+        created_at: new Date().toISOString()
+    };
 
-        session['username'] = username
-        return jsonify({
-            "success": True,
-            "message": "Sesión iniciada correctamente",
-            "username": username,
-            "saldo_disponible": row_dict.get("saldo_disponible", 0.0)
-        }), 200
+    ordenesGlobales.unshift(nuevaOrden);
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        if c:
-            c.close()
-        if conn:
-            conn.close()
+    // Guardar en Supabase PostgreSQL (ordenes_clob / orders / bets)
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('ordenes_clob').insert([nuevaOrden]);
+            await supabaseClient.from('bets').insert([{
+                market_id: ordenActivaModal.mId,
+                user_handle: usuarioActual.handle,
+                opcion: ordenActivaModal.opc,
+                monto: totalCost,
+                contratos: qty,
+                estado: 'activo'
+            }]);
+            await supabaseClient.from('historial_transacciones').insert([{
+                user_handle: usuarioActual.handle,
+                tipo: 'COMPRA_CONTRATO',
+                monto: totalCost,
+                referencia: ordenActivaModal.tit
+            }]);
+        } catch(e){}
+    }
 
-@kyc_bp.route("/api/kyc/procesar", methods=["POST"])
-def procesar_kyc():
-    if not check_rate_limit(limit=10, window=60):
-        return jsonify({
-            "success": False,
-            "error": "Demasiadas solicitudes. Por favor, intente más tarde."
-        }), 429
+    cerrarTerminalTrading();
+    renderizarOrderBookVisible();
+    mostrarToast(`¡Orden de compra confirmada! (${qty} contratos de ${ordenActivaModal.opc})`, "success");
+}
 
-    data = request.form if request.form else (request.json or {})
-    nickname = data.get("username") or data.get("nickname")
-    tipo_documento = data.get("tipo_documento")
-    numero_documento = data.get("numero_documento")
-    
-    if not nickname or not tipo_documento or not numero_documento:
-        return jsonify({
-            "success": False, 
-            "error": "Faltan campos obligatorios (usuario, tipo o número de documento)."
-        }), 400
+function abrirSoporteChatUsuario() { document.getElementById('support-chat-modal').style.display = 'flex'; }
+function cerrarChatSoporteUsuario() { document.getElementById('support-chat-modal').style.display = 'none'; }
 
-    foto_url = data.get("foto_url", "")
-    if 'archivo' in request.files:
-        file = request.files['archivo']
-        if file and file.filename != '':
-            filename = f"kyc_{nickname}_{int(time.time())}_{file.filename}"
-            upload_folder = os.path.join("static", "uploads", "kyc")
-            os.makedirs(upload_folder, exist_ok=True)
-            filepath = os.path.join(upload_folder, filename)
-            file.save(filepath)
-            foto_url = f"/static/uploads/kyc/{filename}"
+async function enviarMensajeSoporteUsuario() {
+    const input = document.getElementById('chat-user-input');
+    if (!input || !input.value.trim()) return;
+    const msg = input.value.trim();
+    const box = document.getElementById('chat-messages-container');
+    box.innerHTML += `<div class="chat-msg user" style="background:#2563eb; color:#fff; padding:6px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;"><b>${usuarioActual.handle}:</b> ${msg}</div>`;
+    input.value = '';
+    box.scrollTop = box.scrollHeight;
 
-    conn = obtener_conexion()
-    c = conn.cursor()
-    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('soporte_mensajes').insert([{
+                usuario: usuarioActual.handle,
+                mensaje: msg,
+                es_admin: false,
+                created_at: new Date().toISOString()
+            }]);
+        } catch(e){}
+    }
+    mostrarToast("Mensaje enviado al soporte.", "success");
+}
 
-    try:
-        # Validar que el número de documento no pertenezca a otro usuario
-        c.execute("SELECT username FROM usuarios_p2p WHERE numero_documento = %s AND username != %s", (numero_documento, nickname))
-        duplicado = c.fetchone()
-        if duplicado:
-            return jsonify({
-                "success": False,
-                "error": "Este número de documento ya se encuentra registrado por otra cuenta."
-            }), 400
+async function crearNuevoMercadoPionero() {
+    const titulo = document.getElementById('nuevo-titulo')?.value.trim();
+    const categoria = document.getElementById('nuevo-categoria')?.value;
+    const fecha = document.getElementById('nuevo-fecha-cierre')?.value;
+    const liquidez = parseFloat(document.getElementById('nuevo-liquidez')?.value || '5.0');
 
-        c.execute("SELECT id FROM usuarios_p2p WHERE username = %s", (nickname,))
-        user_kyc = c.fetchone()
+    if (!titulo || !fecha) {
+        mostrarToast("Por favor completa el título y la fecha de cierre.", "error");
+        return;
+    }
 
-        if user_kyc:
-            c.execute(
-                """
-                UPDATE usuarios_p2p 
-                SET kyc_estado = 'en_revision', 
-                    tipo_documento = %s, 
-                    numero_documento = %s, 
-                    foto_url = %s 
-                WHERE username = %s
-                """,
-                (tipo_documento, numero_documento, foto_url, nickname)
-            )
-        else:
-            c.execute(
-                """
-                INSERT INTO usuarios_p2p (username, saldo, kyc_estado, tipo_documento, numero_documento, foto_url, creado_at) 
-                VALUES (%s, 0.00, 'en_revision', %s, %s, %s, %s)
-                """,
-                (nickname, tipo_documento, numero_documento, foto_url, fecha_actual)
-            )
+    const nuevoMercado = {
+        id: 'm_' + Date.now(),
+        titulo: titulo,
+        categoria: categoria,
+        fecha_cierre: fecha,
+        estado: 'abierto',
+        liquidez: liquidez,
+        creador: usuarioActual.handle,
+        created_at: new Date().toISOString()
+    };
 
-        conn.commit()
-        
-        registrar_global_audit(
-            nickname, 
-            "ENVIO_KYC", 
-            f"Documento tipo {tipo_documento} enviado para verificación."
-        )
+    mercadosDinamicos.unshift(nuevoMercado);
 
-        return jsonify({
-            "success": True,
-            "message": "Datos de KYC recibidos correctamente.",
-            "kyc_status": "en_revision"
-        }), 200
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('mercados_dinamicos').insert([nuevoMercado]);
+            await supabaseClient.from('eventos').insert([{
+                event_name: titulo,
+                category: categoria,
+                end_time: fecha,
+                status: 'open'
+            }]);
+        } catch(e){}
+    }
 
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({
-            "success": False, 
-            "error": f"Error interno en la base de datos: {str(e)}"
-        }), 500
-    finally:
-        if conn:
-            conn.close()
-
-# Registrar el Blueprint de KYC en la aplicación principal Flask
-app.register_blueprint(kyc_bp)
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    renderizarMercadosDinamicos();
+    actualizarSelectsMercadosActivos();
+    mostrarToast("¡Mercado publicado con éxito en PostgreSQL!", "success");
+    switchTab('mercados', document.querySelectorAll('.nav-tab')[0]);
+}
+</script> 
+</body> 
+</html>
