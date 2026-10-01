@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>  GOD
 <html lang="es"> 
 <head> 
 <meta charset="UTF-8"> 
@@ -889,7 +889,7 @@ let preciosMercados = {};
 let estadosMercados = {}; 
 let mercadosDinamicos = []; 
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
-let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
+let adminAutenticado = false; // Requiere siempre ingresar la clave de Admin
 let usuarioAdminSeleccionadoHandle = null; 
 let filtroKycEstado = 'pendiente';
 let ordenActivaModal = null; 
@@ -961,9 +961,18 @@ async function sincronizarConSupabase() {
                 let { data: evts } = await supabaseClient.from('eventos').select('*');
                 if (evts && evts.length > 0) mercs = evts;
             }
+            if (!mercs || mercs.length === 0) {
+                try {
+                    const resEvts = await fetch('/api/eventos');
+                    if (resEvts.ok) {
+                        const evtsApi = await resEvts.json();
+                        if (Array.isArray(evtsApi) && evtsApi.length > 0) mercs = evtsApi;
+                    }
+                } catch(e){}
+            }
             if (mercs) mercadosDinamicos = mercs; 
 
-            // Cargar órdenes (ordenes_clob / orders / ordenes)
+            // Cargar órdenes (ordenes_clob / orders / ordenes / backend /api/clob/ordenes)
             let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
             if (!ordenes || ordenes.length === 0) {
                 let { data: o2 } = await supabaseClient.from('orders').select('*');
@@ -973,6 +982,15 @@ async function sincronizarConSupabase() {
                 } else {
                     ordenes = o2;
                 }
+            }
+            if (!ordenes || ordenes.length === 0) {
+                try {
+                    const resOrd = await fetch('/api/clob/ordenes');
+                    if (resOrd.ok) {
+                        const ordData = await resOrd.json();
+                        if (ordData && ordData.ordenes) ordenes = ordData.ordenes;
+                    }
+                } catch(e){}
             }
             if (ordenes) ordenesGlobales = ordenes; 
 
@@ -1068,27 +1086,28 @@ async function sincronizarConSupabase() {
         } catch(e){}
     }
 
-    // Intento 5: Fallback a API del backend Flask en Render
-    if (usuariosCargados.length === 0) {
-        try {
-            const res = await fetch('/api/admin/usuarios');
-            if (res.ok) {
-                const j = await res.json();
-                if (Array.isArray(j)) usuariosCargados = j;
-                else if (j.usuarios) usuariosCargados = j.usuarios;
+    // Intento 5: Consulta directa al endpoint oficial del backend en Render (/api/admin/users)
+    try {
+        const res = await fetch('/api/admin/users');
+        if (res.ok) {
+            const j = await res.json();
+            if (j && j.users && Array.isArray(j.users)) {
+                j.users.forEach(u => {
+                    const exists = usuariosCargados.some(x => (x.username || x.handle) === u.username);
+                    if (!exists) {
+                        usuariosCargados.push({
+                            username: u.username,
+                            saldo: u.balance,
+                            kyc_estado: u.kyc_status || 'en_revision',
+                            tipo_documento: u.tipo_documento || 'Cédula / ID',
+                            numero_documento: u.numero_documento || '',
+                            foto_url: u.foto_url || ''
+                        });
+                    }
+                });
             }
-        } catch(e){}
-    }
-    if (usuariosCargados.length === 0) {
-        try {
-            const res2 = await fetch('/api/kyc/pendientes');
-            if (res2.ok) {
-                const j2 = await res2.json();
-                if (Array.isArray(j2)) usuariosCargados = j2;
-                else if (j2.solicitudes) usuariosCargados = j2.solicitudes;
-            }
-        } catch(e){}
-    }
+        }
+    } catch(e){}
 
     if (usuariosCargados.length > 0) {
         kycSolicitudes = usuariosCargados.map(k => ({ 
@@ -1254,76 +1273,91 @@ function cargarUsuariosTablaAdmin() {
     });
 }
 
-// ==================== ENVÍO DE KYC (DOBLE CANAL) ====================
+// ==================== ENVÍO DE KYC (DOBLE CANAL RESILIENTE) ====================
 async function enviarSolicitudKyc() { 
-    const username = document.getElementById('kyc-username').value.trim(); 
-    const clave = document.getElementById('kyc-clave').value.trim(); 
-    const nombre = document.getElementById('nombre').value.trim(); 
-    const apellido = document.getElementById('apellido').value.trim(); 
-    const correo = document.getElementById('correo').value.trim(); 
-    const tipo = document.getElementById('tipo_documento').value; 
-    const numero = document.getElementById('numero_documento').value.trim(); 
-    const direccion = document.getElementById('direccion').value.trim(); 
+    const usernameInput = document.getElementById('kyc-username');
+    const clave = document.getElementById('kyc-clave')?.value.trim() || ''; 
+    const nombre = document.getElementById('nombre')?.value.trim() || ''; 
+    const apellido = document.getElementById('apellido')?.value.trim() || ''; 
+    const correo = document.getElementById('correo')?.value.trim() || ''; 
+    const tipo = document.getElementById('tipo_documento')?.value || 'Cédula / ID'; 
+    const numero = document.getElementById('numero_documento')?.value.trim() || ''; 
+    const direccion = document.getElementById('direccion')?.value.trim() || ''; 
     const archivoInput = document.getElementById('foto_documento');
 
-    if (!username || !clave || !nombre || !apellido || !correo || !numero || !direccion) { 
+    if (!clave || !nombre || !apellido || !correo || !numero || !direccion) { 
         mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
         return; 
     } 
 
     establecerCarga('btn-enviar-kyc', true, 'Registrarse y Enviar KYC');
-    let handleFinal = username.startsWith('@') ? username : '@' + username; 
 
-    // Canal A: Backend en Render (/api/kyc/procesar con FormData)
+    let rawUser = (usernameInput && usernameInput.value.trim()) ? usernameInput.value.trim() : correo.split('@')[0];
+    let handleFinal = rawUser.startsWith('@') ? rawUser : '@' + rawUser; 
+
     try {
-        const formData = new FormData();
-        formData.append('username', handleFinal);
-        formData.append('handle', handleFinal);
-        formData.append('nombre', nombre);
-        formData.append('apellido', apellido);
-        formData.append('correo', correo);
-        formData.append('tipo_documento', tipo);
-        formData.append('numero_documento', numero);
-        formData.append('direccion', direccion);
-        formData.append('clave', clave);
-        formData.append('kyc_estado', 'pendiente');
-        formData.append('estado', 'pendiente');
+        // Canal A: Backend en Render (/api/kyc/procesar con timeout de 7 segundos para no bloquear la pantalla)
+        try {
+            const formData = new FormData();
+            formData.append('username', handleFinal);
+            formData.append('handle', handleFinal);
+            formData.append('nombre', nombre);
+            formData.append('apellido', apellido);
+            formData.append('correo', correo);
+            formData.append('tipo_documento', tipo);
+            formData.append('numero_documento', numero);
+            formData.append('direccion', direccion);
+            formData.append('clave', clave);
+            formData.append('kyc_estado', 'pendiente');
+            formData.append('estado', 'pendiente');
 
-        if (archivoInput && archivoInput.files[0]) {
-            formData.append('archivo', archivoInput.files[0]);
-            formData.append('foto_documento', archivoInput.files[0]);
+            if (archivoInput && archivoInput.files && archivoInput.files[0]) {
+                formData.append('archivo', archivoInput.files[0]);
+                formData.append('foto_documento', archivoInput.files[0]);
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 7000);
+            await fetch('/api/kyc/procesar', { method: 'POST', body: formData, signal: controller.signal });
+            clearTimeout(timeoutId);
+        } catch (eBackend) {
+            console.warn("Aviso backend Render:", eBackend);
         }
 
-        await fetch('/api/kyc/procesar', { method: 'POST', body: formData });
-    } catch (e) {}
+        // Canal B: Inserción directa en PostgreSQL (Supabase) adaptada exactamente al esquema del backend
+        if (supabaseClient) {
+            try {
+                await supabaseClient.from('usuarios_p2p').upsert([{ 
+                    username: handleFinal, 
+                    tipo_documento: tipo, 
+                    numero_documento: numero, 
+                    kyc_estado: 'en_revision'
+                }], { onConflict: 'username' }); 
 
-    // Canal B: Inserción directa en PostgreSQL (Supabase)
-    if (supabaseClient) {
-        try {
-            await supabaseClient.from('usuarios_p2p').upsert([{ 
-                username: handleFinal, 
-                nombre: nombre, 
-                apellido: apellido, 
-                correo: correo, 
-                tipo_documento: tipo, 
-                numero_documento: numero, 
-                direccion: direccion, 
-                kyc_estado: 'pendiente', 
-                clave: clave 
-            }], { onConflict: 'username' }); 
-        } catch (e) {}
+                await supabaseClient.from('usuarios').upsert([{ 
+                    username: handleFinal, 
+                    saldo_disponible: 0.0,
+                    is_frozen: false
+                }], { onConflict: 'username' }); 
+            } catch (eSupabase) {
+                console.warn("Aviso Supabase:", eSupabase);
+            }
+        }
+
+        usuarioActual.handle = handleFinal; 
+        usuarioActual.kyc_estado = 'en_revision'; 
+        usuarioActual.clave = clave; 
+
+        cerrarModalKyc(); 
+        actualizarEstadoKycUI(); 
+        mostrarToast("¡Registro y solicitud KYC enviados con éxito!", "success"); 
+
+        await sincronizarConSupabase();
+    } catch (errGeneral) {
+        mostrarToast("Error al procesar. Intenta nuevamente.", "error");
+    } finally {
+        establecerCarga('btn-enviar-kyc', false, 'Registrarse y Enviar KYC');
     }
-
-    usuarioActual.handle = handleFinal; 
-    usuarioActual.kyc_estado = 'pendiente'; 
-    usuarioActual.clave = clave; 
-
-    establecerCarga('btn-enviar-kyc', false, 'Registrarse y Enviar KYC');
-    cerrarModalKyc(); 
-    actualizarEstadoKycUI(); 
-    mostrarToast("¡Registro y solicitud KYC enviados con éxito!", "success"); 
-
-    await sincronizarConSupabase();
 } 
 
 function iniciarSesionUsuario() { 
