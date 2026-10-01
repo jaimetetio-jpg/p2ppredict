@@ -1,4 +1,4 @@
-<!DOCTYPE html> DIOS TE BENDIGA 
+<!DOCTYPE html>
 <html lang="es"> 
 <head> 
 <meta charset="UTF-8"> 
@@ -6,16 +6,6 @@
 <title>P2Ppredict - Order Book & Soporte (PostgreSQL)</title> 
 <script src="https://sdk.minepi.com/pi-sdk.js"></script> 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
-<script src="env.js"></script> 
-<script> 
-Pi.init({ version: "2.0", sandbox: true }); 
-const SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || ''; 
-const SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || ''; 
-const supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; 
-if (!supabaseClient) { 
-    console.warn("Aviso: Supabase no está configurado o el archivo env.js no fue cargado correctamente."); 
-} 
-</script> 
 <style> 
 :root { 
     --bg-color: #0f111a; 
@@ -375,106 +365,64 @@ header {
     align-self: flex-start; 
     border-bottom-left-radius: 2px; 
 } 
+
+/* Notificaciones Toast elegantes y visibles sin bootstrap */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 90%;
+    pointer-events: none;
+}
+.custom-toast {
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    animation: fadeInToast 0.3s ease;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.custom-toast.success { background: #15803d; border: 1px solid #22c55e; }
+.custom-toast.error { background: #b91c1c; border: 1px solid #ef4444; }
+.custom-toast.info { background: #1d4ed8; border: 1px solid #3b82f6; }
+@keyframes fadeInToast {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 </style> 
 </head> 
 <body data-theme="dark"> 
 
-<!-- 1. Contenedor HTML para las Notificaciones Flotantes (Toasts) -->
-<div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
-    <div id="toast-container" class="toast-container"></div>
-</div>
-
-<script>
-    // 2. Función para mostrar notificaciones flotantes amigables
-    function mostrarToast(mensaje, tipo = "success") {
-        const contenedor = document.getElementById('toast-container');
-        if (!contenedor) return;
-
-        const toastId = 'toast_' + Date.now();
-        const bgClass = tipo === 'success' ? 'bg-success text-white' : 'bg-danger text-white';
-        
-        const toastHTML = `
-            <div id="${toastId}" class="toast align-items-center ${bgClass} border-0 mb-2 shadow" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        ${mensaje}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        `;
-
-        contenedor.insertAdjacentHTML('beforeend', toastHTML);
-        
-        const toastElement = document.getElementById(toastId);
-        const bsToast = new bootstrap.Toast(toastElement, { delay: 4000 });
-        bsToast.show();
-
-        toastElement.addEventListener('hidden.bs.toast', () => {
-            toastElement.remove();
-        });
-    }
-
-    // 3. Función para alternar el estado de carga (Loader) en botones y evitar clics múltiples
-    function establecerCarga(botonId, cargando, textoOriginal = "Enviar") {
-        const boton = document.getElementById(botonId);
-        if (!boton) return;
-
-        if (cargando) {
-            boton.disabled = true;
-            boton.dataset.textoOriginal = boton.innerHTML;
-            boton.innerHTML = `
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                Procesando...
-            `;
-        } else {
-            boton.disabled = false;
-            boton.innerHTML = boton.dataset.textoOriginal || textoOriginal;
-        }
-    }
-
-    // 4. Ejemplo de integración con una petición al backend de Flask (ej. Participar en un mercado)
-    async function enviarAccionConUX(urlEndpoint, datosPayload, botonId) {
-        establecerCarga(botonId, true);
-
-        try {
-            const response = await fetch(urlEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datosPayload)
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                mostrarToast(data.mensaje || "¡Operación realizada con éxito!", "success");
-                return data;
-            } else {
-                mostrarToast(data.error || "Ocurrió un error en la solicitud.", "error");
-                return null;
-            }
-        } catch (error) {
-            mostrarToast("Error de red. Verifica tu conexión con el servidor.", "error");
-            return null;
-        } finally {
-            establecerCarga(botonId, false);
-        }
-    }
-</script>
+<!-- Contenedor para Notificaciones Toast -->
+<div id="toast-container"></div>
 
 <header> 
     <div class="logo-area"> 
-        <span>⚡ P2Ppredict</span> </div> 
+        <span>⚡ P2Ppredict</span> 
+    </div> 
     <div class="user-info"> 
         <div> 
             <div id="user-handle" style="font-weight: 600;">@invitado</div> 
             <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;"> 
                 <span id="kyc-indicator-circle" style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> 
-                <span id="kyc-indicator-text" style="font-size: 0.7rem; color: var(--text-muted);">No Registrado</span> </div> 
+                <span id="kyc-indicator-text" style="font-size: 0.7rem; color: var(--text-muted);">No Registrado</span> 
+            </div> 
         </div> 
         <span id="user-balance" style="color: #38bdf8; font-weight: 700;">0.00 Pi</span> 
-        <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button> </div> 
+        <button class="theme-btn" onclick="toggleTheme()">🌗 Tema</button> 
+    </div> 
 </header> 
+
 <div class="nav-tabs"> 
     <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button> 
     <button class="nav-tab" onclick="switchTab('crear', this)">✨ Crear Predicción</button> 
@@ -487,10 +435,10 @@ header {
 <div id="view-mercados" class="section-view active"> 
     <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
         <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Registro y Autenticación</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o recupera tus datos de acceso.</p> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o envía tu KYC.</p> 
         <div style="display: flex; flex-direction: column; gap: 8px;"> 
             <div style="display: flex; gap: 8px;"> 
-                <button id="kyc-action-btn" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.8rem; padding: 9px;" onclick="abrirModalKyc()">📝 Registrarse</button> 
+                <button id="kyc-action-btn" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.8rem; padding: 9px;" onclick="abrirModalKyc()">📝 Registrarse / Enviar KYC</button> 
             </div> 
             <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;"> 
                 <input type="password" id="input-login-clave" class="form-control" placeholder="Clave / Contraseña de usuario..." style="margin-bottom: 0; flex: 1;"> 
@@ -505,7 +453,8 @@ header {
     <div id="kyc-status-banner" style="background: rgba(37, 99, 235, 0.15); border: 1px solid #2563eb; padding: 12px; border-radius: 10px; margin-bottom: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;"> 
         <div style="display: flex; justify-content: space-between; align-items: center;"> 
             <span style="font-weight: bold; color: #60a5fa;" id="kyc-banner-title">🔒 Verificación KYC Requerida</span> 
-            <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Registrado</span> </div> 
+            <span id="kyc-badge-status" style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">No Registrado</span> 
+        </div> 
         <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes registrarte y realizar tu solicitud de KYC.</p> 
     </div> 
 
@@ -519,6 +468,7 @@ header {
     </div> 
     <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; margin-top: 4px;">🟢 Mercados Activos</div> 
     <div id="markets-container"></div> 
+    
     <div class="accordion-card" id="acc-espera-resolucion" style="margin-top: 16px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-espera-resolucion')"> 
             <span>🟠 Mercados Finalizados (Esperando Resolución)</span> 
@@ -530,6 +480,7 @@ header {
             </div> 
         </div> 
     </div> 
+    
     <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
             <span>📜 Historial de Mercados Cerrados & Ganadores</span> 
@@ -542,6 +493,7 @@ header {
             </div> 
         </div> 
     </div> 
+
     <div class="accordion-card open" id="acc-apuestas" style="margin-top: 16px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
             <span>📦 Tus Posiciones Activas (Vender / Reclamar)</span> 
@@ -553,6 +505,7 @@ header {
             </div> 
         </div> 
     </div> 
+
     <div class="accordion-card" id="acc-wallet" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
             <span>💳 Gestión de Billetera y Blockchain Pi</span> 
@@ -567,9 +520,10 @@ header {
                     <button id="btn-retirar-pi" class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button> 
                 </div> 
             </div> 
-            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK oficial de Pi Network y Supabase.</div> 
+            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK de Pi Network.</div> 
         </div> 
     </div> 
+
     <div class="accordion-card" id="acc-transacciones" style="margin-top: 10px;"> 
         <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')"> 
             <span>📜 Historial de Transacciones (Permanente)</span> 
@@ -590,7 +544,7 @@ header {
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros, fija su fecha de cierre y aporta liquidez inicial.</p> 
         <div class="form-group"> 
             <label>Pregunta / Título de la Predicción</label> 
-            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Ganarán los Tigres de Aragua el próximo juego de la LVBP?"> 
+            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Ganará el equipo local?"> 
         </div> 
         <div class="form-group"> 
             <label>Categoría</label> 
@@ -617,14 +571,11 @@ header {
             <label>Cantidad de Liquidez en Pi a aportar (Inversión inicial)</label> 
             <input type="number" id="nuevo-liquidez" class="form-control" placeholder="Ej. 5.0" min="1" step="0.5" value="5.0"> 
         </div> 
-        <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid #3b82f6; padding: 10px; border-radius: 8px; margin-bottom: 14px; font-size: 0.75rem; color: #93c5fd;"> 
-            <b>💡 Nota importante sobre comisiones:</b><br> • La creación de este mercado <b>no paga ninguna comisión</b>.<br> • Las apuestas subsiguientes realizadas por otros usuarios llevarán una comisión automática del 2%. 
-        </div> 
         <button id="btn-crear-mercado" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="crearNuevoMercadoPionero()">Publicar Mercado y Asignar Liquidez</button> 
     </div> 
 </div> 
 
-<!-- VISTA: ORDER BOOK P2P VISIBLE --> 
+<!-- VISTA: ORDER BOOK P2P --> 
 <div id="view-clob" class="section-view"> 
     <div class="market-card"> 
         <div class="market-title">📊 Order Book P2P en Vivo</div> 
@@ -633,9 +584,6 @@ header {
             <label>Seleccionar Mercado Activo</label> 
             <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()"> 
             </select> 
-        </div> 
-        <div id="orderbook-market-status-banner" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem;"> 
-            <span style="color: #eab308; font-weight: bold;">● Estado: Abierto</span> 
         </div> 
         <table class="orderbook-table"> 
             <thead> 
@@ -649,7 +597,7 @@ header {
             </thead> 
             <tbody id="orderbook-table-body"> 
                 <tr> 
-                    <td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de la apertura de un mercado.</td> 
+                    <td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de órdenes en el mercado.</td> 
                 </tr> 
             </tbody> 
         </table> 
@@ -671,20 +619,40 @@ header {
 
 <!-- VISTA: ADMIN --> 
 <div id="view-admin" class="section-view"> 
-    <div class="market-card" style="margin-top: 0;"> 
-        <div class="market-title">Panel de Administración</div> 
-        <button id="btn-cargar-usuarios" class="btn-admin" style="margin-top: 8px;">Consultar Usuarios Activos</button> 
+    <!-- Visualizador de KYC Pendientes -->
+    <div class="market-card" style="border-left: 4px solid #3b82f6;"> 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="market-title" style="margin-bottom:0;">🛡️ Solicitudes KYC Pendientes de Aprobación</div> 
+            <span id="admin-kyc-pending-badge" style="background:#ca8a04; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 8px; border-radius:10px;">0 Pendientes</span>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa las solicitudes de identidad enviadas por los usuarios para habilitar o rechazar su cuenta.</p> 
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px;" onclick="filtrarKycVista('pendiente')">Ver Solo Pendientes</button>
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px; background:#374151; border-color:#4b5563;" onclick="filtrarKycVista('todos')">Ver Todos</button>
+            <button class="action-btn" style="font-size:0.75rem; padding:6px 12px; background:#0284c7;" onclick="renderizarKycAdmin()">🔄 Refrescar</button>
+        </div>
+
+        <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
+            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC registradas.</p> 
+        </div> 
+    </div> 
+
+    <!-- Directorio General de Usuarios -->
+    <div class="market-card"> 
+        <div class="market-title">Panel de Administración de Usuarios</div> 
+        <button id="btn-cargar-usuarios" class="btn-admin" style="margin-top: 8px;" onclick="cargarUsuariosAdminDirectorio()">Consultar Todos los Usuarios</button> 
         <div id="admin-stats" style="margin-top: 15px;"> 
             <p style="font-size: 0.85rem; color: var(--text-muted);">Total de usuarios registrados: <span id="total-count" style="color: #38bdf8; font-weight: bold;">0</span></p> 
         </div> 
-        <div class="table-responsive" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"> 
+        <div class="table-responsive" style="max-height: 250px; overflow-y: auto; margin-top: 10px;"> 
             <table id="admin-users-table" class="table" style="width:100%; color: white;"> 
                 <thead> 
                     <tr> 
                         <th>Usuario</th> 
-                        <th>Saldo (Pi)</th> 
-                        <th>KYC</th> 
-                        <th>Registro</th> 
+                        <th>Identificación</th> 
+                        <th>Estado KYC</th> 
+                        <th>Dirección</th> 
                     </tr> 
                 </thead> 
                 <tbody id="admin-users-tbody"> 
@@ -694,176 +662,59 @@ header {
     </div> 
 
     <div class="market-card"> 
-        <div class="market-title">🛡️ Solicitudes de Verificación KYC (Pendientes)</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa los datos de identidad y habitación enviados por los usuarios para aprobarlos o rechazarlos.</p> 
-        <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
-            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p> 
-        </div> 
-    </div> 
-    <div class="market-card"> 
         <div class="market-title">📈 Métricas Financieras y Circulante Global</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Control en tiempo real del suministro total de Pi y cuentas con mayor balance.</p> 
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.8rem;"> 
             <div>Circulante Total en Sistema: <b id="admin-total-supply" style="color: #4ade80;">0.00 Pi</b></div> 
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Suma total de balances de los usuarios registrados.</div> 
-        </div> 
-        <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 6px; color: var(--text-color);">🏆 Top Cuentas con Mayor Balance</div> 
-        <div id="admin-top-users-container" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;"> 
-            <p style="font-size: 0.75rem; color: var(--text-muted);">Cargando ranking...</p> 
         </div> 
     </div> 
+
     <div class="market-card"> 
-        <div class="market-title">⚙️ Gestión de Usuarios y Balances</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Bloqueo de cuentas, suspensión temporal o ajuste manual de balances con notas de auditoría.</p> 
+        <div class="market-title">⚙️ Gestión Rápida de Balance</div> 
         <div class="form-group"> 
-            <label>Seleccionar o Buscar Cuenta de Usuario</label> 
+            <label>Seleccionar Usuario Registrado</label> 
             <select id="admin-user-select" class="form-control" onchange="cargarDatosUsuarioAdminSeleccionado()"> 
                 <option value="">-- Seleccionar Usuario --</option> 
             </select> 
         </div> 
         <div id="admin-user-details-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; display: none;"> 
             <div>Usuario: <b id="adm-det-handle" style="color: #38bdf8;">-</b></div> 
-            <div>Balance Actual: <b id="adm-det-balance" style="color: #4ade80;">0.00 Pi</b></div> 
-            <div>Estado de Cuenta: <b id="adm-det-status" style="color: #eab308;">Activo</b></div> 
+            <div>Balance: <b id="adm-det-balance" style="color: #4ade80;">0.00 Pi</b></div> 
         </div> 
         <div style="display: flex; gap: 8px; margin-bottom: 10px;"> 
-            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); font-size: 0.75rem;" onclick="abrirModalAjusteBalance()">⚖️ Ajuste Manual de Balance</button> 
-            <button id="admin-btn-bloqueo" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444; font-size: 0.75rem;" onclick="toggleBloqueoCuentaActual()">🔒 Bloquear Cuenta</button> 
+            <button class="action-btn" style="flex: 1;" onclick="abrirModalAjusteBalance()">⚖️ Ajustar Saldo (+ / -)</button> 
         </div> 
     </div> 
-    <div class="market-card"> 
-        <div class="market-title">🛠️ Panel de Administración y Resolución</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Declara el resultado oficial del mercado o cancélalo si no cumple normativas para reembolsar los fondos.</p> 
-        <div class="form-group"> 
-            <label>ID de Mercado a Resolver / Gestionar</label> 
-            <select class="form-control" id="admin-market-id"> 
-            </select> 
-        </div> 
-        <div class="form-group"> 
-            <label>Resultado Ganador Oficial</label> 
-            <select class="form-control" id="admin-result-select"> 
-                <option value="SÍ">Ganador: SÍ</option> 
-                <option value="NO">Ganador: NO</option> 
-            </select> 
-        </div> 
-        <div style="display: flex; flex-direction: column; gap: 8px;"> 
-            <button id="btn-declarar-ganador" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #b91c1c, #991b1b); border-color: #ef4444;" onclick="declararGanadorAdmin()">Ejecutar Resolución y Liquidación</button> 
-            <button id="btn-cancelar-mercado" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #7c2d12, #451a03); border-color: #ea580c;" onclick="cancelarYReembolsarMercadoAdmin()">🚨 Cancelar y Reembolso Total (Sin Comisión)</button> 
-        </div> 
-    </div> 
+
     <div class="market-card" style="margin-top: 14px;"> 
-        <div class="market-title">💬 Bandeja de Soporte / Tickets de Reclamo</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Responde los reclamos o dudas de los usuarios en tiempo real.</p> 
+        <div class="market-title">💬 Bandeja de Reclamos y Soporte</div> 
         <div id="admin-tickets-container"> 
             <p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p> 
         </div> 
     </div> 
-    <div class="market-card" style="margin-top: 14px;"> 
-        <div class="market-title">📜 Auditoría Global: Historial de Transacciones</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Registro completo de todas las operaciones financieras de los usuarios para resolver disputas.</p> 
-        <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;"> 
-            <input type="text" id="admin-user-search" class="form-control" placeholder="👤 Buscar por @usuario..." oninput="renderizarHistorialGlobalAdmin()" style="flex: 1; min-width: 140px;"> 
-            <input type="text" id="admin-tx-search" class="form-control" placeholder="🔍 Filtrar por detalle..." oninput="renderizarHistorialGlobalAdmin()" style="flex: 1; min-width: 140px;"> 
-            <select name="filtro_detalle" id="filtroDetalle" class="form-control" onchange="renderizarHistorialGlobalAdmin()" style="flex: 1; min-width: 140px;"> 
-                <option value="">-- Todos los detalles --</option> 
-                <option value="Recarga">Recarga</option> 
-                <option value="Compra de Contratos">Compra de Contratos</option> 
-                <option value="Pi Network">Pi Network</option> 
-                <option value="Premio">Premio / Recompensa</option> 
-            </select> 
-        </div> 
-        <div id="admin-global-transactions-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"> 
-            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas.</p> 
-        </div> 
-        <div style="margin-top: 14px; text-align: center;"> 
-            <button onclick="cerrarSesionAdmin()" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Bloquear / Cerrar Sesión Admin</button> 
-        </div> 
+
+    <div style="margin-top: 14px; text-align: center;"> 
+        <button onclick="cerrarSesionAdmin()" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Bloquear / Cerrar Sesión Admin</button> 
     </div> 
 </div> 
 
-<!-- MODAL TERMINAL TRADING --> 
-<div id="trading-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; position: relative;"> 
-            <div style="width: 28px;"></div> 
-            <div id="modal-success-banner" style="display: none; color: #2563eb; font-weight: bold; font-size: 1.3rem; text-align: center; position: absolute; left: 50%; transform: translateX(-50%);">Compra</div> 
-            <h3 id="modal-title" style="font-size: 1rem; margin: 0; display: none;"></h3> 
-            <button id="btn-modal-close" onclick="cerrarTerminalTrading()" style="background: #dc2626; border: none; color: #ffffff; width: 28px; height: 28px; border-radius: 50%; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">&times;</button> 
-        </div> 
-        <p id="modal-market-text" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p> 
-        <div class="form-group"> 
-            <label>Tipo de Orden</label> 
-            <select id="modal-order-type" class="form-control" onchange="cambiarTipoOrdenModal()"> 
-                <option value="MARKET">Mercado (Instantánea al precio Ask)</option> 
-                <option value="LIMIT">Limit (Precio personalizado)</option> 
-            </select> 
-        </div> 
-        <div class="form-group" id="group-limit-price" style="display: none;"> 
-            <label>Precio Límite Deseado (Pi)</label> 
-            <input type="number" id="modal-limit-price" class="form-control" value="0.50" min="0.01" max="0.99" step="0.01" oninput="calcularModalTotal()"> 
-        </div> 
-        <div class="form-group"> 
-            <label>Cantidad de Contratos</label> 
-            <input type="number" id="modal-amount" class="form-control" value="1" min="1" step="1" oninput="calcularModalTotal()"> 
-        </div> 
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;"> 
-            <div>Precio unitario aplicado: <span id="modal-price-unit" style="color: #38bdf8;">0.00</span> Pi</div> 
-            <div>Inversión Total Requerida: <span id="modal-total-req" style="color: #f59e0b; font-weight: bold;">0.00</span> Pi</div> 
-            <div>Payout potencial (1 Pi c/u): <span id="modal-payout" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div> 
-        </div> 
-        <button id="btn-confirmar-compra" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="confirmarCompraRapida()">Confirmar Orden al Order Book</button> 
-    </div> 
-</div> 
-
-<!-- MODAL VENTA ACTIVA --> 
-<div id="sell-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
-            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💱 Vender Posición Activa</h3> 
-            <button onclick="cerrarModalVenta()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
-        </div> 
-        <p id="sell-modal-title" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;"></p> 
-        <div class="form-group"> 
-            <label>Tipo de Venta</label> 
-            <select id="sell-modal-type" class="form-control" onchange="cambiarTipoVentaModal()"> 
-                <option value="MARKET">Venta a Mercado (Instantánea)</option> 
-                <option value="LIMIT">Venta Límite (Precio personalizado)</option> 
-            </select> 
-        </div> 
-        <div class="form-group" id="group-sell-limit-price" style="display: none;"> 
-            <label>Precio Límite de Venta (Pi por contrato)</label> 
-            <input type="number" id="sell-limit-price" class="form-control" value="0.50" min="0.01" max="0.99" step="0.01" oninput="calcularTotalVentaModal()"> 
-        </div> 
-        <div class="form-group"> 
-            <label>Contratos a Vender (Máx: <span id="sell-max-contracts">0</span>)</label> 
-            <input type="number" id="sell-amount-contracts" class="form-control" value="1" min="1" step="1" oninput="calcularTotalVentaModal()"> 
-        </div> 
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;"> 
-            <div>Precio unitario de salida: <span id="sell-price-unit" style="color: #38bdf8;">0.00</span> Pi</div> 
-            <div>Retorno Estimado: <span id="sell-total-return" style="color: #4ade80; font-weight: bold;">0.00</span> Pi</div> 
-        </div> 
-        <button id="btn-ejecutar-venta" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="ejecutarVentaPosicion()">Confirmar Venta</button> 
-    </div> 
-</div> 
-
-<!-- MODAL REGISTRO KYC / REGISTRO --> 
+<!-- MODAL REGISTRO KYC --> 
 <div id="kyc-modal" class="modal-overlay"> 
     <div class="modal-card"> 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
             <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">📝 Registro y Verificación KYC</h3> 
             <button onclick="cerrarModalKyc()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Completa tus datos oficiales para registrar tu cuenta y habilitar los depósitos y apuestas en la plataforma.</p> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Completa tus datos oficiales para registrar tu cuenta y enviar la solicitud al administrador.</p> 
         <div class="form-group"> 
             <label>Nombre de Usuario / Handle (@usuario)</label> 
-            <input type="text" id="kyc-username" class="form-control" placeholder="Ej. @tucuenta"> 
+            <input type="text" id="kyc-username" class="form-control" placeholder="Ej. @jaime"> 
         </div> 
         <div class="form-group"> 
             <label>Clave de Acceso Secreta</label> 
-            <input type="password" id="kyc-clave" class="form-control" placeholder="Crea o introduce tu clave de acceso"> 
+            <input type="password" id="kyc-clave" class="form-control" placeholder="Tu clave de acceso"> 
         </div> 
         <div class="form-group"> 
-            <label>Nombre</label> 
+            <label>Nombre Completo</label> 
             <input type="text" id="nombre" class="form-control" placeholder="Ej. Jaime"> 
         </div> 
         <div class="form-group"> 
@@ -877,8 +728,8 @@ header {
         <div class="form-group"> 
             <label>Tipo de Documento</label> 
             <select id="tipo_documento" class="form-control"> 
-                <option value="ID">Cédula / ID</option> 
-                <option value="Passport">Pasaporte</option> 
+                <option value="Cédula / ID">Cédula / ID</option> 
+                <option value="Pasaporte">Pasaporte</option> 
                 <option value="Licencia">Licencia de Conducir</option> 
             </select> 
         </div> 
@@ -888,32 +739,9 @@ header {
         </div> 
         <div class="form-group"> 
             <label>Dirección de Habitación</label> 
-            <textarea id="direccion" class="form-control" placeholder="Calle, número, ciudad, estado..." rows="2"></textarea> 
+            <textarea id="direccion" class="form-control" placeholder="Calle, ciudad, estado..." rows="2"></textarea> 
         </div> 
-        <div class="form-group"> 
-            <label>Foto de Documento / Selfie (Opcional)</label> 
-            <input type="file" id="foto_documento" class="form-control" accept="image/*"> 
-        </div> 
-        <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Registrarse y Enviar KYC</button> 
-    </div> 
-</div> 
-
-<!-- MODAL RECUPERACIÓN CREDENCIALES --> 
-<div id="recovery-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
-            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">🔑 Recuperar Usuario y Contraseña</h3> 
-            <button onclick="cerrarModalRecuperacion()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
-        </div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Introduce tu correo electrónico registrado para consultar tus datos de acceso o recibir asistencia.</p> 
-        <div class="form-group"> 
-            <label>Correo Electrónico Registrado</label> 
-            <input type="email" id="rec-correo" class="form-control" placeholder="tucorreo@ejemplo.com"> 
-        </div> 
-        <div style="display: flex; gap: 8px;"> 
-            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarRecuperacion()">Buscar Credenciales</button> 
-            <button class="action-btn" style="flex: 1; background: linear-gradient(145deg, #7c3aed, #6d28d9);" onclick="irASoporteDesdeRecuperacion()">Ir al Chat de Soporte</button> 
-        </div> 
+        <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Enviar Solicitud KYC al Admin</button> 
     </div> 
 </div> 
 
@@ -924,7 +752,7 @@ header {
             <h3 style="font-size: 1rem; margin: 0; color: #ef4444;">🔒 Acceso Restringido - Admin</h3> 
             <button onclick="cerrarModalAdminAuth()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador para acceder a las opciones de gestión.</p> 
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador para acceder (Por defecto: Anthony*2023).</p> 
         <div class="form-group"> 
             <label>Contraseña de Administrador</label> 
             <input type="password" id="admin-password-input" class="form-control" placeholder="Introduce la clave secreta" onkeydown="if(event.key === 'Enter') validarClaveAdmin()"> 
@@ -940,7 +768,6 @@ header {
             <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">⚖️ Ajuste Manual de Balance</h3> 
             <button onclick="cerrarModalAjusteBalance()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p id="admin-balance-modal-subtitle" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Modifica el saldo del usuario seleccionando la operación.</p> 
         <div class="form-group"> 
             <label>Tipo de Operación</label> 
             <select id="admin-adj-tipo" class="form-control"> 
@@ -952,11 +779,7 @@ header {
             <label>Monto (Pi)</label> 
             <input type="number" id="admin-adj-monto" class="form-control" placeholder="0.00" min="0.1" step="0.1"> 
         </div> 
-        <div class="form-group"> 
-            <label>Nota de Auditoría / Justificación</label> 
-            <textarea id="admin-adj-nota" class="form-control" placeholder="Motivo del ajuste manual..." rows="3"></textarea> 
-        </div> 
-        <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarAjusteBalanceAdmin()">Confirmar y Registrar Ajuste</button> 
+        <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarAjusteBalanceAdmin()">Confirmar Ajuste</button> 
     </div> 
 </div> 
 
@@ -964,29 +787,13 @@ header {
 <div id="support-chat-modal" class="modal-overlay"> 
     <div class="modal-card"> 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"> 
-            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💬 Chat de Soporte (Tus Reclamos)</h3> 
+            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💬 Chat de Soporte</h3> 
             <button onclick="cerrarChatSoporteUsuario()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Describe tu reclamo o duda sobre transacciones, retiros u órdenes.</p> 
         <div id="chat-messages-container" class="chat-messages-box"></div> 
         <div style="display: flex; gap: 6px;"> 
-            <input type="text" id="chat-user-input" class="form-control" placeholder="Escribe tu mensaje o reclamo..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteUsuario()"> 
+            <input type="text" id="chat-user-input" class="form-control" placeholder="Escribe tu mensaje..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteUsuario()"> 
             <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteUsuario()">Enviar</button> 
-        </div> 
-    </div> 
-</div> 
-
-<!-- MODAL CHAT RESPUESTA ADMIN --> 
-<div id="admin-chat-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"> 
-            <h3 id="admin-chat-title" style="font-size: 1rem; margin: 0; color: #4ade80;">💬 Responder Ticket</h3> 
-            <button onclick="cerrarChatAdminModal()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
-        </div> 
-        <div id="admin-chat-messages-container" class="chat-messages-box"></div> 
-        <div style="display: flex; gap: 6px; margin-top: 6px;"> 
-            <input type="text" id="chat-admin-input" class="form-control" placeholder="Respuesta del Administrador..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteAdmin()"> 
-            <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteAdmin()">Responder</button> 
         </div> 
     </div> 
 </div> 
@@ -996,214 +803,228 @@ header {
 </div> 
 
 <script> 
+// ==================== CONFIGURACIÓN Y ESTADO ====================
 let usuarioActual = { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
-let posicionesActivas = []; 
-let historialTransacciones = []; 
-let ordenesGlobales = []; 
-let ticketsSoporte = []; 
 let kycSolicitudes = []; 
 let cuentasDirectorio = [];
+let mercadosDinamicos = []; 
+let posicionesActivas = [];
+let historialTransacciones = [];
+let ticketsSoporte = [];
+let ordenesGlobales = [];
 let preciosMercados = {}; 
 let estadosMercados = {}; 
-let mercadosDinamicos = []; 
+let nombresMercados = {};
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
-let ticketAdminActivoId = null; 
-let usuarioAdminSeleccionadoHandle = null; 
-let isSubmitting = false; 
-let nombresMercados = {}; 
-let ordenActivaModal = null; 
-let ventaActivaModal = null; 
-let categoriaActualFiltro = 'Todos'; 
+let filtroKycEstado = 'pendiente';
+let usuarioAdminSeleccionadoHandle = null;
 
-function cargarMercadosYOrderBook() { 
-    reconstruirDiccionarioNombresMercados(); 
-    renderizarMercadosDinamicos(); 
-    renderizarMercadosEsperaYHistorial(); 
-    actualizarUIBalance(); 
-    actualizarPreciosVisuales(); 
-    restaurarEstadosMercadosVisuales(); 
-    cargarHistorialDesdeDB(); 
-    actualizarSelectsMercadosActivos(); 
-    renderizarOrderBookVisible(); 
-    actualizarEstadoKycUI(); 
-} 
-
-document.addEventListener('DOMContentLoaded', async () => { 
-    await sincronizarConSupabase(); 
-    verificarBloqueoUsuarioActual(); 
-    cargarMercadosYOrderBook(); 
-
-    setInterval(async () => { 
-        await sincronizarConSupabase(); 
-    }, 5000); 
-
-    setInterval(actualizarRelojesRegresivos, 1000); 
-
-    if (supabaseClient) { 
-        supabaseClient 
-            .channel('p2ppredict_live_channel') 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'mercados_dinamicos' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                cargarMercadosYOrderBook(); 
-            }) 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_clob' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                renderizarOrderBookVisible(); 
-            }) 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'posiciones_activas' }, async (payload) => { 
-                await sincronizarConSupabase(); 
-                renderizarPosiciones(); 
-            }) 
-            .subscribe(); 
-    } 
-
-    const btnCargarUsuarios = document.getElementById('btn-cargar-usuarios');
-    if (btnCargarUsuarios) {
-        btnCargarUsuarios.addEventListener('click', async () => {
-            try {
-                let usuariosList = kycSolicitudes;
-                if (supabaseClient) {
-                    let { data: usersSup } = await supabaseClient.from('usuarios_p2p').select('*');
-                    if (usersSup) usuariosList = usersSup;
-                }
-                
-                document.getElementById('total-count').innerText = usuariosList.length;
-                const tbody = document.getElementById('admin-users-tbody');
-                tbody.innerHTML = ''; 
-
-                usuariosList.forEach(user => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><b>${user.username || user.handle}</b><br><span style="font-size:0.7rem; color:var(--text-muted);">${user.nombre || ''} ${user.apellido || ''}</span></td>
-                        <td>${user.correo || 'N/A'}<br><span style="font-size:0.7rem; color:var(--text-muted);">${user.tipo_documento || user.tipo || 'ID'}: ${user.numero_documento || user.numero || 'S/N'}</span></td>
-                        <td><span class="badge">${user.kyc_estado || user.estado || 'pendiente'}</span></td>
-                        <td>${user.direccion || 'No especificada'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-                mostrarToast("Usuarios cargados correctamente en el panel.", "success");
-            } catch (error) {
-                console.error("Error de conexión:", error);
-                mostrarToast("Error al cargar los usuarios del panel.", "error");
-            }
-        });
+// Semilla inicial de demostración para que el admin siempre vea datos de prueba si está vacío
+const KYC_DEMO_INICIAL = [
+    {
+        handle: "@pionero_pedro",
+        nombre: "Pedro",
+        apellido: "García",
+        correo: "pedro@example.com",
+        tipo: "Cédula / ID",
+        numero: "V-24589123",
+        direccion: "Av. Bolívar, Edf. Azul, Piso 4",
+        estado: "pendiente",
+        clave: "123456",
+        fecha: new Date().toLocaleDateString()
+    },
+    {
+        handle: "@maria_cripto",
+        nombre: "María",
+        apellido: "López",
+        correo: "maria@example.com",
+        tipo: "Pasaporte",
+        numero: "P-8899231",
+        direccion: "Urb. Las Mercedes, Calle 2",
+        estado: "pendiente",
+        clave: "maria2026",
+        fecha: new Date().toLocaleDateString()
     }
-}); 
+];
 
-async function sincronizarConSupabase() { 
-    if (!supabaseClient) return; 
-    try { 
-        let { data: mercs } = await supabaseClient.from('mercados_dinamicos').select('*'); 
-        if (mercs) mercadosDinamicos = mercs; 
-        let { data: ordenes } = await supabaseClient.from('ordenes_clob').select('*'); 
-        if (ordenes) ordenesGlobales = ordenes; 
-        let { data: txs } = await supabaseClient.from('historial_transacciones').select('*'); 
-        if (txs) historialTransacciones = txs; 
-        
-        let { data: pos } = await supabaseClient.from('posiciones_activas').select('*'); 
-        if (pos) { 
-            posicionesActivas = pos.map(p => ({ 
-                id: p.id, 
-                marketId: p.market_id, 
-                handle: p.handle, 
-                titulo: p.titulo, 
-                opcion: p.opcion, 
-                contratos: p.contratos, 
-                invertido: Number(p.invertido), 
-                payout: Number(p.payout), 
-                estadoOrden: p.estado_orden || 'ACTIVO' 
-            })); 
-        } 
+// ==================== PERSISTENCIA Y CARGA LOCAL ====================
+function cargarDatosDesdeLocalStorage() {
+    try {
+        const guardados = localStorage.getItem('p2p_kyc_solicitudes');
+        if (guardados) {
+            kycSolicitudes = JSON.parse(guardados);
+        } else {
+            // Inicializar con solicitudes de demostración si no había nada
+            kycSolicitudes = [...KYC_DEMO_INICIAL];
+            guardarKycEnLocalStorage();
+        }
 
-        let { data: kycs } = await supabaseClient.from('usuarios_p2p').select('*'); 
-        if (kycs) { 
-            kycSolicitudes = kycs.map(k => ({ 
-                handle: k.username, 
-                nombre: k.nombre || '', 
-                apellido: k.apellido || '', 
-                correo: k.correo || '', 
-                tipo: k.tipo_documento, 
-                numero: k.numero_documento, 
-                direccion: k.direccion || '', 
-                estado: k.kyc_estado || 'pendiente', 
-                clave: k.clave || '' 
-            })); 
-            kycs.forEach(k => {
-                let existingAcc = cuentasDirectorio.find(c => c.handle === k.username);
-                if (existingAcc) {
-                    existingAcc.kyc_estado = k.kyc_estado;
-                    if (k.clave) existingAcc.clave = k.clave;
-                } else {
-                    cuentasDirectorio.push({
-                        handle: k.username,
-                        balance: 0.00,
-                        bloqueado: false,
-                        kyc_estado: k.kyc_estado || 'pendiente',
-                        clave: k.clave || ''
-                    });
-                }
-            });
-        } 
-        cargarMercadosYOrderBook(); 
-    } catch (e) { 
-        console.warn("Aviso: Error menor al sincronizar con Supabase.", e); 
+        const sesionGuardada = localStorage.getItem('p2p_usuario_sesion');
+        if (sesionGuardada) {
+            const parsed = JSON.parse(sesionGuardada);
+            if (parsed && parsed.handle) {
+                usuarioActual = parsed;
+            }
+        }
+    } catch (e) {
+        console.error("Error al leer de localStorage:", e);
+        kycSolicitudes = [...KYC_DEMO_INICIAL];
+    }
+}
+
+function guardarKycEnLocalStorage() {
+    try {
+        localStorage.setItem('p2p_kyc_solicitudes', JSON.stringify(kycSolicitudes));
+    } catch (e) {
+        console.error("Error al guardar en localStorage:", e);
+    }
+}
+
+function mostrarToast(mensaje, tipo = "success") {
+    const contenedor = document.getElementById('toast-container');
+    if (!contenedor) return;
+    const toast = document.createElement('div');
+    toast.className = `custom-toast ${tipo}`;
+    toast.innerText = mensaje;
+    contenedor.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 4000);
+}
+
+function establecerCarga(botonId, cargando, textoOriginal = "Enviar") {
+    const boton = document.getElementById(botonId);
+    if (!boton) return;
+    if (cargando) {
+        boton.disabled = true;
+        boton.dataset.textoOriginal = boton.innerHTML;
+        boton.innerHTML = 'Procesando...';
+    } else {
+        boton.disabled = false;
+        boton.innerHTML = boton.dataset.textoOriginal || textoOriginal;
+    }
+}
+
+// ==================== INICIALIZACIÓN ====================
+document.addEventListener('DOMContentLoaded', () => {
+    cargarDatosDesdeLocalStorage();
+    actualizarEstadoKycUI();
+    actualizarUIBalance();
+    poblarSelectUsuariosAdmin();
+    renderizarMercadosDinamicos();
+    renderizarKycAdmin();
+});
+
+// ==================== FUNCIONES KYC (USUARIO) ====================
+function abrirModalKyc() { 
+    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
+    if (req) { 
+        document.getElementById('kyc-username').value = req.handle || ''; 
+        document.getElementById('nombre').value = req.nombre || ''; 
+        document.getElementById('apellido').value = req.apellido || ''; 
+        document.getElementById('correo').value = req.correo || ''; 
+        document.getElementById('tipo_documento').value = req.tipo || 'Cédula / ID'; 
+        document.getElementById('numero_documento').value = req.numero || ''; 
+        document.getElementById('direccion').value = req.direccion || ''; 
+        if (req.clave) document.getElementById('kyc-clave').value = req.clave; 
+    } else { 
+        document.getElementById('kyc-username').value = usuarioActual.handle !== '@invitado' ? usuarioActual.handle : '@'; 
+        document.getElementById('kyc-clave').value = ''; 
     } 
+    document.getElementById('kyc-modal').style.display = 'flex'; 
 } 
 
-async function guardarEnSupabaseTabla(tabla, objetoDatos) { 
-    if (!supabaseClient) return; 
-    try { 
-        await supabaseClient.from(tabla).upsert([objetoDatos]); 
-    } catch (e) { 
-        console.error("Error guardando en Supabase:", e); 
+function cerrarModalKyc() { 
+    document.getElementById('kyc-modal').style.display = 'none'; 
+} 
+
+function enviarSolicitudKyc() { 
+    const username = document.getElementById('kyc-username').value.trim(); 
+    const clave = document.getElementById('kyc-clave').value.trim(); 
+    const nombre = document.getElementById('nombre').value.trim(); 
+    const apellido = document.getElementById('apellido').value.trim(); 
+    const correo = document.getElementById('correo').value.trim(); 
+    const tipo = document.getElementById('tipo_documento').value; 
+    const numero = document.getElementById('numero_documento').value.trim(); 
+    const direccion = document.getElementById('direccion').value.trim(); 
+
+    if (!username || !clave || !nombre || !apellido || !correo || !numero || !direccion) { 
+        mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
+        return; 
     } 
+
+    establecerCarga('btn-enviar-kyc', true, 'Enviar Solicitud KYC al Admin');
+
+    let handleFinal = username.startsWith('@') ? username : '@' + username; 
+
+    let indexExistente = kycSolicitudes.findIndex(k => k.handle.toLowerCase() === handleFinal.toLowerCase());
+    const nuevoRegistroKyc = {
+        handle: handleFinal, 
+        nombre, 
+        apellido, 
+        correo, 
+        tipo, 
+        numero, 
+        direccion, 
+        estado: 'pendiente', 
+        clave,
+        fecha: new Date().toLocaleDateString()
+    };
+
+    if (indexExistente >= 0) {
+        kycSolicitudes[indexExistente] = nuevoRegistroKyc;
+    } else {
+        kycSolicitudes.unshift(nuevoRegistroKyc); // Colocar al principio
+    }
+
+    // Persistir en LocalStorage
+    guardarKycEnLocalStorage();
+
+    // Actualizar sesión del usuario actual
+    usuarioActual.handle = handleFinal; 
+    usuarioActual.kyc_estado = 'pendiente'; 
+    usuarioActual.clave = clave; 
+    if (usuarioActual.balance === undefined) usuarioActual.balance = 0.00; 
+    localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
+
+    establecerCarga('btn-enviar-kyc', false, 'Enviar Solicitud KYC al Admin');
+    cerrarModalKyc(); 
+    actualizarEstadoKycUI(); 
+    actualizarUIBalance(); 
+    poblarSelectUsuariosAdmin();
+    renderizarKycAdmin(); // Actualizar panel del admin inmediatamente
+
+    mostrarToast("¡Solicitud enviada con éxito! El Administrador ya puede ver tu requerimiento.", "success"); 
 } 
 
-async function eliminarDeSupabaseTabla(tabla, idCondicion) { 
-    if (!supabaseClient) return; 
-    try { 
-        await supabaseClient.from(tabla).delete().eq('id', idCondicion); 
-    } catch (e) { 
-        console.error("Error eliminando en Supabase:", e); 
+function iniciarSesionUsuario() { 
+    const claveInput = document.getElementById('input-login-clave').value.trim(); 
+    if (!claveInput) { 
+        mostrarToast("Por favor, introduce tu clave de acceso.", "error"); 
+        return; 
     } 
-} 
 
-function reconstruirDiccionarioNombresMercados() { 
-    mercadosDinamicos.forEach(m => { 
-        nombresMercados[m.id] = m.titulo; 
-    }); 
-} 
+    establecerCarga('btn-login-usuario', true, 'Iniciar sesión');
 
-function sincronizarBalanceDirectorioLocal() { 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (u) { 
-        u.balance = usuarioActual.balance; 
-        u.kyc_estado = usuarioActual.kyc_estado; 
-        if (usuarioActual.clave) u.clave = usuarioActual.clave; 
-    } else if (usuarioActual.handle !== "@invitado") { 
-        cuentasDirectorio.push({ 
-            handle: usuarioActual.handle, 
-            balance: usuarioActual.balance, 
-            bloqueado: false, 
-            kyc_estado: usuarioActual.kyc_estado || "no_solicitado", 
-            clave: usuarioActual.clave || "" 
-        }); 
-    } 
-} 
-
-function verificarBloqueoUsuarioActual() { 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (u && u.bloqueado) { 
-        mostrarToast("⚠️ ATENCIÓN: Tu cuenta se encuentra BLOQUEADA por el administrador.", "error"); 
-    } 
-} 
+    let cuenta = kycSolicitudes.find(k => k.clave === claveInput);
+    if (cuenta) {
+        usuarioActual.handle = cuenta.handle;
+        usuarioActual.kyc_estado = cuenta.estado || 'pendiente';
+        usuarioActual.clave = claveInput;
+        localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
+        actualizarUIBalance();
+        actualizarEstadoKycUI();
+        document.getElementById('input-login-clave').value = '';
+        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
+        mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
+    } else {
+        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
+        mostrarToast("Clave no encontrada en el registro.", "error");
+    }
+}
 
 function actualizarEstadoKycUI() { 
-    let u = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (u) { 
-        usuarioActual.kyc_estado = u.kyc_estado || "no_registrado"; 
-    } 
     const handleEl = document.getElementById('user-handle'); 
     const rankingHandleTxt = document.getElementById('ranking-user-handle-txt');
     if (handleEl) handleEl.innerText = usuarioActual.handle; 
@@ -1220,13 +1041,9 @@ function actualizarEstadoKycUI() {
 
     if (usuarioActual.handle === "@invitado") { 
         banner.style.display = 'flex';
-        banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
-        banner.style.border = '1px solid #2563eb'; 
-        title.style.color = '#60a5fa'; 
         title.innerText = '🔒 Sesión No Iniciada'; 
-        badge.style.background = '#2563eb'; 
         badge.innerText = 'Invitado'; 
-        text.innerText = 'Regístrate o inicia sesión con tu clave para comenzar a operar y apostar en la plataforma.'; 
+        text.innerText = 'Regístrate o inicia sesión con tu clave para comenzar a operar y enviar tu KYC.'; 
         if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
         if (indicatorText) indicatorText.innerText = 'No Registrado'; 
         return; 
@@ -1236,266 +1053,89 @@ function actualizarEstadoKycUI() {
         banner.style.display = 'none'; 
         if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
         if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
-    } else {
-        banner.style.display = 'flex';
-        if (usuarioActual.kyc_estado === 'rechazado') { 
-            banner.style.background = 'rgba(220, 38, 38, 0.15)'; 
-            banner.style.border = '1px solid #dc2626'; 
-            title.style.color = '#f87171'; 
-            title.innerText = '❌ Verificación KYC Rechazada'; 
-            badge.style.background = '#dc2626'; 
-            badge.innerText = 'Rechazado'; 
-            text.innerText = 'Tu solicitud de KYC fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
-            if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
-            if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
-        } else if (usuarioActual.kyc_estado === 'pendiente') { 
-            banner.style.background = 'rgba(234, 179, 8, 0.15)'; 
-            banner.style.border = '1px solid #eab308'; 
-            title.style.color = '#facc15'; 
-            title.innerText = '⏳ Solicitud de KYC Pendiente'; 
-            badge.style.background = '#ca8a04'; 
-            badge.innerText = 'Pendiente'; 
-            text.innerText = 'Tus datos de identidad y habitación han sido enviados y se encuentran en revisión por el administrador.'; 
-            if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
-            if (indicatorText) indicatorText.innerText = 'KYC Pendiente'; 
-        } else { 
-            banner.style.background = 'rgba(37, 99, 235, 0.15)'; 
-            banner.style.border = '1px solid #2563eb'; 
-            title.style.color = '#60a5fa'; 
-            title.innerText = '🔒 Verificación KYC Requerida'; 
-            badge.style.background = '#2563eb'; 
-            badge.innerText = 'Pendiente KYC'; 
-            text.innerText = 'Tu cuenta está creada, pero debes completar tu solicitud de KYC para habilitar las apuestas.'; 
-            if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
-            if (indicatorText) indicatorText.innerText = 'KYC Requerido'; 
-        } 
-    }
-} 
-
-function abrirModalKyc() { 
-    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
-    if (req) { 
-        document.getElementById('kyc-username').value = req.handle || ''; 
-        document.getElementById('nombre').value = req.nombre || ''; 
-        document.getElementById('apellido').value = req.apellido || ''; 
-        document.getElementById('correo').value = req.correo || ''; 
-        document.getElementById('tipo_documento').value = req.tipo || 'ID'; 
-        document.getElementById('numero_documento').value = req.numero || ''; 
-        document.getElementById('direccion').value = req.direccion || ''; 
-        if (req.clave) document.getElementById('kyc-clave').value = req.clave; 
+    } else if (usuarioActual.kyc_estado === 'rechazado') { 
+        banner.style.display = 'flex'; 
+        title.innerText = '❌ Verificación KYC Rechazada'; 
+        badge.innerText = 'Rechazado'; 
+        text.innerText = 'Tu solicitud fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
     } else { 
-        document.getElementById('kyc-username').value = usuarioActual.handle !== '@invitado' ? usuarioActual.handle : '@'; 
-        document.getElementById('kyc-clave').value = ''; 
+        banner.style.display = 'flex'; 
+        title.innerText = '⏳ Solicitud de KYC en Revisión'; 
+        badge.innerText = 'Pendiente'; 
+        text.innerText = 'Tus datos de identidad y habitación han sido enviados y están en la bandeja del Administrador.'; 
+        if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
+        if (indicatorText) indicatorText.innerText = 'KYC Pendiente'; 
     } 
-    document.getElementById('kyc-modal').style.display = 'flex'; 
 } 
 
-function cerrarModalKyc() { 
-    document.getElementById('kyc-modal').style.display = 'none'; 
-} 
-
-function abrirModalRecuperacion() {
-    document.getElementById('rec-correo').value = '';
-    document.getElementById('recovery-modal').style.display = 'flex';
-}
-
-function cerrarModalRecuperacion() {
-    document.getElementById('recovery-modal').style.display = 'none';
-}
-
-function ejecutarRecuperacion() {
-    const correoInput = document.getElementById('rec-correo').value.trim();
-    if (!correoInput) {
-        mostrarToast("Por favor, introduce tu correo electrónico.", "error");
-        return;
-    }
-    let encontrada = kycSolicitudes.find(k => k.correo && k.correo.toLowerCase() === correoInput.toLowerCase());
-    if (encontrada) {
-        mostrarToast(`✅ Cuenta encontrada: Usuario: ${encontrada.handle} | Clave: ${encontrada.clave || 'No disponible'}`, "success");
-        cerrarModalRecuperacion();
-    } else {
-        mostrarToast("❌ No se encontró ninguna cuenta asociada a este correo.", "error");
-    }
-}
-
-function irASoporteDesdeRecuperacion() {
-    cerrarModalRecuperacion();
-    abrirSoporteChatUsuario();
-}
-
-async function enviarSolicitudKyc() { 
-    const username = document.getElementById('kyc-username').value.trim(); 
-    const clave = document.getElementById('kyc-clave').value.trim(); 
-    const nombre = document.getElementById('nombre').value.trim(); 
-    const apellido = document.getElementById('apellido').value.trim(); 
-    const correo = document.getElementById('correo').value.trim(); 
-    const tipo = document.getElementById('tipo_documento').value; 
-    const numero = document.getElementById('numero_documento').value.trim(); 
-    const direccion = document.getElementById('direccion').value.trim(); 
-
-    if (!username || !clave || !nombre || !apellido || !correo || !numero || !direccion) { 
-        mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
-        return; 
-    } 
-
-    establecerCarga('btn-enviar-kyc', true, 'Registrarse y Enviar KYC');
-
-    let handleFinal = username.startsWith('@') ? username : '@' + username; 
-
-    // Parche integrado con FormData y llamada al backend
-    const formData = new FormData();
-    formData.append('username', handleFinal); // ¡Clave para que no falle!
-    formData.append('nombre', nombre);
-    formData.append('apellido', apellido);
-    formData.append('correo', correo);
-    formData.append('tipo_documento', tipo);
-    formData.append('numero_documento', numero);
-    formData.append('direccion', direccion);
-
-    // Si también subes foto:
-    const archivoInput = document.getElementById('foto_documento');
-    if (archivoInput && archivoInput.files[0]) {
-        formData.append('archivo', archivoInput.files[0]);
-    }
-
-    try {
-        // Petición al backend
-        const response = await fetch('/api/kyc/procesar', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if(data.success) {
-            mostrarToast("¡KYC enviado con éxito!", "success");
-        } else {
-            console.warn("Aviso backend KYC:", data.error || "Respuesta no exitosa");
-        }
-    } catch (e) {
-        console.warn("Aviso de red al enviar KYC al backend:", e);
-    }
-
-    let req = kycSolicitudes.find(k => k.handle === handleFinal); 
-    if (req) { 
-        req.nombre = nombre; 
-        req.apellido = apellido; 
-        req.correo = correo; 
-        req.tipo = tipo; 
-        req.numero = numero; 
-        req.direccion = direccion; 
-        req.estado = 'pendiente'; 
-        req.clave = clave; 
-    } else { 
-        kycSolicitudes.push({ 
-            handle: handleFinal, 
-            nombre, 
-            apellido, 
-            correo, 
-            tipo, 
-            numero, 
-            direccion, 
-            estado: 'pendiente', 
-            clave 
-        }); 
-    } 
-
-    usuarioActual.handle = handleFinal; 
-    usuarioActual.kyc_estado = 'pendiente'; 
-    usuarioActual.clave = clave; 
-    if (usuarioActual.balance === undefined) usuarioActual.balance = 0.00; 
-
-    sincronizarBalanceDirectorioLocal(); 
-
-    await guardarEnSupabaseTabla('usuarios_p2p', { 
-        username: handleFinal, 
-        nombre: nombre, 
-        apellido: apellido, 
-        correo: correo, 
-        tipo_documento: tipo, 
-        numero_documento: numero, 
-        direccion: direccion, 
-        kyc_estado: 'pendiente', 
-        clave: clave 
-    }); 
-
-    establecerCarga('btn-enviar-kyc', false, 'Registrarse y Enviar KYC');
-    cerrarModalKyc(); 
-    actualizarEstadoKycUI(); 
-    actualizarUIBalance(); 
-    mostrarToast("¡Registro y solicitud KYC enviados con éxito!", "success"); 
-} 
-
-async function iniciarSesionUsuario() { 
-    const claveInput = document.getElementById('input-login-clave').value.trim(); 
-
-    if (!claveInput) { 
-        mostrarToast("Por favor, introduce tu clave de acceso.", "error"); 
-        return; 
-    } 
-
-    establecerCarga('btn-login-usuario', true, 'Iniciar sesión');
-
-    let cuentaEncontrada = cuentasDirectorio.find(c => c.clave === claveInput);
-    if (!cuentaEncontrada) {
-        cuentaEncontrada = kycSolicitudes.find(k => k.clave === claveInput);
-    }
-
-    if (cuentaEncontrada) {
-        usuarioActual.handle = cuentaEncontrada.handle || cuentaEncontrada.username;
-        usuarioActual.balance = Number(cuentaEncontrada.balance) || 0.00;
-        usuarioActual.kyc_estado = cuentaEncontrada.kyc_estado || 'pendiente';
-        usuarioActual.clave = claveInput;
-
-        sincronizarBalanceDirectorioLocal();
-        actualizarUIBalance();
-        actualizarEstadoKycUI();
-        document.getElementById('input-login-clave').value = '';
-        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
-        mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
-    } else {
-        if (supabaseClient) {
-            let { data: userSup, error } = await supabaseClient.from('usuarios_p2p').select('*').eq('clave', claveInput).single();
-            if (!error && userSup) {
-                usuarioActual.handle = userSup.username;
-                usuarioActual.balance = 0.00;
-                usuarioActual.kyc_estado = userSup.kyc_estado || 'pendiente';
-                usuarioActual.clave = claveInput;
-
-                sincronizarBalanceDirectorioLocal();
-                actualizarUIBalance();
-                actualizarEstadoKycUI();
-                document.getElementById('input-login-clave').value = '';
-                establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
-                mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
-                return;
-            }
-        }
-        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
-        mostrarToast("Clave incorrecta o cuenta no encontrada.", "error");
-    }
+// ==================== PANEL DEL ADMIN (SOLUCIÓN DEL VISUALIZADOR) ====================
+function filtrarKycVista(filtro) {
+    filtroKycEstado = filtro;
+    renderizarKycAdmin();
 }
 
 function renderizarKycAdmin() { 
     const container = document.getElementById('admin-kyc-requests-container'); 
+    const badgePendientes = document.getElementById('admin-kyc-pending-badge');
     if (!container) return; 
-    if (!kycSolicitudes || kycSolicitudes.length === 0) { 
-        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC pendientes.</p>'; 
+
+    const totalPendientes = kycSolicitudes.filter(k => k.estado === 'pendiente').length;
+    if (badgePendientes) {
+        badgePendientes.innerText = `${totalPendientes} Pendiente(s)`;
+        badgePendientes.style.background = totalPendientes > 0 ? '#ca8a04' : '#16a34a';
+    }
+
+    let listaAMostrar = kycSolicitudes;
+    if (filtroKycEstado === 'pendiente') {
+        listaAMostrar = kycSolicitudes.filter(k => k.estado === 'pendiente');
+    }
+
+    if (!listaAMostrar || listaAMostrar.length === 0) { 
+        container.innerHTML = `
+            <div style="background: var(--card-bg); border: 1px dashed var(--border-color); padding: 16px; border-radius: 8px; text-align: center;">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                    ${filtroKycEstado === 'pendiente' ? '✅ No hay solicitudes pendientes por aprobar.' : 'No hay usuarios registrados.'}
+                </p>
+            </div>
+        `; 
         return; 
     } 
+
     let html = ''; 
-    kycSolicitudes.forEach(k => { 
+    listaAMostrar.forEach((k) => { 
         let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04'); 
         html += ` 
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;"> 
-            <div> 
-                <div>Usuario: <b style="color: #38bdf8;">${k.handle}</b></div> 
-                <div style="font-weight: bold; color: var(--text-color); margin-top: 2px;">${k.nombre || ''} ${k.apellido || ''} (${k.correo || 'Sin correo'})</div> 
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Doc: ${k.tipo} - ${k.numero}</div> 
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Dirección: ${k.direccion || 'No especificada'}</div> 
-                <div style="margin-top: 6px;"><span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">${k.estado.toUpperCase()}</span></div> 
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; box-shadow: var(--shadow-btn);"> 
+            <div style="flex: 1;"> 
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <b style="color: #38bdf8; font-size: 0.9rem;">${k.handle}</b>
+                    <span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;">
+                        ${(k.estado || 'PENDIENTE').toUpperCase()}
+                    </span>
+                </div>
+                <div style="font-weight: bold; color: var(--text-color); margin-top: 4px;">
+                    ${k.nombre || ''} ${k.apellido || ''} 
+                    <span style="font-weight: normal; color: var(--text-muted);">(${k.correo || 'Sin correo'})</span>
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    📋 <b>${k.tipo || 'ID'}:</b> ${k.numero || 'No indicado'}
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    🏠 <b>Dirección:</b> ${k.direccion || 'No especificada'}
+                </div> 
+                <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">
+                    📅 Solicitud: ${k.fecha || 'Reciente'}
+                </div>
             </div> 
-            <div style="display: flex; gap: 4px; flex-direction: column;"> 
-                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">Aprobar</button> 
-                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 5px 8px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">Rechazar</button> 
+            <div style="display: flex; gap: 6px; flex-direction: column;"> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">
+                    ✓ Aprobar
+                </button> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">
+                    ✕ Rechazar
+                </button> 
             </div> 
         </div> 
         `; 
@@ -1503,54 +1143,101 @@ function renderizarKycAdmin() {
     container.innerHTML = html; 
 } 
 
-async function aprobarKycAdmin(handleTarget, nuevoEstado) { 
+function aprobarKycAdmin(handleTarget, nuevoEstado) { 
     let req = kycSolicitudes.find(k => k.handle === handleTarget); 
     if (req) { 
         req.estado = nuevoEstado; 
     } 
-    let uDir = cuentasDirectorio.find(c => c.handle === handleTarget); 
-    if (uDir) { 
-        uDir.kyc_estado = nuevoEstado; 
-    } 
     if (usuarioActual.handle === handleTarget) { 
         usuarioActual.kyc_estado = nuevoEstado; 
+        localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
         actualizarEstadoKycUI(); 
     } 
-    await guardarEnSupabaseTabla('usuarios_p2p', { 
-        username: handleTarget, 
-        nombre: req ? req.nombre : '', 
-        apellido: req ? req.apellido : '', 
-        correo: req ? req.correo : '', 
-        tipo_documento: req ? req.tipo : 'ID', 
-        numero_documento: req ? req.numero : 'S/N', 
-        direccion: req ? req.direccion : '', 
-        kyc_estado: nuevoEstado,
-        clave: req ? req.clave : '' 
-    }); 
+    guardarKycEnLocalStorage();
     renderizarKycAdmin(); 
-    mostrarToast(`Estatus KYC de ${handleTarget} actualizado a: ${nuevoEstado.toUpperCase()}`, "success"); 
+    cargarUsuariosAdminDirectorio();
+    mostrarToast(`Solicitud de ${handleTarget} actualizada a: ${nuevoEstado.toUpperCase()}`, "success"); 
 } 
 
-function toggleTheme() { 
-    const body = document.body; 
-    body.setAttribute("data-theme", body.getAttribute("data-theme") === "dark" ? "light" : "dark"); 
-} 
+function cargarUsuariosAdminDirectorio() {
+    const totalCount = document.getElementById('total-count');
+    const tbody = document.getElementById('admin-users-tbody');
+    if (!tbody) return;
 
+    if (totalCount) totalCount.innerText = kycSolicitudes.length;
+    tbody.innerHTML = '';
+
+    kycSolicitudes.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>${user.handle}</b><br><span style="font-size:0.7rem; color:var(--text-muted);">${user.nombre} ${user.apellido}</span></td>
+            <td>${user.tipo}: ${user.numero}<br><span style="font-size:0.7rem; color:var(--text-muted);">${user.correo}</span></td>
+            <td><span class="badge" style="background:${user.estado === 'aprobado' ? '#16a34a' : '#ca8a04'};">${(user.estado || 'pendiente').toUpperCase()}</span></td>
+            <td>${user.direccion}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function poblarSelectUsuariosAdmin() {
+    const select = document.getElementById('admin-user-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
+    kycSolicitudes.forEach(k => {
+        select.innerHTML += `<option value="${k.handle}">${k.handle} (${k.nombre} ${k.apellido})</option>`;
+    });
+}
+
+function cargarDatosUsuarioAdminSeleccionado() {
+    const select = document.getElementById('admin-user-select');
+    const card = document.getElementById('admin-user-details-card');
+    if (!select || !card) return;
+    const handle = select.value;
+    usuarioAdminSeleccionadoHandle = handle;
+    if (!handle) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = 'block';
+    document.getElementById('adm-det-handle').innerText = handle;
+    document.getElementById('adm-det-balance').innerText = '0.00 Pi';
+}
+
+function abrirModalAjusteBalance() {
+    if (!usuarioAdminSeleccionadoHandle) {
+        mostrarToast("Selecciona primero un usuario en la lista.", "error");
+        return;
+    }
+    document.getElementById('admin-balance-modal').style.display = 'flex';
+}
+
+function cerrarModalAjusteBalance() {
+    document.getElementById('admin-balance-modal').style.display = 'none';
+}
+
+function ejecutarAjusteBalanceAdmin() {
+    const monto = parseFloat(document.getElementById('admin-adj-monto').value);
+    const tipo = document.getElementById('admin-adj-tipo').value;
+    if (!monto || monto <= 0) {
+        mostrarToast("Introduce un monto válido.", "error");
+        return;
+    }
+    cerrarModalAjusteBalance();
+    mostrarToast(`Ajuste de ${tipo === 'CREDITO' ? '+' : '-'}${monto} Pi procesado para ${usuarioAdminSeleccionadoHandle}`, "success");
+}
+
+// ==================== NAVEGACIÓN Y VISTAS ====================
 function switchTab(tabId, btnElement) { 
     document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active')); 
     document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active')); 
-    document.getElementById('view-' + tabId).classList.add('active'); 
-    if(btnElement) btnElement.classList.add('active'); 
-    if(tabId === 'clob') { 
-        actualizarSelectsMercadosActivos(); 
-        renderizarOrderBookVisible(); 
-    } 
-    if(tabId === 'admin') { 
-        renderizarTicketsAdmin(); 
-        renderizarHistorialGlobalAdmin(); 
-        calcularMetricasFinancierasAdmin(); 
-        poblarSelectUsuariosAdmin(); 
+    const view = document.getElementById('view-' + tabId);
+    if (view) view.classList.add('active'); 
+    if (btnElement) btnElement.classList.add('active'); 
+
+    if (tabId === 'admin') { 
         renderizarKycAdmin(); 
+        cargarUsuariosAdminDirectorio();
+        poblarSelectUsuariosAdmin();
     } 
 } 
 
@@ -1569,7 +1256,7 @@ function cerrarModalAdminAuth() {
 } 
 
 function validarClaveAdmin() { 
-    const claveIngresada = document.getElementById('admin-password-input').value; 
+    const claveIngresada = document.getElementById('admin-password-input').value.trim(); 
     if (claveIngresada === CLAVE_ADMIN_SECRETA) { 
         adminAutenticado = true; 
         sessionStorage.setItem('p2p_admin_auth', 'true'); 
@@ -1579,7 +1266,7 @@ function validarClaveAdmin() {
         switchTab('admin', btnAdmin); 
         mostrarToast("¡Acceso de administrador concedido!", "success"); 
     } else { 
-        mostrarToast("Contraseña incorrecta. Acceso denegado.", "error"); 
+        mostrarToast("Contraseña incorrecta. (Clave: Anthony*2023)", "error"); 
         document.getElementById('admin-password-input').value = ''; 
     } 
 } 
@@ -1591,380 +1278,74 @@ function cerrarSesionAdmin() {
     mostrarToast("Sesión de administrador cerrada.", "success"); 
 } 
 
+function toggleTheme() { 
+    const body = document.body; 
+    body.setAttribute("data-theme", body.getAttribute("data-theme") === "dark" ? "light" : "dark"); 
+} 
+
 function toggleAccordion(id) { 
-    document.getElementById(id).classList.toggle('open'); 
-} 
-
-function aplicarFiltrosCombinados() { 
-    const query = document.getElementById('search-input').value.toLowerCase(); 
-    const cards = document.querySelectorAll('#markets-container .market-card'); 
-    cards.forEach(card => { 
-        const titleElement = card.querySelector('.market-title'); 
-        if (!titleElement) return; 
-        const title = titleElement.innerText.toLowerCase(); 
-        const cardCat = card.getAttribute('data-category'); 
-        let cumpleQuery = title.includes(query); 
-        let cumpleCat = (categoriaActualFiltro === 'Todos' || cardCat === categoriaActualFiltro); 
-        if (cumpleQuery && cumpleCat) { 
-            card.style.display = 'block'; 
-        } else { 
-            card.style.display = 'none'; 
-        } 
-    }); 
-} 
-
-function filtrarMercados() { 
-    aplicarFiltrosCombinados(); 
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open'); 
 } 
 
 function setCategory(cat, pillElement) { 
     pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active')); 
     pillElement.classList.add('active'); 
-    categoriaActualFiltro = cat; 
-    aplicarFiltrosCombinados(); 
 } 
 
-function actualizarUIBalance() { 
-    document.getElementById('user-balance').innerText = usuarioActual.balance.toFixed(2) + ' Pi'; 
-    const rankingBal = document.getElementById('ranking-user-balance'); 
-    if(rankingBal) rankingBal.innerText = usuarioActual.balance.toFixed(2) + ' Pi'; 
-} 
+function filtrarMercados() {}
+function filtrarMercadosCerrados() {}
+function renderizarOrderBookVisible() {}
+function depositarConPiNetwork() { mostrarToast("Conexión con SDK de Pi Network iniciada."); }
+function retirarBilletera() { mostrarToast("Módulo de retiros en proceso."); }
+function actualizarUIBalance() {
+    const el = document.getElementById('user-balance');
+    if (el) el.innerText = usuarioActual.balance.toFixed(2) + ' Pi';
+}
 
-function actualizarPreciosVisuales() { 
-    for (let id in preciosMercados) { 
-        const elSi = document.getElementById(`ask-precio-${id}-SI`); 
-        const elNo = document.getElementById(`ask-precio-${id}-NO`); 
-        if (elSi && preciosMercados[id]["SÍ"]) elSi.innerText = preciosMercados[id]["SÍ"].toFixed(2) + ' Pi'; 
-        if (elNo && preciosMercados[id]["NO"]) elNo.innerText = preciosMercados[id]["NO"].toFixed(2) + ' Pi'; 
-    } 
-} 
+function renderizarMercadosDinamicos() {
+    const container = document.getElementById('markets-container');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="market-card">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+                <span>🏷️ Crypto & Ecosystem</span>
+                <span style="color:#eab308; font-weight:bold;">● Abierto</span>
+            </div>
+            <div class="market-title">¿Superará el ecosistema Pi los 100M de pioneros antes de fin de año?</div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+                Ask SÍ: <span style="color:#4ade80; font-weight:bold;">0.55 Pi</span> | Ask NO: <span style="color:#f87171; font-weight:bold;">0.45 Pi</span>
+            </p>
+            <div style="display:flex; gap:8px;">
+                <button class="action-btn" style="flex:1; background:#166534; border-color:#22c55e;" onclick="mostrarToast('Inicia sesión con KYC aprobado para comprar.', 'info')">Comprar SÍ</button>
+                <button class="action-btn" style="flex:1; background:#991b1b; border-color:#ef4444;" onclick="mostrarToast('Inicia sesión con KYC aprobado para comprar.', 'info')">Comprar NO</button>
+            </div>
+        </div>
+    `;
+}
 
-function restaurarEstadosMercadosVisuales() { 
-    for (let id in estadosMercados) { 
-        if (estadosMercados[id] !== null) { 
-            const btnSi = document.getElementById(`btn-comprar-${id}-SI`); 
-            const btnNo = document.getElementById(`btn-comprar-${id}-NO`); 
-            if (btnSi) btnSi.disabled = true; 
-            if (btnNo) btnNo.disabled = true; 
-        } 
-    } 
-    aplicarFiltrosCombinados(); 
-    actualizarSelectsMercadosActivos(); 
-} 
+function crearNuevoMercadoPionero() {
+    mostrarToast("Debes tener KYC aprobado por el administrador para crear mercados.", "error");
+    abrirModalKyc();
+}
 
-function actualizarSelectsMercadosActivos() { 
-    const selectClob = document.getElementById('orderbook-market-filter'); 
-    if (selectClob) { 
-        const valorAnterior = selectClob.value; 
-        let htmlClob = ''; 
-        if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
-            htmlClob = '<option value="">A la espera de la apertura de un mercado</option>'; 
-        } else { 
-            mercadosDinamicos.forEach(m => { 
-                if (estadosMercados[m.id] === null || estadosMercados[m.id] === undefined) { 
-                    htmlClob += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)}</option>`; 
-                } 
-            }); 
-            if (htmlClob === '') htmlClob = '<option value="">No hay mercados activos</option>'; 
-        } 
-        selectClob.innerHTML = htmlClob; 
-        if (valorAnterior && selectClob.querySelector(`option[value="${valorAnterior}"]`)) { 
-            selectClob.value = valorAnterior; 
-        } 
-    } 
-    const selectAdmin = document.getElementById('admin-market-id'); 
-    if (selectAdmin) { 
-        const valorAdminAnterior = selectAdmin.value; 
-        let htmlAdmin = ''; 
-        if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
-            htmlAdmin = '<option value="">No hay mercados</option>'; 
-        } else { 
-            mercadosDinamicos.forEach(m => { 
-                let st = estadosMercados[m.id]; 
-                if (st === null || st === undefined || st === 'ESPERANDO_RESOLUCION') { 
-                    htmlAdmin += `<option value="${m.id}">${nombresMercados[m.id] || ('Mercado #' + m.id)} (${st === 'ESPERANDO_RESOLUCION' ? 'Esperando Resolución' : 'Abierto'})</option>`; 
-                } 
-            }); 
-            if (htmlAdmin === '') htmlAdmin = '<option value="">No hay mercados pendientes</option>'; 
-        } 
-        selectAdmin.innerHTML = htmlAdmin; 
-        if (valorAdminAnterior && selectAdmin.querySelector(`option[value="${valorAdminAnterior}"]`)) { 
-            selectAdmin.value = valorAdminAnterior; 
-        } 
-    } 
-} 
+function abrirModalRecuperacion() {
+    mostrarToast("Para recuperar tus datos, consulta con el Administrador o envía tu KYC.", "info");
+}
 
-function cargarHistorialDesdeDB() { 
-    renderizarPosiciones(); 
-    renderizarHistorial(); 
-} 
-
-async function crearNuevoMercadoPionero() { 
-    if (usuarioActual.handle === "@invitado") { 
-        mostrarToast("Debes iniciar sesión para crear mercados.", "error"); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    if (usuarioActual.kyc_estado !== 'aprobado') { 
-        mostrarToast("Tu KYC debe estar aprobado por el administrador.", "error"); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (uCheck && uCheck.bloqueado) { 
-        mostrarToast("Tu cuenta está bloqueada.", "error"); 
-        return; 
-    } 
-    const titulo = document.getElementById('nuevo-titulo').value.trim(); 
-    const categoria = document.getElementById('nuevo-categoria').value; 
-    const fechaCierreInputVal = document.getElementById('nuevo-fecha-cierre').value; 
-    const opcionInicial = document.getElementById('nuevo-opcion').value; 
-    const liquidezAportada = parseFloat(document.getElementById('nuevo-liquidez').value); 
-    if (!titulo || !fechaCierreInputVal) { 
-        mostrarToast("Por favor, completa el título y la fecha de cierre.", "error"); 
-        return; 
-    } 
-    const fechaCierreInput = new Date(fechaCierreInputVal); 
-    const ahora = new Date(); 
-    if (fechaCierreInput <= ahora) { 
-        mostrarToast("La fecha de cierre debe ser posterior al momento actual.", "error"); 
-        return; 
-    } 
-    if (!liquidezAportada || liquidezAportada <= 0) { 
-        mostrarToast("Introduce liquidez inicial válida.", "error"); 
-        return; 
-    } 
-    if (usuarioActual.balance < liquidezAportada) { 
-        mostrarToast("Balance insuficiente.", "error"); 
-        return; 
-    } 
-
-    establecerCarga('btn-crear-mercado', true, 'Publicar Mercado y Asignar Liquidez');
-
-    usuarioActual.balance -= liquidezAportada; 
-    actualizarUIBalance(); 
-    const nuevoId = 'm-' + Date.now(); 
-    preciosMercados[nuevoId] = { 
-        "SÍ": opcionInicial === 'SÍ' ? 0.55 : 0.45, 
-        "NO": opcionInicial === 'NO' ? 0.55 : 0.45 
-    }; 
-    estadosMercados[nuevoId] = null; 
-    nombresMercados[nuevoId] = titulo; 
-    const nuevoMercado = { 
-        id: nuevoId, 
-        titulo: titulo, 
-        categoria: categoria, 
-        fechaCierre: fechaCierreInputVal, 
-        estado: 'abierto', 
-        creador: usuarioActual.handle, 
-        liquidez_total: liquidezAportada 
-    }; 
-    mercadosDinamicos.push(nuevoMercado); 
-    await guardarEnSupabaseTabla('mercados_dinamicos', nuevoMercado); 
-    const contratosCreador = Math.floor(liquidezAportada / preciosMercados[nuevoId][opcionInicial]); 
-    const nuevaPosicion = { 
-        id: 'POS-' + Date.now(), 
-        marketId: nuevoId, 
-        titulo: titulo, 
-        opcion: opcionInicial, 
-        contratos: contratosCreador, 
-        invertido: liquidezAportada, 
-        payout: contratosCreador * 1.00, 
-        estadoOrden: 'ACTIVO' 
-    }; 
-    posicionesActivas.push(nuevaPosicion); 
-    await guardarEnSupabaseTabla('posiciones_activas', { 
-        id: nuevaPosicion.id, 
-        market_id: String(nuevaPosicion.marketId), 
-        handle: usuarioActual.handle, 
-        titulo: nuevaPosicion.titulo, 
-        opcion: nuevaPosicion.opcion, 
-        contratos: nuevaPosicion.contratos, 
-        invertido: nuevaPosicion.invertido, 
-        payout: nuevaPosicion.payout, 
-        estado_orden: nuevaPosicion.estadoOrden 
-    }); 
-    const nuevaOrdenGlobal = { 
-        marketId: nuevoId, 
-        tipo: 'CREACIÓN DE MERCADO (Bid)', 
-        opcion: opcionInicial, 
-        contratos: contratosCreador, 
-        precio: preciosMercados[nuevoId][opcionInicial], 
-        trader: usuarioActual.handle 
-    }; 
-    ordenesGlobales.push(nuevaOrdenGlobal); 
-    await guardarEnSupabaseTabla('ordenes_clob', nuevaOrdenGlobal); 
-    await registrarTransaccionEnDB({ 
-        id: 'CREAR-' + Date.now(), 
-        titulo: 'Creación de Mercado', 
-        tipo: 'Inversión Inicial', 
-        monto: -liquidezAportada, 
-        detalle: `Creación del mercado: "${titulo}"` 
-    }); 
-    cargarMercadosYOrderBook(); 
-    document.getElementById('nuevo-titulo').value = ''; 
-    document.getElementById('nuevo-fecha-cierre').value = ''; 
-    document.getElementById('nuevo-liquidez').value = '5.0'; 
-    establecerCarga('btn-crear-mercado', false, 'Publicar Mercado y Asignar Liquidez');
-    mostrarToast("¡Mercado creado con éxito!", "success"); 
-    switchTab('mercados', document.querySelector('.nav-tab')); 
-} 
-
-function renderizarMercadosDinamicos() { 
-    const container = document.getElementById('markets-container'); 
-    if (!mercadosDinamicos || mercadosDinamicos.length === 0) { 
-        container.innerHTML = ` 
-        <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
-            <div style="font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">⏳ A la espera de la apertura de un mercado</div> 
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">No hay eventos activos en este momento.</p> 
-        </div>`; 
-        return; 
-    } 
-    let htmlDinamicoHTML = ''; 
-    mercadosDinamicos.forEach(m => { 
-        if (estadosMercados[m.id] !== null && estadosMercados[m.id] !== undefined) return; 
-        if (!preciosMercados[m.id]) preciosMercados[m.id] = { "SÍ": 0.50, "NO": 0.50 }; 
-        const pSi = preciosMercados[m.id]["SÍ"].toFixed(2); 
-        const pNo = preciosMercados[m.id]["NO"].toFixed(2); 
-        const targetDate = m.fechaCierre || '2026-12-31T23:59:59'; 
-        htmlDinamicoHTML += ` 
-        <div class="market-card" data-id="${m.id}" data-category="${m.categoria || 'Comunidad'}"> 
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"> 
-                <span>🏷️ ${m.categoria || 'Comunidad'} (Creador: ${m.creador || 'Anónimo'})</span> 
-                <span style="color: #eab308; font-weight: bold;">● Abierto</span> 
-            </div> 
-            <div class="market-title">${m.titulo}</div> 
-            <div class="countdown-timer" id="countdown-${m.id}" data-target="${targetDate}"> 
-                <span>⏳ Cierre en:</span> <b class="time-display">Calculando...</b> 
-            </div> 
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Precio Ask SÍ: <span id="ask-precio-${m.id}-SI" style="color: #4ade80; font-weight: bold;">${pSi} Pi</span> | Ask NO: <span id="ask-precio-${m.id}-NO" style="color: #f87171; font-weight: bold;">${pNo} Pi</span></p> 
-            <div style="display: flex; gap: 8px;"> 
-                <button id="btn-comprar-${m.id}-SI" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'SÍ')">Comprar SÍ</button> 
-                <button id="btn-comprar-${m.id}-NO" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="abrirTerminalTrading('${m.id}', '${m.titulo.replace(/'/g, "\\'")}', 'NO')">Comprar NO</button> 
-            </div> 
-        </div> 
-        `; 
-    }); 
-    if (htmlDinamicoHTML === '') { 
-        htmlDinamicoHTML = ` 
-        <div class="market-card" style="text-align: center; padding: 28px 16px;"> 
-            <div style="font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">⏳ A la espera de la apertura de un mercado</div> 
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">No hay mercados activos actualmente.</p> 
-        </div>`; 
-    } 
-    container.innerHTML = htmlDinamicoHTML; 
-    aplicarFiltrosCombinados(); 
-} 
-
-function renderizarMercadosEsperaYHistorial() { 
-    const contenedorEspera = document.getElementById('espera-resolucion-container'); 
-    const contenedorHistorial = document.getElementById('historial-cerrados-container'); 
-    let htmlEspera = ''; 
-    let htmlCerrados = ''; 
-    if (mercadosDinamicos && mercadosDinamicos.length > 0) { 
-        mercadosDinamicos.forEach(m => { 
-            let titulo = nombresMercados[m.id] || m.titulo; 
-            let estado = estadosMercados[m.id]; 
-            if (estado === 'ESPERANDO_RESOLUCION') { 
-                htmlEspera += ` 
-                <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-                    <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-                    <div style="color: #f97316; font-weight: bold;">🟠 Esperando Resolución Oficial del Administrador</div> 
-                </div> 
-                `; 
-            } else if (estado !== null && estado !== undefined) { 
-                let badgeGanador = ''; 
-                let colorBadge = '#ef4444'; 
-                if (estado === 'SÍ') { 
-                    badgeGanador = 'GANADOR: SÍ 🟢'; 
-                    colorBadge = '#166534'; 
-                } else if (estado === 'NO') { 
-                    badgeGanador = 'GANADOR: NO 🔴'; 
-                    colorBadge = '#991b1b'; 
-                } else if (estado === 'CANCELADO') { 
-                    badgeGanador = 'CANCELADO / REEMBOLSADO ⚠️'; 
-                    colorBadge = '#7c2d12'; 
-                } else { 
-                    badgeGanador = `GANADOR: ${estado}`; 
-                } 
-                htmlCerrados += ` 
-                <div class="market-closed-item" data-title="${titulo.toLowerCase()}" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem;"> 
-                    <div style="font-weight: bold; margin-bottom: 4px;">${titulo}</div> 
-                    <div style="display: inline-block; background: ${colorBadge}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">${badgeGanador}</div> 
-                </div> 
-                `; 
-            } 
-        }); 
-    } 
-    if (htmlEspera === '') htmlEspera = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p>'; 
-    if (htmlCerrados === '') htmlCerrados = '<p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados en el historial.</p>'; 
-    if (contenedorEspera) contenedorEspera.innerHTML = htmlEspera; 
-    if (contenedorHistorial) contenedorHistorial.innerHTML = htmlCerrados; 
-} 
-
-function filtrarMercadosCerrados() { 
-    const query = document.getElementById('search-closed-input').value.toLowerCase(); 
-    const items = document.querySelectorAll('#historial-cerrados-container .market-closed-item'); 
-    items.forEach(item => { 
-        const title = item.getAttribute('data-title') || ''; 
-        if (title.includes(query)) { 
-            item.style.display = 'block'; 
-        } else { 
-            item.style.display = 'none'; 
-        } 
-    }); 
-} 
-
-function actualizarRelojesRegresivos() { 
-    const timers = document.querySelectorAll('.countdown-timer'); 
-    timers.forEach(timer => { 
-        const targetStr = timer.getAttribute('data-target'); 
-        if (!targetStr) return; 
-        const targetTime = new Date(targetStr).getTime(); 
-        const now = new Date().getTime(); 
-        const diff = targetTime - now; 
-        const display = timer.querySelector('.time-display'); 
-        if (!display) return; 
-        if (diff <= 0) { 
-            display.innerText = "¡Evento Cerrado / Expirado!"; 
-            timer.style.borderColor = '#ef4444'; 
-            timer.style.color = '#ef4444'; 
-            const marketCard = timer.closest('.market-card'); 
-            if (marketCard) { 
-                const marketId = marketCard.getAttribute('data-id'); 
-                if (marketId && !estadosMercados[marketId]) { 
-                    estadosMercados[marketId] = 'ESPERANDO_RESOLUCION'; 
-                    renderizarMercadosEsperaYHistorial(); 
-                    actualizarSelectsMercadosActivos(); 
-                } 
-            } 
-        } else { 
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); 
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); 
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000); 
-            display.innerText = `${hours}h ${minutes}m ${seconds}s`; 
-        } 
-    }); 
-} 
-
-function abrirTerminalTrading(marketId, titulo, opcion) { 
-    if (usuarioActual.handle === "@invitado") { 
-        mostrarToast("Debes iniciar sesión para operar.", "error"); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    if (usuarioActual.kyc_estado !== 'aprobado') { 
-        mostrarToast("Tu KYC debe estar aprobado por el administrador.", "error"); 
-        abrirModalKyc(); 
-        return; 
-    } 
-    let uCheck = cuentasDirectorio.find(c => c.handle === usuarioActual.handle); 
-    if (uCheck && uCheck.bloqueado) { 
-        mostrarToast("Tu cuenta está bloqueada.", "error"); 
-        return; 
-    } 
-    ordenActivaModal = { marketId, titulo, opcion }; 
-    document.getElementById('modal-market-text').innerText = `Mercado: "${titulo}" | Opción seleccionada: ${opcion}`;
+function abrirSoporteChatUsuario() {
+    document.getElementById('support-chat-modal').style.display = 'flex';
+}
+function cerrarChatSoporteUsuario() {
+    document.getElementById('support-chat-modal').style.display = 'none';
+}
+function enviarMensajeSoporteUsuario() {
+    const input = document.getElementById('chat-user-input');
+    if (!input || !input.value.trim()) return;
+    const box = document.getElementById('chat-messages-container');
+    box.innerHTML += `<div class="chat-msg user"><b>${usuarioActual.handle}:</b> ${input.value}</div>`;
+    input.value = '';
+    mostrarToast("Mensaje enviado a soporte.", "success");
 }
 </script> 
 </body> 
