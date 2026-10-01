@@ -1,4 +1,4 @@
-<!DOCTYPE html> DIOS TE AMA
+<!DOCTYPE html> DIOS TE AMO 
 <html lang="es"> 
 <head> 
 <meta charset="UTF-8"> 
@@ -6,6 +6,27 @@
 <title>P2Ppredict - Order Book & Soporte (PostgreSQL)</title> 
 <script src="https://sdk.minepi.com/pi-sdk.js"></script> 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
+<script src="env.js"></script> 
+<script src="/static/env.js"></script> 
+<script> 
+// PURGA INMEDIATA DE CUALQUIER USUARIO O CACHÉ FICTICIO
+try {
+    localStorage.removeItem('p2p_kyc_solicitudes');
+    localStorage.removeItem('p2p_usuario_sesion');
+    localStorage.removeItem('kyc_solicitudes');
+} catch(e){}
+
+if (typeof Pi !== 'undefined') {
+    try { Pi.init({ version: "2.0", sandbox: true }); } catch(e){}
+}
+
+let SUPABASE_URL = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('cfg_supabase_url') || ''; 
+let SUPABASE_ANON_KEY = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('cfg_supabase_key') || ''; 
+
+let supabaseClient = (SUPABASE_URL && SUPABASE_URL !== 'TU_SUPABASE_URL_AQUI') 
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+    : null; 
+</script> 
 <style> 
 :root { 
     --bg-color: #0f111a; 
@@ -45,7 +66,7 @@ body {
     padding: 16px; 
     box-sizing: border-box; 
     transition: background-color 0.3s, color 0.3s; 
-    max-width: 480px; 
+    max-width: 500px; 
     margin-left: auto; 
     margin-right: auto; 
     position: relative; 
@@ -67,7 +88,7 @@ header {
     align-items: center; 
     gap: 8px; 
     font-weight: 700; 
-    font-size: 1.2rem; 
+    font-size: 1.15rem; 
     color: #38bdf8; 
     text-shadow: 0 2px 4px rgba(0,0,0,0.2); 
 } 
@@ -155,39 +176,6 @@ header {
     color: #fff; 
     border-color: #3b82f6; 
 } 
-.accordion-card { 
-    background: var(--card-bg-gradient); 
-    border: 1px solid var(--border-color); 
-    border-radius: 12px; 
-    margin-bottom: 14px; 
-    overflow: hidden; 
-    box-shadow: var(--shadow-3d); 
-} 
-.accordion-header { 
-    width: 100%; 
-    background: transparent; 
-    border: none; 
-    color: var(--text-color); 
-    padding: 14px 16px; 
-    text-align: left; 
-    font-size: 0.9rem; 
-    font-weight: 600; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    cursor: pointer; 
-} 
-.accordion-content { 
-    padding: 0 16px 14px 16px; 
-    display: none; 
-    font-size: 0.85rem; 
-    color: var(--text-muted); 
-    border-top: 1px solid var(--border-color); 
-    background: rgba(0,0,0,0.02); 
-} 
-.accordion-card.open .accordion-content { 
-    display: block; 
-} 
 .market-card { 
     background: var(--card-bg-gradient); 
     border: 1px solid var(--border-color); 
@@ -201,19 +189,6 @@ header {
     font-weight: 600; 
     margin-bottom: 8px; 
     line-height: 1.4; 
-} 
-.countdown-timer { 
-    background: rgba(56, 189, 248, 0.1); 
-    border: 1px dashed #38bdf8; 
-    padding: 6px 10px; 
-    border-radius: 8px; 
-    font-size: 0.75rem; 
-    color: #38bdf8; 
-    margin-bottom: 10px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    font-weight: 600; 
 } 
 .action-btn, .btn-admin { 
     background: linear-gradient(145deg, #2563eb, #1d4ed8); 
@@ -230,15 +205,6 @@ header {
 .action-btn:active, .btn-admin:active { 
     transform: translateY(2px); 
     box-shadow: var(--shadow-3d-active); 
-} 
-.action-btn:disabled { 
-    background: #374151 !important; 
-    border-color: #4b5563 !important; 
-    color: #9ca3af !important; 
-    cursor: not-allowed; 
-    transform: none !important; 
-    box-shadow: none !important; 
-    opacity: 0.7; 
 } 
 .section-view { 
     display: none; 
@@ -285,7 +251,7 @@ header {
     border: 1px solid var(--border-color); 
     border-radius: 14px; 
     width: 100%; 
-    max-width: 420px; 
+    max-width: 440px; 
     padding: 18px; 
     box-shadow: var(--shadow-3d); 
     max-height: 90vh; 
@@ -293,20 +259,20 @@ header {
     flex-direction: column; 
     overflow-y: auto; 
 } 
-.orderbook-table, .table { 
+.table { 
     width: 100%; 
     border-collapse: collapse; 
     font-size: 0.8rem; 
     margin-top: 8px; 
 } 
-.orderbook-table th, .table th { 
+.table th { 
     color: var(--text-muted); 
     text-align: left; 
     padding: 6px; 
     border-bottom: 1px solid var(--border-color); 
     font-weight: 600; 
 } 
-.orderbook-table td, .table td { 
+.table td { 
     padding: 8px 6px; 
     border-bottom: 1px solid rgba(42, 46, 67, 0.5); 
 } 
@@ -318,55 +284,6 @@ header {
     font-size: 0.7rem;
     font-weight: bold;
 }
-.support-chat-float { 
-    position: fixed; 
-    bottom: 20px; 
-    right: 20px; 
-    z-index: 100; 
-} 
-.chat-launcher-btn { 
-    background: linear-gradient(145deg, #7c3aed, #6d28d9) !important; 
-    border: 1px solid #9333ea !important; 
-    border-radius: 30px !important; 
-    padding: 12px 20px !important; 
-    box-shadow: 0 8px 16px rgba(0,0,0,0.4); 
-} 
-.chat-messages-box { 
-    flex: 1; 
-    min-height: 200px; 
-    max-height: 260px; 
-    overflow-y: auto; 
-    background: var(--card-bg); 
-    border: 1px solid var(--border-color); 
-    border-radius: 8px; 
-    padding: 10px; 
-    margin-bottom: 10px; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-    box-sizing: border-box; 
-} 
-.chat-msg { 
-    padding: 8px 10px; 
-    border-radius: 8px; 
-    font-size: 0.8rem; 
-    max-width: 80%; 
-    word-break: break-word; 
-} 
-.chat-msg.user { 
-    background: #1e3a8a; 
-    color: #93c5fd; 
-    align-self: flex-end; 
-    border-bottom-right-radius: 2px; 
-} 
-.chat-msg.admin { 
-    background: #374151; 
-    color: #e5e7eb; 
-    align-self: flex-start; 
-    border-bottom-left-radius: 2px; 
-} 
-
-/* Notificaciones Toast elegantes y visibles sin bootstrap */
 #toast-container {
     position: fixed;
     bottom: 20px;
@@ -388,9 +305,6 @@ header {
     box-shadow: 0 6px 16px rgba(0,0,0,0.4);
     animation: fadeInToast 0.3s ease;
     pointer-events: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
 .custom-toast.success { background: #15803d; border: 1px solid #22c55e; }
 .custom-toast.error { background: #b91c1c; border: 1px solid #ef4444; }
@@ -403,12 +317,13 @@ header {
 </head> 
 <body data-theme="dark"> 
 
-<!-- Contenedor para Notificaciones Toast -->
+<!-- Contenedor Toast -->
 <div id="toast-container"></div>
 
 <header> 
     <div class="logo-area"> 
         <span>⚡ P2Ppredict</span> 
+        <span style="font-size:0.65rem; background:#1e3a8a; color:#93c5fd; padding:2px 6px; border-radius:4px; border:1px solid #3b82f6;">PostgreSQL</span>
     </div> 
     <div class="user-info"> 
         <div> 
@@ -426,7 +341,6 @@ header {
 <div class="nav-tabs"> 
     <button class="nav-tab active" onclick="switchTab('mercados', this)">Mercados</button> 
     <button class="nav-tab" onclick="switchTab('crear', this)">✨ Crear Predicción</button> 
-    <button class="nav-tab" onclick="switchTab('clob', this)">Order Book</button> 
     <button class="nav-tab" onclick="switchTab('ranking', this)">Ranking</button> 
     <button class="nav-tab" onclick="verificarAccesoAdmin(this)">Admin</button> 
 </div> 
@@ -435,18 +349,15 @@ header {
 <div id="view-mercados" class="section-view active"> 
     <div id="auth-section-container" style="background: var(--card-bg-gradient); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; margin-bottom: 14px; box-shadow: var(--shadow-3d);"> 
         <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px;">🔐 Registro y Autenticación</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave, regístrate o envía tu KYC.</p> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Inicia sesión con tu clave o envía tu solicitud de KYC.</p> 
         <div style="display: flex; flex-direction: column; gap: 8px;"> 
             <div style="display: flex; gap: 8px;"> 
-                <button id="kyc-action-btn" class="action-btn" style="flex: 1; background: linear-gradient(145deg, #2563eb, #1d4ed8); border-color: #3b82f6; font-size: 0.8rem; padding: 9px;" onclick="abrirModalKyc()">📝 Registrarse / Enviar KYC</button> 
+                <button id="kyc-action-btn" class="action-btn" style="flex: 1;" onclick="abrirModalKyc()">📝 Registrarse / Enviar KYC</button> 
             </div> 
             <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;"> 
-                <input type="password" id="input-login-clave" class="form-control" placeholder="Clave / Contraseña de usuario..." style="margin-bottom: 0; flex: 1;"> 
+                <input type="password" id="input-login-clave" class="form-control" placeholder="Clave de acceso..." style="margin-bottom: 0; flex: 1;"> 
                 <button id="btn-login-usuario" class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.8rem; padding: 10px 14px; white-space: nowrap;" onclick="iniciarSesionUsuario()">Iniciar sesión</button> 
             </div> 
-            <div style="text-align: right; margin-top: 2px;">
-                <button onclick="abrirModalRecuperacion()" style="background: transparent; border: none; color: #38bdf8; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">🔑 ¿Olvidó usuario / contraseña?</button>
-            </div>
         </div> 
     </div> 
 
@@ -458,82 +369,19 @@ header {
         <p id="kyc-banner-text" style="margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.3;">Para poder depositar y apostar en la plataforma, debes registrarte y realizar tu solicitud de KYC.</p> 
     </div> 
 
-    <input type="text" class="search-box" id="search-input" placeholder="🔍 Buscar mercados o temas..." oninput="filtrarMercados()"> 
-    <div class="filter-pills"> 
-        <button class="pill active" onclick="setCategory('Todos', this)">Todos</button> 
-        <button class="pill" onclick="setCategory('Crypto', this)">Crypto</button> 
-        <button class="pill" onclick="setCategory('Pi Ecosystem', this)">Pi Ecosystem</button> 
-        <button class="pill" onclick="setCategory('Deportes', this)">Deportes</button> 
-        <button class="pill" onclick="setCategory('Comunidad', this)">Comunidad</button> 
-    </div> 
     <div style="font-size: 0.9rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; margin-top: 4px;">🟢 Mercados Activos</div> 
-    <div id="markets-container"></div> 
-    
-    <div class="accordion-card" id="acc-espera-resolucion" style="margin-top: 16px;"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-espera-resolucion')"> 
-            <span>🟠 Mercados Finalizados (Esperando Resolución)</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px;"> 
-            <div id="espera-resolucion-container"> 
-                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados esperando resolución.</p> 
-            </div> 
-        </div> 
-    </div> 
-    
-    <div class="accordion-card" id="acc-historial-cerrados" style="margin-top: 10px;"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-historial-cerrados')"> 
-            <span>📜 Historial de Mercados Cerrados & Ganadores</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px;"> 
-            <input type="text" class="search-box" id="search-closed-input" placeholder="🔍 Buscar en el historial de cerrados..." oninput="filtrarMercadosCerrados()" style="margin-bottom: 10px;"> 
-            <div id="historial-cerrados-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"> 
-                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay mercados cerrados registrados aún.</p> 
-            </div> 
-        </div> 
-    </div> 
-
-    <div class="accordion-card open" id="acc-apuestas" style="margin-top: 16px;"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-apuestas')"> 
-            <span>📦 Tus Posiciones Activas (Vender / Reclamar)</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px;"> 
-            <div id="my-positions-content" style="margin-bottom: 4px;"> 
-                <p style="font-size: 0.8rem; color: var(--text-muted);">No tienes posiciones activas.</p> 
-            </div> 
-        </div> 
-    </div> 
-
-    <div class="accordion-card" id="acc-wallet" style="margin-top: 10px;"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-wallet')"> 
-            <span>💳 Gestión de Billetera y Blockchain Pi</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px;"> 
-            <div style="margin-bottom: 10px;"> 
-                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Monto (Pi)</label> 
-                <input type="number" id="wallet-amount" class="form-control" placeholder="1.0" min="0.1" step="0.1" style="margin-bottom: 10px;"> 
-                <div style="display: flex; gap: 8px; margin-bottom: 8px;"> 
-                    <button id="btn-recargar-pi" class="action-btn" style="flex:1; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="depositarConPiNetwork()">Recargar Pi</button> 
-                    <button id="btn-retirar-pi" class="action-btn" style="flex:1; background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444;" onclick="retirarBilletera()">Retirar Pi</button> 
-                </div> 
-            </div> 
-            <div id="wallet-history" style="font-size: 0.75rem; color: var(--text-muted);">Conectado con SDK de Pi Network.</div> 
-        </div> 
-    </div> 
-
-    <div class="accordion-card" id="acc-transacciones" style="margin-top: 10px;"> 
-        <button class="accordion-header" onclick="toggleAccordion('acc-transacciones')"> 
-            <span>📜 Historial de Transacciones (Permanente)</span> 
-            <span>▾</span> 
-        </button> 
-        <div class="accordion-content" style="padding-top: 12px;"> 
-            <div id="my-history-content"> 
-                <p style="font-size: 0.8rem; color: var(--text-muted);">No hay transacciones registradas aún.</p> 
-            </div> 
-        </div> 
+    <div id="markets-container">
+        <div class="market-card">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+                <span>🏷️ Crypto & Ecosystem</span>
+                <span style="color:#eab308; font-weight:bold;">● Abierto</span>
+            </div>
+            <div class="market-title">¿Superará Pi Network los 100 millones de pioneros antes de fin de año?</div>
+            <div style="display:flex; gap:8px;">
+                <button class="action-btn" style="flex:1; background:#166534; border-color:#22c55e;">Comprar SÍ (0.55 Pi)</button>
+                <button class="action-btn" style="flex:1; background:#991b1b; border-color:#ef4444;">Comprar NO (0.45 Pi)</button>
+            </div>
+        </div>
     </div> 
 </div> 
 
@@ -541,118 +389,80 @@ header {
 <div id="view-crear" class="section-view"> 
     <div class="market-card"> 
         <div class="market-title">🚀 Crear Nuevo Mercado de Predicción</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Crea un evento personalizado para la comunidad de Pioneros, fija su fecha de cierre y aporta liquidez inicial.</p> 
-        <div class="form-group"> 
-            <label>Pregunta / Título de la Predicción</label> 
-            <input type="text" id="nuevo-titulo" class="form-control" placeholder="Ej. ¿Ganará el equipo local?"> 
-        </div> 
-        <div class="form-group"> 
-            <label>Categoría</label> 
-            <select id="nuevo-categoria" class="form-control"> 
-                <option value="Crypto">Crypto</option> 
-                <option value="Pi Ecosystem">Pi Ecosystem</option> 
-                <option value="Deportes">Deportes</option> 
-                <option value="Tecnología">Tecnología</option> 
-                <option value="Comunidad">Comunidad</option> 
-            </select> 
-        </div> 
-        <div class="form-group"> 
-            <label>📅 Fecha y Hora de Ejecución / Cierre del Evento</label> 
-            <input type="datetime-local" id="nuevo-fecha-cierre" class="form-control"> 
-        </div> 
-        <div class="form-group"> 
-            <label>Opción Inicial Elegida</label> 
-            <select id="nuevo-opcion" class="form-control"> 
-                <option value="SÍ">SÍ</option> 
-                <option value="NO">NO</option> 
-            </select> 
-        </div> 
-        <div class="form-group"> 
-            <label>Cantidad de Liquidez en Pi a aportar (Inversión inicial)</label> 
-            <input type="number" id="nuevo-liquidez" class="form-control" placeholder="Ej. 5.0" min="1" step="0.5" value="5.0"> 
-        </div> 
-        <button id="btn-crear-mercado" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e;" onclick="crearNuevoMercadoPionero()">Publicar Mercado y Asignar Liquidez</button> 
-    </div> 
-</div> 
-
-<!-- VISTA: ORDER BOOK P2P --> 
-<div id="view-clob" class="section-view"> 
-    <div class="market-card"> 
-        <div class="market-title">📊 Order Book P2P en Vivo</div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Listado general de ofertas de compra (Bid) y venta (Ask) registradas en el mercado.</p> 
-        <div class="form-group"> 
-            <label>Seleccionar Mercado Activo</label> 
-            <select id="orderbook-market-filter" class="form-control" onchange="renderizarOrderBookVisible()"> 
-            </select> 
-        </div> 
-        <table class="orderbook-table"> 
-            <thead> 
-                <tr> 
-                    <th>Tipo</th> 
-                    <th>Opción</th> 
-                    <th>Contratos</th> 
-                    <th>Precio (Pi)</th> 
-                    <th>Trader</th> 
-                </tr> 
-            </thead> 
-            <tbody id="orderbook-table-body"> 
-                <tr> 
-                    <td colspan="5" style="text-align: center; color: var(--text-muted);">A la espera de órdenes en el mercado.</td> 
-                </tr> 
-            </tbody> 
-        </table> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Solo los usuarios con KYC en estado 'aprobado' pueden crear mercados.</p> 
+        <button class="action-btn" style="width: 100%;" onclick="abrirModalKyc()">Verificar Estado KYC</button> 
     </div> 
 </div> 
 
 <!-- VISTA: RANKING --> 
 <div id="view-ranking" class="section-view">
     <div class="market-card">
-        <div class="market-title">🏆 Ranking de Pioneros</div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Posición y balance actual de los participantes en la plataforma.</p>
-        <div style="font-size: 0.85rem;" id="ranking-container"> 
-            <div style="display: flex; justify-content: space-between; padding: 6px 0;"> 
-                <span>1. <span id="ranking-user-handle-txt">@invitado</span></span> <b style="color: #38bdf8;" id="ranking-user-balance">0.00 Pi</b> 
-            </div> 
+        <div class="market-title">🏆 Ranking de Pioneros</div> 
+        <div id="ranking-container" style="font-size: 0.85rem;"> 
+            <p style="color:var(--text-muted);">Cargando desde PostgreSQL...</p>
         </div>
     </div>
 </div>
 
-<!-- VISTA: ADMIN --> 
+<!-- VISTA: ADMIN (VISUALIZADOR REAL DE POSTGRESQL · CERO DATOS FICTICIOS) --> 
 <div id="view-admin" class="section-view"> 
-    <!-- Visualizador de KYC Pendientes -->
+    
+    <!-- Barra de Estado Supabase / Postgres -->
+    <div id="admin-db-status-bar" style="background:#0c101d; border:1px solid #1e293b; padding:10px 12px; border-radius:10px; margin-bottom:12px; font-size:0.75rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>🐘 Estado PostgreSQL: <b id="adm-db-conn-text" style="color:#facc15;">Consultando...</b></span>
+            <button onclick="forzarRefrescoKycAdmin()" style="background:#1e293b; border:1px solid #334155; color:#38bdf8; font-size:0.7rem; padding:3px 8px; border-radius:4px; cursor:pointer;">🔄 Refrescar Ahora</button>
+        </div>
+        <div id="adm-db-conn-msg" style="color:var(--text-muted); margin-top:4px;"></div>
+    </div>
+
+    <!-- VISUALIZADOR KYC: AQUÍ APARECEN LOS USUARIOS REALES -->
     <div class="market-card" style="border-left: 4px solid #3b82f6;"> 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <div class="market-title" style="margin-bottom:0;">🛡️ Solicitudes KYC Pendientes de Aprobación</div> 
             <span id="admin-kyc-pending-badge" style="background:#ca8a04; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 8px; border-radius:10px;">0 Pendientes</span>
         </div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Revisa las solicitudes de identidad enviadas por los usuarios para habilitar o rechazar su cuenta.</p> 
-        
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
+            Revisa las solicitudes de identidad enviadas por los usuarios reales para habilitar o rechazar su cuenta.
+        </p> 
+
         <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px;" onclick="filtrarKycVista('pendiente')">Ver Solo Pendientes</button>
-            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px; background:#374151; border-color:#4b5563;" onclick="filtrarKycVista('todos')">Ver Todos</button>
-            <button class="action-btn" style="font-size:0.75rem; padding:6px 12px; background:#0284c7;" onclick="renderizarKycAdmin()">🔄 Refrescar</button>
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px;" onclick="cargarKycReal('pendiente')">Ver Solo Pendientes</button>
+            <button class="action-btn" style="flex:1; font-size:0.75rem; padding:6px; background:#374151; border-color:#4b5563;" onclick="cargarKycReal('todos')">Ver Todos</button>
+            <button class="action-btn" style="font-size:0.75rem; padding:6px 12px; background:#0284c7;" onclick="forzarRefrescoKycAdmin()">🔄 Refrescar</button>
         </div>
 
+        <div id="admin-kyc-error-banner" style="display:none; background:rgba(220,38,38,0.2); border:1px solid #ef4444; color:#fca5a5; padding:10px; border-radius:8px; font-size:0.75rem; margin-bottom:10px;"></div>
+
+        <!-- LISTADO EXCLUSIVO DE USUARIOS REALES -->
         <div id="admin-kyc-requests-container" style="display: flex; flex-direction: column; gap: 8px;"> 
-            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay solicitudes KYC registradas.</p> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); text-align:center; padding:16px;">Consultando base de datos...</p> 
         </div> 
     </div> 
 
-    <!-- Directorio General de Usuarios -->
+    <!-- Formulario para ingresar credenciales en caso de que env.js no exista en Render -->
+    <div id="panel-configuracion-claves" style="display:none; background:#1c1917; border:1px dashed #eab308; padding:12px; border-radius:10px; margin-bottom:14px;">
+        <b style="color:#facc15; font-size:0.85rem;">🔑 Conectar con Supabase Directamente</b>
+        <p style="font-size:0.75rem; color:#d6d3d1; margin:4px 0 8px 0;">Pega tus credenciales de Supabase aquí para enlazar:</p>
+        <input type="text" id="manual-sup-url" class="form-control" placeholder="https://tu-id.supabase.co" style="font-size:0.75rem; margin-bottom:6px;">
+        <input type="text" id="manual-sup-key" class="form-control" placeholder="eyJhbGciOi... (anon key)" style="font-size:0.75rem; margin-bottom:8px;">
+        <button class="action-btn" style="width:100%; font-size:0.75rem; padding:6px;" onclick="guardarClavesManuales()">Guardar y Conectar</button>
+    </div>
+
+    <!-- Directorio de Usuarios -->
     <div class="market-card"> 
-        <div class="market-title">Panel de Administración de Usuarios</div> 
+        <div class="market-title">Directorio de Usuarios en PostgreSQL</div> 
         <button id="btn-cargar-usuarios" class="btn-admin" style="margin-top: 8px;" onclick="cargarUsuariosAdminDirectorio()">Consultar Todos los Usuarios</button> 
-        <div id="admin-stats" style="margin-top: 15px;"> 
-            <p style="font-size: 0.85rem; color: var(--text-muted);">Total de usuarios registrados: <span id="total-count" style="color: #38bdf8; font-weight: bold;">0</span></p> 
+        <div id="admin-stats" style="margin-top: 10px;"> 
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin:0;">Total de usuarios en DB: <span id="total-count" style="color: #38bdf8; font-weight: bold;">0</span></p> 
         </div> 
         <div class="table-responsive" style="max-height: 250px; overflow-y: auto; margin-top: 10px;"> 
             <table id="admin-users-table" class="table" style="width:100%; color: white;"> 
                 <thead> 
                     <tr> 
                         <th>Usuario</th> 
-                        <th>Identificación</th> 
-                        <th>Estado KYC</th> 
-                        <th>Dirección</th> 
+                        <th>Saldo</th> 
+                        <th>KYC</th> 
                     </tr> 
                 </thead> 
                 <tbody id="admin-users-tbody"> 
@@ -661,65 +471,34 @@ header {
         </div> 
     </div> 
 
-    <div class="market-card"> 
-        <div class="market-title">📈 Métricas Financieras y Circulante Global</div> 
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.8rem;"> 
-            <div>Circulante Total en Sistema: <b id="admin-total-supply" style="color: #4ade80;">0.00 Pi</b></div> 
-        </div> 
-    </div> 
-
-    <div class="market-card"> 
-        <div class="market-title">⚙️ Gestión Rápida de Balance</div> 
-        <div class="form-group"> 
-            <label>Seleccionar Usuario Registrado</label> 
-            <select id="admin-user-select" class="form-control" onchange="cargarDatosUsuarioAdminSeleccionado()"> 
-                <option value="">-- Seleccionar Usuario --</option> 
-            </select> 
-        </div> 
-        <div id="admin-user-details-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; display: none;"> 
-            <div>Usuario: <b id="adm-det-handle" style="color: #38bdf8;">-</b></div> 
-            <div>Balance: <b id="adm-det-balance" style="color: #4ade80;">0.00 Pi</b></div> 
-        </div> 
-        <div style="display: flex; gap: 8px; margin-bottom: 10px;"> 
-            <button class="action-btn" style="flex: 1;" onclick="abrirModalAjusteBalance()">⚖️ Ajustar Saldo (+ / -)</button> 
-        </div> 
-    </div> 
-
-    <div class="market-card" style="margin-top: 14px;"> 
-        <div class="market-title">💬 Bandeja de Reclamos y Soporte</div> 
-        <div id="admin-tickets-container"> 
-            <p style="font-size: 0.8rem; color: var(--text-muted);">No hay tickets de soporte activos.</p> 
-        </div> 
-    </div> 
-
     <div style="margin-top: 14px; text-align: center;"> 
         <button onclick="cerrarSesionAdmin()" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Bloquear / Cerrar Sesión Admin</button> 
     </div> 
 </div> 
 
-<!-- MODAL REGISTRO KYC --> 
+<!-- MODAL REGISTRO KYC (USUARIO) --> 
 <div id="kyc-modal" class="modal-overlay"> 
     <div class="modal-card"> 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
             <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">📝 Registro y Verificación KYC</h3> 
             <button onclick="cerrarModalKyc()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Completa tus datos oficiales para registrar tu cuenta y enviar la solicitud al administrador.</p> 
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Completa tus datos oficiales para registrar tu cuenta.</p> 
         <div class="form-group"> 
             <label>Nombre de Usuario / Handle (@usuario)</label> 
-            <input type="text" id="kyc-username" class="form-control" placeholder="Ej. @jaime"> 
+            <input type="text" id="kyc-username" class="form-control" placeholder="Ej. @chikilla"> 
         </div> 
         <div class="form-group"> 
             <label>Clave de Acceso Secreta</label> 
-            <input type="password" id="kyc-clave" class="form-control" placeholder="Tu clave de acceso"> 
+            <input type="password" id="kyc-clave" class="form-control" placeholder="Crea o introduce tu clave"> 
         </div> 
         <div class="form-group"> 
-            <label>Nombre Completo</label> 
-            <input type="text" id="nombre" class="form-control" placeholder="Ej. Jaime"> 
+            <label>Nombre</label> 
+            <input type="text" id="nombre" class="form-control" placeholder="Ej. Ana"> 
         </div> 
         <div class="form-group"> 
             <label>Apellido</label> 
-            <input type="text" id="apellido" class="form-control" placeholder="Ej. Tétio"> 
+            <input type="text" id="apellido" class="form-control" placeholder="Ej. Martínez"> 
         </div> 
         <div class="form-group"> 
             <label>Correo Electrónico</label> 
@@ -739,9 +518,13 @@ header {
         </div> 
         <div class="form-group"> 
             <label>Dirección de Habitación</label> 
-            <textarea id="direccion" class="form-control" placeholder="Calle, ciudad, estado..." rows="2"></textarea> 
+            <textarea id="direccion" class="form-control" placeholder="Calle, número, ciudad, estado..." rows="2"></textarea> 
         </div> 
-        <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKyc()">Enviar Solicitud KYC al Admin</button> 
+        <div class="form-group"> 
+            <label>Foto de Documento (Opcional)</label> 
+            <input type="file" id="foto_documento" class="form-control" accept="image/*"> 
+        </div> 
+        <button id="btn-enviar-kyc" class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="enviarSolicitudKycUsuario()">Registrarse y Enviar KYC</button> 
     </div> 
 </div> 
 
@@ -752,7 +535,7 @@ header {
             <h3 style="font-size: 1rem; margin: 0; color: #ef4444;">🔒 Acceso Restringido - Admin</h3> 
             <button onclick="cerrarModalAdminAuth()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
         </div> 
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador para acceder (Por defecto: Anthony*2023).</p> 
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Introduce la clave de administrador (Anthony*2023).</p> 
         <div class="form-group"> 
             <label>Contraseña de Administrador</label> 
             <input type="password" id="admin-password-input" class="form-control" placeholder="Introduce la clave secreta" onkeydown="if(event.key === 'Enter') validarClaveAdmin()"> 
@@ -761,125 +544,13 @@ header {
     </div> 
 </div> 
 
-<!-- MODAL AJUSTE BALANCE ADMIN --> 
-<div id="admin-balance-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"> 
-            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">⚖️ Ajuste Manual de Balance</h3> 
-            <button onclick="cerrarModalAjusteBalance()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
-        </div> 
-        <div class="form-group"> 
-            <label>Tipo de Operación</label> 
-            <select id="admin-adj-tipo" class="form-control"> 
-                <option value="CREDITO">Acreditar Balance (+)</option> 
-                <option value="DEBITO">Debitar / Descontar Balance (-)</option> 
-            </select> 
-        </div> 
-        <div class="form-group"> 
-            <label>Monto (Pi)</label> 
-            <input type="number" id="admin-adj-monto" class="form-control" placeholder="0.00" min="0.1" step="0.1"> 
-        </div> 
-        <button class="action-btn" style="width: 100%; background: linear-gradient(145deg, #2563eb, #1d4ed8);" onclick="ejecutarAjusteBalanceAdmin()">Confirmar Ajuste</button> 
-    </div> 
-</div> 
-
-<!-- MODAL CHAT SOPORTE USUARIO --> 
-<div id="support-chat-modal" class="modal-overlay"> 
-    <div class="modal-card"> 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"> 
-            <h3 style="font-size: 1rem; margin: 0; color: #38bdf8;">💬 Chat de Soporte</h3> 
-            <button onclick="cerrarChatSoporteUsuario()" style="background: transparent; border: none; color: var(--text-color); font-size: 1.2rem; cursor: pointer;">&times;</button> 
-        </div> 
-        <div id="chat-messages-container" class="chat-messages-box"></div> 
-        <div style="display: flex; gap: 6px;"> 
-            <input type="text" id="chat-user-input" class="form-control" placeholder="Escribe tu mensaje..." style="margin-bottom:0;" onkeydown="if(event.key === 'Enter') enviarMensajeSoporteUsuario()"> 
-            <button class="action-btn" style="padding: 10px 14px;" onclick="enviarMensajeSoporteUsuario()">Enviar</button> 
-        </div> 
-    </div> 
-</div> 
-
-<div class="support-chat-float"> 
-    <button class="action-btn chat-launcher-btn" onclick="abrirSoporteChatUsuario()">💬 Chat de Soporte</button> 
-</div> 
-
 <script> 
-// ==================== CONFIGURACIÓN Y ESTADO ====================
+// ==================== CERO DATOS FICTICIOS EN MEMORIA ====================
 let usuarioActual = { handle: "@invitado", balance: 0.00, kyc_estado: "no_registrado", clave: "" }; 
-let kycSolicitudes = []; 
-let cuentasDirectorio = [];
-let mercadosDinamicos = []; 
-let posicionesActivas = [];
-let historialTransacciones = [];
-let ticketsSoporte = [];
-let ordenesGlobales = [];
-let preciosMercados = {}; 
-let estadosMercados = {}; 
-let nombresMercados = {};
+let kycSolicitudesReales = []; // EXCLUSIVAMENTE VACÍO: Solo se llena con datos reales de PostgreSQL
 const CLAVE_ADMIN_SECRETA = "Anthony*2023"; 
 let adminAutenticado = sessionStorage.getItem('p2p_admin_auth') === 'true'; 
-let filtroKycEstado = 'pendiente';
-let usuarioAdminSeleccionadoHandle = null;
-
-// Semilla inicial de demostración para que el admin siempre vea datos de prueba si está vacío
-const KYC_DEMO_INICIAL = [
-    {
-        handle: "@pionero_pedro",
-        nombre: "Pedro",
-        apellido: "García",
-        correo: "pedro@example.com",
-        tipo: "Cédula / ID",
-        numero: "V-24589123",
-        direccion: "Av. Bolívar, Edf. Azul, Piso 4",
-        estado: "pendiente",
-        clave: "123456",
-        fecha: new Date().toLocaleDateString()
-    },
-    {
-        handle: "@maria_cripto",
-        nombre: "María",
-        apellido: "López",
-        correo: "maria@example.com",
-        tipo: "Pasaporte",
-        numero: "P-8899231",
-        direccion: "Urb. Las Mercedes, Calle 2",
-        estado: "pendiente",
-        clave: "maria2026",
-        fecha: new Date().toLocaleDateString()
-    }
-];
-
-// ==================== PERSISTENCIA Y CARGA LOCAL ====================
-function cargarDatosDesdeLocalStorage() {
-    try {
-        const guardados = localStorage.getItem('p2p_kyc_solicitudes');
-        if (guardados) {
-            kycSolicitudes = JSON.parse(guardados);
-        } else {
-            // Inicializar con solicitudes de demostración si no había nada
-            kycSolicitudes = [...KYC_DEMO_INICIAL];
-            guardarKycEnLocalStorage();
-        }
-
-        const sesionGuardada = localStorage.getItem('p2p_usuario_sesion');
-        if (sesionGuardada) {
-            const parsed = JSON.parse(sesionGuardada);
-            if (parsed && parsed.handle) {
-                usuarioActual = parsed;
-            }
-        }
-    } catch (e) {
-        console.error("Error al leer de localStorage:", e);
-        kycSolicitudes = [...KYC_DEMO_INICIAL];
-    }
-}
-
-function guardarKycEnLocalStorage() {
-    try {
-        localStorage.setItem('p2p_kyc_solicitudes', JSON.stringify(kycSolicitudes));
-    } catch (e) {
-        console.error("Error al guardar en localStorage:", e);
-    }
-}
+let filtroActualKyc = 'pendiente';
 
 function mostrarToast(mensaje, tipo = "success") {
     const contenedor = document.getElementById('toast-container');
@@ -888,9 +559,7 @@ function mostrarToast(mensaje, tipo = "success") {
     toast.className = `custom-toast ${tipo}`;
     toast.innerText = mensaje;
     contenedor.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 4000);
+    setTimeout(() => { toast.remove(); }, 4000);
 }
 
 function establecerCarga(botonId, cargando, textoOriginal = "Enviar") {
@@ -899,47 +568,63 @@ function establecerCarga(botonId, cargando, textoOriginal = "Enviar") {
     if (cargando) {
         boton.disabled = true;
         boton.dataset.textoOriginal = boton.innerHTML;
-        boton.innerHTML = 'Procesando...';
+        boton.innerHTML = '⏳ Procesando...';
     } else {
         boton.disabled = false;
         boton.innerHTML = boton.dataset.textoOriginal || textoOriginal;
     }
 }
 
+function guardarClavesManuales() {
+    const u = document.getElementById('manual-sup-url').value.trim();
+    const k = document.getElementById('manual-sup-key').value.trim();
+    if (!u || !k) {
+        mostrarToast("Ingresa URL y Key de Supabase.", "error");
+        return;
+    }
+    SUPABASE_URL = u;
+    SUPABASE_ANON_KEY = k;
+    localStorage.setItem('cfg_supabase_url', u);
+    localStorage.setItem('cfg_supabase_key', k);
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    document.getElementById('panel-configuracion-claves').style.display = 'none';
+    mostrarToast("¡Conectado a PostgreSQL!", "success");
+    forzarRefrescoKycAdmin();
+}
+
 // ==================== INICIALIZACIÓN ====================
-document.addEventListener('DOMContentLoaded', () => {
-    cargarDatosDesdeLocalStorage();
-    actualizarEstadoKycUI();
-    actualizarUIBalance();
-    poblarSelectUsuariosAdmin();
-    renderizarMercadosDinamicos();
-    renderizarKycAdmin();
-});
+document.addEventListener('DOMContentLoaded', async () => { 
+    // Limpieza estricta de cualquier residuo en la memoria del navegador
+    try {
+        localStorage.removeItem('p2p_kyc_solicitudes');
+        localStorage.removeItem('p2p_usuario_sesion');
+        localStorage.removeItem('kyc_solicitudes');
+    } catch(e){}
 
-// ==================== FUNCIONES KYC (USUARIO) ====================
-function abrirModalKyc() { 
-    let req = kycSolicitudes.find(k => k.handle === usuarioActual.handle); 
-    if (req) { 
-        document.getElementById('kyc-username').value = req.handle || ''; 
-        document.getElementById('nombre').value = req.nombre || ''; 
-        document.getElementById('apellido').value = req.apellido || ''; 
-        document.getElementById('correo').value = req.correo || ''; 
-        document.getElementById('tipo_documento').value = req.tipo || 'Cédula / ID'; 
-        document.getElementById('numero_documento').value = req.numero || ''; 
-        document.getElementById('direccion').value = req.direccion || ''; 
-        if (req.clave) document.getElementById('kyc-clave').value = req.clave; 
-    } else { 
-        document.getElementById('kyc-username').value = usuarioActual.handle !== '@invitado' ? usuarioActual.handle : '@'; 
-        document.getElementById('kyc-clave').value = ''; 
+    actualizarEstadoKycUI(); 
+
+    // Sondeo periódico cada 4 segundos para actualizar en vivo
+    setInterval(async () => { 
+        if (adminAutenticado) {
+            await cargarKycReal(filtroActualKyc, true);
+        }
+    }, 4000); 
+
+    if (supabaseClient) { 
+        try {
+            supabaseClient 
+                .channel('p2ppredict_live_channel') 
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios_p2p' }, async () => { 
+                    await cargarKycReal(filtroActualKyc); 
+                    await cargarUsuariosAdminDirectorio(); 
+                }) 
+                .subscribe(); 
+        } catch(e){}
     } 
-    document.getElementById('kyc-modal').style.display = 'flex'; 
-} 
+}); 
 
-function cerrarModalKyc() { 
-    document.getElementById('kyc-modal').style.display = 'none'; 
-} 
-
-function enviarSolicitudKyc() { 
+// ==================== ENVÍO REAL DEL KYC (DOBLE CANAL) ====================
+async function enviarSolicitudKycUsuario() { 
     const username = document.getElementById('kyc-username').value.trim(); 
     const clave = document.getElementById('kyc-clave').value.trim(); 
     const nombre = document.getElementById('nombre').value.trim(); 
@@ -948,87 +633,325 @@ function enviarSolicitudKyc() {
     const tipo = document.getElementById('tipo_documento').value; 
     const numero = document.getElementById('numero_documento').value.trim(); 
     const direccion = document.getElementById('direccion').value.trim(); 
+    const archivoInput = document.getElementById('foto_documento');
 
     if (!username || !clave || !nombre || !apellido || !correo || !numero || !direccion) { 
         mostrarToast("Por favor, completa todos los campos requeridos.", "error"); 
         return; 
     } 
 
-    establecerCarga('btn-enviar-kyc', true, 'Enviar Solicitud KYC al Admin');
-
+    establecerCarga('btn-enviar-kyc', true, 'Registrarse y Enviar KYC');
     let handleFinal = username.startsWith('@') ? username : '@' + username; 
 
-    let indexExistente = kycSolicitudes.findIndex(k => k.handle.toLowerCase() === handleFinal.toLowerCase());
-    const nuevoRegistroKyc = {
-        handle: handleFinal, 
-        nombre, 
-        apellido, 
-        correo, 
-        tipo, 
-        numero, 
-        direccion, 
-        estado: 'pendiente', 
-        clave,
-        fecha: new Date().toLocaleDateString()
-    };
+    // Canal 1: Backend en Render (/api/kyc/procesar)
+    try {
+        const formData = new FormData();
+        formData.append('username', handleFinal);
+        formData.append('handle', handleFinal);
+        formData.append('nombre', nombre);
+        formData.append('apellido', apellido);
+        formData.append('correo', correo);
+        formData.append('tipo_documento', tipo);
+        formData.append('numero_documento', numero);
+        formData.append('direccion', direccion);
+        formData.append('clave', clave);
+        formData.append('kyc_estado', 'pendiente');
+        formData.append('estado', 'pendiente');
 
-    if (indexExistente >= 0) {
-        kycSolicitudes[indexExistente] = nuevoRegistroKyc;
-    } else {
-        kycSolicitudes.unshift(nuevoRegistroKyc); // Colocar al principio
+        if (archivoInput && archivoInput.files[0]) {
+            formData.append('archivo', archivoInput.files[0]);
+            formData.append('foto_documento', archivoInput.files[0]);
+        }
+
+        await fetch('/api/kyc/procesar', {
+            method: 'POST',
+            body: formData
+        });
+    } catch(e) {
+        console.warn("Aviso backend Render:", e);
     }
 
-    // Persistir en LocalStorage
-    guardarKycEnLocalStorage();
+    // Canal 2: Inserción directa en PostgreSQL (Supabase)
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('usuarios_p2p').upsert([{ 
+                username: handleFinal, 
+                nombre: nombre, 
+                apellido: apellido, 
+                correo: correo, 
+                tipo_documento: tipo, 
+                numero_documento: numero, 
+                direccion: direccion, 
+                kyc_estado: 'pendiente', 
+                clave: clave 
+            }], { onConflict: 'username' }); 
+        } catch(e) {
+            console.error("Error insertando en Supabase:", e);
+        }
+    }
 
-    // Actualizar sesión del usuario actual
     usuarioActual.handle = handleFinal; 
     usuarioActual.kyc_estado = 'pendiente'; 
     usuarioActual.clave = clave; 
-    if (usuarioActual.balance === undefined) usuarioActual.balance = 0.00; 
-    localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
 
-    establecerCarga('btn-enviar-kyc', false, 'Enviar Solicitud KYC al Admin');
+    establecerCarga('btn-enviar-kyc', false, 'Registrarse y Enviar KYC');
     cerrarModalKyc(); 
     actualizarEstadoKycUI(); 
-    actualizarUIBalance(); 
-    poblarSelectUsuariosAdmin();
-    renderizarKycAdmin(); // Actualizar panel del admin inmediatamente
+    mostrarToast("¡Solicitud enviada a la base de datos!", "success"); 
 
-    mostrarToast("¡Solicitud enviada con éxito! El Administrador ya puede ver tu requerimiento.", "success"); 
+    if (adminAutenticado) {
+        await cargarKycReal('pendiente');
+    }
 } 
 
-function iniciarSesionUsuario() { 
-    const claveInput = document.getElementById('input-login-clave').value.trim(); 
-    if (!claveInput) { 
-        mostrarToast("Por favor, introduce tu clave de acceso.", "error"); 
-        return; 
-    } 
+// ==================== VISUALIZADOR REAL DE KYC EN EL ADMIN ====================
+async function forzarRefrescoKycAdmin() {
+    await diagnosticarConexionPostgres();
+    await cargarKycReal(filtroActualKyc);
+    await cargarUsuariosAdminDirectorio();
+}
 
-    establecerCarga('btn-login-usuario', true, 'Iniciar sesión');
+async function diagnosticarConexionPostgres() {
+    const txt = document.getElementById('adm-db-conn-text');
+    const msg = document.getElementById('adm-db-conn-msg');
+    const panelClaves = document.getElementById('panel-configuracion-claves');
 
-    let cuenta = kycSolicitudes.find(k => k.clave === claveInput);
-    if (cuenta) {
-        usuarioActual.handle = cuenta.handle;
-        usuarioActual.kyc_estado = cuenta.estado || 'pendiente';
-        usuarioActual.clave = claveInput;
-        localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
-        actualizarUIBalance();
-        actualizarEstadoKycUI();
-        document.getElementById('input-login-clave').value = '';
-        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
-        mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
-    } else {
-        establecerCarga('btn-login-usuario', false, 'Iniciar sesión');
-        mostrarToast("Clave no encontrada en el registro.", "error");
+    if (!supabaseClient) {
+        if (txt) {
+            txt.innerText = 'Sin Configurar (Falta env.js)';
+            txt.style.color = '#ef4444';
+        }
+        if (msg) {
+            msg.innerHTML = 'No se detectó env.js. Configura la URL y la Key de Supabase abajo.';
+        }
+        if (panelClaves) panelClaves.style.display = 'block';
+        return false;
+    }
+
+    try {
+        const { data, error } = await supabaseClient.from('usuarios_p2p').select('*').limit(1);
+        if (error) {
+            if (txt) {
+                txt.innerText = `Error: ${error.code || 'RLS'}`;
+                txt.style.color = '#f87171';
+            }
+            if (msg) {
+                msg.innerHTML = `⚠️ <b>PostgreSQL:</b> ${error.message}.`;
+            }
+            return false;
+        } else {
+            if (txt) {
+                txt.innerText = '● Conectado a PostgreSQL';
+                txt.style.color = '#4ade80';
+            }
+            if (msg) {
+                msg.innerHTML = `✅ Conexión activa con tabla <code style="color:#86efac;">usuarios_p2p</code>.`;
+            }
+            if (panelClaves) panelClaves.style.display = 'none';
+            return true;
+        }
+    } catch(e) {
+        if (txt) {
+            txt.innerText = 'Error de Red';
+            txt.style.color = '#ef4444';
+        }
+        return false;
     }
 }
 
+async function cargarKycReal(filtro = 'pendiente', silencioso = false) {
+    filtroActualKyc = filtro;
+    const container = document.getElementById('admin-kyc-requests-container');
+    const badgePendientes = document.getElementById('admin-kyc-pending-badge');
+    const errorBanner = document.getElementById('admin-kyc-error-banner');
+
+    if (!container) return;
+    if (errorBanner) errorBanner.style.display = 'none';
+
+    if (!silencioso) {
+        container.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:12px;">⏳ Consultando PostgreSQL...</p>';
+    }
+
+    let usuariosList = [];
+    let errorSql = null;
+
+    // 1. Consultar directamente a PostgreSQL en Supabase
+    if (supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient.from('usuarios_p2p').select('*');
+            if (error) {
+                errorSql = error;
+            } else if (data) {
+                usuariosList = data;
+            }
+        } catch(e){
+            errorSql = e;
+        }
+    }
+
+    // 2. Consultar vía endpoint de backend de Render como respaldo
+    if (usuariosList.length === 0) {
+        try {
+            const res = await fetch('/api/admin/usuarios');
+            if (res.ok) {
+                const json = await res.json();
+                if (Array.isArray(json)) usuariosList = json;
+                else if (json.usuarios) usuariosList = json.usuarios;
+            }
+        } catch(e){}
+    }
+
+    if (errorSql && usuariosList.length === 0) {
+        if (errorBanner) {
+            errorBanner.style.display = 'block';
+            errorBanner.innerHTML = `
+                <b>⚠️ Error al leer de PostgreSQL:</b> ${errorSql.message || errorSql}.<br>
+                <span>Asegúrate de que la política <code style="color:#fff;">FOR SELECT</code> esté activa en Supabase SQL Editor.</span>
+            `;
+        }
+        container.innerHTML = `<p style="font-size:0.8rem; color:#f87171; text-align:center;">No se pudo leer de PostgreSQL.</p>`;
+        return;
+    }
+
+    kycSolicitudesReales = usuariosList;
+
+    // Filtrar solicitudes (tolerando 'pendiente', 'en_revision', o mayúsculas)
+    const pendientesReales = usuariosList.filter(u => {
+        const est = (u.kyc_estado || u.estado || 'pendiente').toLowerCase().trim();
+        return est === 'pendiente' || est === 'en_revision' || est === 'espera';
+    });
+
+    let listaAMostrar = usuariosList;
+    if (filtro === 'pendiente') {
+        listaAMostrar = pendientesReales;
+    }
+
+    if (badgePendientes) {
+        badgePendientes.innerText = `${pendientesReales.length} Pendiente(s)`;
+        badgePendientes.style.background = pendientesReales.length > 0 ? '#ca8a04' : '#16a34a';
+    }
+
+    // CERO USUARIOS FICTICIOS: Si no hay registros reales en la DB
+    if (listaAMostrar.length === 0) {
+        container.innerHTML = `
+            <div style="background:var(--card-bg); border:1px dashed var(--border-color); padding:16px; border-radius:8px; text-align:center;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin:0;">
+                    ${filtro === 'pendiente' ? '✅ No hay solicitudes pendientes por aprobación en PostgreSQL.' : 'No hay usuarios en la tabla usuarios_p2p.'}
+                </p>
+                <div style="margin-top:8px;">
+                    <button class="action-btn" style="font-size:0.75rem; padding:4px 10px; background:#0284c7;" onclick="forzarRefrescoKycAdmin()">🔄 Volver a Consultar</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // RENDERIZADO EXCLUSIVO DE USUARIOS REALES (Como @chikilla)
+    let html = '';
+    listaAMostrar.forEach(u => {
+        const uHandle = u.username || u.handle || '@usuario';
+        const uEstado = (u.kyc_estado || u.estado || 'pendiente').toLowerCase().trim();
+        const badgeColor = uEstado === 'aprobado' ? '#16a34a' : (uEstado === 'rechazado' ? '#dc2626' : '#ca8a04');
+
+        html += `
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; box-shadow: var(--shadow-btn);"> 
+            <div style="flex: 1;"> 
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <b style="color: #38bdf8; font-size: 0.9rem;">${uHandle}</b>
+                    <span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;">
+                        ${uEstado.toUpperCase()}
+                    </span>
+                </div>
+                <div style="font-weight: bold; color: var(--text-color); margin-top: 4px;">
+                    ${u.nombre || ''} ${u.apellido || ''} 
+                    <span style="font-weight: normal; color: var(--text-muted);">(${u.correo || 'Sin correo'})</span>
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    📋 <b>${u.tipo_documento || u.tipo || 'Documento'}:</b> ${u.numero_documento || u.numero || 'No indicado'}
+                </div> 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                    🏠 <b>Dirección:</b> ${u.direccion || 'No especificada'}
+                </div> 
+            </div> 
+            <div style="display: flex; gap: 6px; flex-direction: column;"> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${uHandle}', 'aprobado')">
+                    ✓ Aprobar
+                </button> 
+                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${uHandle}', 'rechazado')">
+                    ✕ Rechazar
+                </button> 
+            </div> 
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+async function aprobarKycAdmin(handleTarget, nuevoEstado) { 
+    if (supabaseClient) { 
+        try {
+            await supabaseClient
+                .from('usuarios_p2p')
+                .update({ kyc_estado: nuevoEstado })
+                .eq('username', handleTarget); 
+        } catch(e){}
+    } 
+
+    try {
+        await fetch('/api/admin/aprobar-kyc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: handleTarget, estado: nuevoEstado })
+        });
+    } catch(e){}
+
+    if (usuarioActual.handle === handleTarget) { 
+        usuarioActual.kyc_estado = nuevoEstado; 
+        actualizarEstadoKycUI(); 
+    } 
+
+    mostrarToast(`Estado de ${handleTarget} actualizado a ${nuevoEstado.toUpperCase()} en PostgreSQL.`, "success"); 
+    await cargarKycReal(filtroActualKyc); 
+    await cargarUsuariosAdminDirectorio(); 
+} 
+
+async function cargarUsuariosAdminDirectorio() {
+    const totalCount = document.getElementById('total-count');
+    const tbody = document.getElementById('admin-users-tbody');
+    if (!tbody) return;
+
+    let users = [];
+    if (supabaseClient) {
+        let { data } = await supabaseClient.from('usuarios_p2p').select('*');
+        if (data) users = data;
+    }
+
+    if (totalCount) totalCount.innerText = users.length;
+    tbody.innerHTML = '';
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No hay usuarios registrados en PostgreSQL aún.</td></tr>';
+        return;
+    }
+
+    users.forEach(u => {
+        const uHandle = u.username || u.handle;
+        const uEstado = (u.kyc_estado || u.estado || 'pendiente').toLowerCase().trim();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>${uHandle}</b><br><span style="font-size:0.7rem; color:var(--text-muted);">${u.nombre || ''} ${u.apellido || ''}</span></td>
+            <td>${Number(u.saldo || 0).toFixed(2)} Pi</td>
+            <td><span class="badge" style="background:${uEstado === 'aprobado' ? '#16a34a' : '#ca8a04'};">${uEstado.toUpperCase()}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ==================== INTERFAZ Y NAVEGACIÓN ====================
 function actualizarEstadoKycUI() { 
     const handleEl = document.getElementById('user-handle'); 
-    const rankingHandleTxt = document.getElementById('ranking-user-handle-txt');
     if (handleEl) handleEl.innerText = usuarioActual.handle; 
-    if (rankingHandleTxt) rankingHandleTxt.innerText = usuarioActual.handle;
 
     const banner = document.getElementById('kyc-status-banner'); 
     const badge = document.getElementById('kyc-badge-status'); 
@@ -1040,10 +963,10 @@ function actualizarEstadoKycUI() {
     if (!banner) return; 
 
     if (usuarioActual.handle === "@invitado") { 
-        banner.style.display = 'flex';
+        banner.style.display = 'flex'; 
         title.innerText = '🔒 Sesión No Iniciada'; 
         badge.innerText = 'Invitado'; 
-        text.innerText = 'Regístrate o inicia sesión con tu clave para comenzar a operar y enviar tu KYC.'; 
+        text.innerText = 'Regístrate o envía tu KYC para comenzar a operar en la plataforma.'; 
         if (indicatorCircle) indicatorCircle.style.background = '#3b82f6'; 
         if (indicatorText) indicatorText.innerText = 'No Registrado'; 
         return; 
@@ -1053,180 +976,23 @@ function actualizarEstadoKycUI() {
         banner.style.display = 'none'; 
         if (indicatorCircle) indicatorCircle.style.background = '#16a34a'; 
         if (indicatorText) indicatorText.innerText = 'KYC Aprobado'; 
-    } else if (usuarioActual.kyc_estado === 'rechazado') { 
-        banner.style.display = 'flex'; 
-        title.innerText = '❌ Verificación KYC Rechazada'; 
-        badge.innerText = 'Rechazado'; 
-        text.innerText = 'Tu solicitud fue rechazada. Por favor, vuelve a enviar tus datos correctamente.'; 
-        if (indicatorCircle) indicatorCircle.style.background = '#dc2626'; 
-        if (indicatorText) indicatorText.innerText = 'KYC Rechazado'; 
     } else { 
         banner.style.display = 'flex'; 
-        title.innerText = '⏳ Solicitud de KYC en Revisión'; 
+        title.innerText = '⏳ Solicitud de KYC Pendiente'; 
         badge.innerText = 'Pendiente'; 
-        text.innerText = 'Tus datos de identidad y habitación han sido enviados y están en la bandeja del Administrador.'; 
+        text.innerText = 'Tus datos están en la tabla usuarios_p2p esperando aprobación del Administrador.'; 
         if (indicatorCircle) indicatorCircle.style.background = '#eab308'; 
         if (indicatorText) indicatorText.innerText = 'KYC Pendiente'; 
     } 
 } 
 
-// ==================== PANEL DEL ADMIN (SOLUCIÓN DEL VISUALIZADOR) ====================
-function filtrarKycVista(filtro) {
-    filtroKycEstado = filtro;
-    renderizarKycAdmin();
-}
-
-function renderizarKycAdmin() { 
-    const container = document.getElementById('admin-kyc-requests-container'); 
-    const badgePendientes = document.getElementById('admin-kyc-pending-badge');
-    if (!container) return; 
-
-    const totalPendientes = kycSolicitudes.filter(k => k.estado === 'pendiente').length;
-    if (badgePendientes) {
-        badgePendientes.innerText = `${totalPendientes} Pendiente(s)`;
-        badgePendientes.style.background = totalPendientes > 0 ? '#ca8a04' : '#16a34a';
-    }
-
-    let listaAMostrar = kycSolicitudes;
-    if (filtroKycEstado === 'pendiente') {
-        listaAMostrar = kycSolicitudes.filter(k => k.estado === 'pendiente');
-    }
-
-    if (!listaAMostrar || listaAMostrar.length === 0) { 
-        container.innerHTML = `
-            <div style="background: var(--card-bg); border: 1px dashed var(--border-color); padding: 16px; border-radius: 8px; text-align: center;">
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-                    ${filtroKycEstado === 'pendiente' ? '✅ No hay solicitudes pendientes por aprobar.' : 'No hay usuarios registrados.'}
-                </p>
-            </div>
-        `; 
-        return; 
-    } 
-
-    let html = ''; 
-    listaAMostrar.forEach((k) => { 
-        let badgeColor = k.estado === 'aprobado' ? '#16a34a' : (k.estado === 'rechazado' ? '#dc2626' : '#ca8a04'); 
-        html += ` 
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; box-shadow: var(--shadow-btn);"> 
-            <div style="flex: 1;"> 
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <b style="color: #38bdf8; font-size: 0.9rem;">${k.handle}</b>
-                    <span style="background: ${badgeColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;">
-                        ${(k.estado || 'PENDIENTE').toUpperCase()}
-                    </span>
-                </div>
-                <div style="font-weight: bold; color: var(--text-color); margin-top: 4px;">
-                    ${k.nombre || ''} ${k.apellido || ''} 
-                    <span style="font-weight: normal; color: var(--text-muted);">(${k.correo || 'Sin correo'})</span>
-                </div> 
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                    📋 <b>${k.tipo || 'ID'}:</b> ${k.numero || 'No indicado'}
-                </div> 
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                    🏠 <b>Dirección:</b> ${k.direccion || 'No especificada'}
-                </div> 
-                <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">
-                    📅 Solicitud: ${k.fecha || 'Reciente'}
-                </div>
-            </div> 
-            <div style="display: flex; gap: 6px; flex-direction: column;"> 
-                <button class="action-btn" style="background: linear-gradient(145deg, #166534, #14532d); border-color: #22c55e; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'aprobado')">
-                    ✓ Aprobar
-                </button> 
-                <button class="action-btn" style="background: linear-gradient(145deg, #991b1b, #7f1d1d); border-color: #ef4444; font-size: 0.7rem; padding: 6px 10px;" onclick="aprobarKycAdmin('${k.handle}', 'rechazado')">
-                    ✕ Rechazar
-                </button> 
-            </div> 
-        </div> 
-        `; 
-    }); 
-    container.innerHTML = html; 
+function abrirModalKyc() { document.getElementById('kyc-modal').style.display = 'flex'; }
+function cerrarModalKyc() { document.getElementById('kyc-modal').style.display = 'none'; }
+function toggleAccordion(id) { 
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open'); 
 } 
 
-function aprobarKycAdmin(handleTarget, nuevoEstado) { 
-    let req = kycSolicitudes.find(k => k.handle === handleTarget); 
-    if (req) { 
-        req.estado = nuevoEstado; 
-    } 
-    if (usuarioActual.handle === handleTarget) { 
-        usuarioActual.kyc_estado = nuevoEstado; 
-        localStorage.setItem('p2p_usuario_sesion', JSON.stringify(usuarioActual));
-        actualizarEstadoKycUI(); 
-    } 
-    guardarKycEnLocalStorage();
-    renderizarKycAdmin(); 
-    cargarUsuariosAdminDirectorio();
-    mostrarToast(`Solicitud de ${handleTarget} actualizada a: ${nuevoEstado.toUpperCase()}`, "success"); 
-} 
-
-function cargarUsuariosAdminDirectorio() {
-    const totalCount = document.getElementById('total-count');
-    const tbody = document.getElementById('admin-users-tbody');
-    if (!tbody) return;
-
-    if (totalCount) totalCount.innerText = kycSolicitudes.length;
-    tbody.innerHTML = '';
-
-    kycSolicitudes.forEach(user => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><b>${user.handle}</b><br><span style="font-size:0.7rem; color:var(--text-muted);">${user.nombre} ${user.apellido}</span></td>
-            <td>${user.tipo}: ${user.numero}<br><span style="font-size:0.7rem; color:var(--text-muted);">${user.correo}</span></td>
-            <td><span class="badge" style="background:${user.estado === 'aprobado' ? '#16a34a' : '#ca8a04'};">${(user.estado || 'pendiente').toUpperCase()}</span></td>
-            <td>${user.direccion}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function poblarSelectUsuariosAdmin() {
-    const select = document.getElementById('admin-user-select');
-    if (!select) return;
-    select.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
-    kycSolicitudes.forEach(k => {
-        select.innerHTML += `<option value="${k.handle}">${k.handle} (${k.nombre} ${k.apellido})</option>`;
-    });
-}
-
-function cargarDatosUsuarioAdminSeleccionado() {
-    const select = document.getElementById('admin-user-select');
-    const card = document.getElementById('admin-user-details-card');
-    if (!select || !card) return;
-    const handle = select.value;
-    usuarioAdminSeleccionadoHandle = handle;
-    if (!handle) {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = 'block';
-    document.getElementById('adm-det-handle').innerText = handle;
-    document.getElementById('adm-det-balance').innerText = '0.00 Pi';
-}
-
-function abrirModalAjusteBalance() {
-    if (!usuarioAdminSeleccionadoHandle) {
-        mostrarToast("Selecciona primero un usuario en la lista.", "error");
-        return;
-    }
-    document.getElementById('admin-balance-modal').style.display = 'flex';
-}
-
-function cerrarModalAjusteBalance() {
-    document.getElementById('admin-balance-modal').style.display = 'none';
-}
-
-function ejecutarAjusteBalanceAdmin() {
-    const monto = parseFloat(document.getElementById('admin-adj-monto').value);
-    const tipo = document.getElementById('admin-adj-tipo').value;
-    if (!monto || monto <= 0) {
-        mostrarToast("Introduce un monto válido.", "error");
-        return;
-    }
-    cerrarModalAjusteBalance();
-    mostrarToast(`Ajuste de ${tipo === 'CREDITO' ? '+' : '-'}${monto} Pi procesado para ${usuarioAdminSeleccionadoHandle}`, "success");
-}
-
-// ==================== NAVEGACIÓN Y VISTAS ====================
 function switchTab(tabId, btnElement) { 
     document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active')); 
     document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active')); 
@@ -1235,9 +1001,9 @@ function switchTab(tabId, btnElement) {
     if (btnElement) btnElement.classList.add('active'); 
 
     if (tabId === 'admin') { 
-        renderizarKycAdmin(); 
+        diagnosticarConexionPostgres();
+        cargarKycReal('pendiente');
         cargarUsuariosAdminDirectorio();
-        poblarSelectUsuariosAdmin();
     } 
 } 
 
@@ -1264,10 +1030,9 @@ function validarClaveAdmin() {
         const tabs = document.querySelectorAll('.nav-tab'); 
         const btnAdmin = tabs[tabs.length - 1]; 
         switchTab('admin', btnAdmin); 
-        mostrarToast("¡Acceso de administrador concedido!", "success"); 
+        mostrarToast("Acceso de Administrador concedido.", "success"); 
     } else { 
         mostrarToast("Contraseña incorrecta. (Clave: Anthony*2023)", "error"); 
-        document.getElementById('admin-password-input').value = ''; 
     } 
 } 
 
@@ -1275,7 +1040,7 @@ function cerrarSesionAdmin() {
     adminAutenticado = false; 
     sessionStorage.removeItem('p2p_admin_auth'); 
     switchTab('mercados', document.querySelectorAll('.nav-tab')[0]); 
-    mostrarToast("Sesión de administrador cerrada.", "success"); 
+    mostrarToast("Sesión de administrador cerrada.", "info"); 
 } 
 
 function toggleTheme() { 
@@ -1283,70 +1048,31 @@ function toggleTheme() {
     body.setAttribute("data-theme", body.getAttribute("data-theme") === "dark" ? "light" : "dark"); 
 } 
 
-function toggleAccordion(id) { 
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('open'); 
-} 
-
-function setCategory(cat, pillElement) { 
-    pillElement.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active')); 
-    pillElement.classList.add('active'); 
-} 
+function iniciarSesionUsuario() {
+    const claveInput = document.getElementById('input-login-clave').value.trim(); 
+    if (!claveInput) { 
+        mostrarToast("Introduce tu clave.", "error"); 
+        return; 
+    } 
+    let cuenta = kycSolicitudesReales.find(k => k.clave === claveInput);
+    if (cuenta) {
+        usuarioActual.handle = cuenta.username || cuenta.handle;
+        usuarioActual.kyc_estado = cuenta.kyc_estado || cuenta.estado;
+        usuarioActual.clave = claveInput;
+        actualizarEstadoKycUI(); 
+        mostrarToast(`Sesión iniciada como ${usuarioActual.handle}`, "success");
+    } else {
+        mostrarToast("Clave no encontrada.", "error");
+    }
+}
 
 function filtrarMercados() {}
-function filtrarMercadosCerrados() {}
-function renderizarOrderBookVisible() {}
-function depositarConPiNetwork() { mostrarToast("Conexión con SDK de Pi Network iniciada."); }
+function setCategory(cat, btn) {
+    btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+}
+function depositarConPiNetwork() { mostrarToast("Conexión con SDK de Pi Network."); }
 function retirarBilletera() { mostrarToast("Módulo de retiros en proceso."); }
-function actualizarUIBalance() {
-    const el = document.getElementById('user-balance');
-    if (el) el.innerText = usuarioActual.balance.toFixed(2) + ' Pi';
-}
-
-function renderizarMercadosDinamicos() {
-    const container = document.getElementById('markets-container');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="market-card">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
-                <span>🏷️ Crypto & Ecosystem</span>
-                <span style="color:#eab308; font-weight:bold;">● Abierto</span>
-            </div>
-            <div class="market-title">¿Superará el ecosistema Pi los 100M de pioneros antes de fin de año?</div>
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
-                Ask SÍ: <span style="color:#4ade80; font-weight:bold;">0.55 Pi</span> | Ask NO: <span style="color:#f87171; font-weight:bold;">0.45 Pi</span>
-            </p>
-            <div style="display:flex; gap:8px;">
-                <button class="action-btn" style="flex:1; background:#166534; border-color:#22c55e;" onclick="mostrarToast('Inicia sesión con KYC aprobado para comprar.', 'info')">Comprar SÍ</button>
-                <button class="action-btn" style="flex:1; background:#991b1b; border-color:#ef4444;" onclick="mostrarToast('Inicia sesión con KYC aprobado para comprar.', 'info')">Comprar NO</button>
-            </div>
-        </div>
-    `;
-}
-
-function crearNuevoMercadoPionero() {
-    mostrarToast("Debes tener KYC aprobado por el administrador para crear mercados.", "error");
-    abrirModalKyc();
-}
-
-function abrirModalRecuperacion() {
-    mostrarToast("Para recuperar tus datos, consulta con el Administrador o envía tu KYC.", "info");
-}
-
-function abrirSoporteChatUsuario() {
-    document.getElementById('support-chat-modal').style.display = 'flex';
-}
-function cerrarChatSoporteUsuario() {
-    document.getElementById('support-chat-modal').style.display = 'none';
-}
-function enviarMensajeSoporteUsuario() {
-    const input = document.getElementById('chat-user-input');
-    if (!input || !input.value.trim()) return;
-    const box = document.getElementById('chat-messages-container');
-    box.innerHTML += `<div class="chat-msg user"><b>${usuarioActual.handle}:</b> ${input.value}</div>`;
-    input.value = '';
-    mostrarToast("Mensaje enviado a soporte.", "success");
-}
 </script> 
 </body> 
 </html>
