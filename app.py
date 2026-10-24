@@ -27,7 +27,7 @@ app.permanent_session_lifetime = timedelta(days=7) # Tiempo de expiración de la
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["20000 per day", "50 per hour"], # Límite global
+    default_limits=["2000 per day", "50 per hour"], # Límite global
     storage_uri="memory://" 
 )
 
